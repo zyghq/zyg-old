@@ -1,10 +1,14 @@
 from fastapi import FastAPI
+from sqlalchemy.sql import text
+
+from src.adapters.db import engine
+from src.logger import logger
 
 from .routers import events
 
 app = FastAPI()
 
-
+# register routers
 app.include_router(
     events.router,
     prefix="/events",
@@ -16,11 +20,16 @@ async def root():
     return {"message": "Hey there! I am willow."}
 
 
-# @app.post("/events")
-# async def events(request: Request):
-#     body = await request.json()
-#     print("********************")
-#     print(body)
-#     print("********************")
-#     challenge = body.get("challenge")
-#     return {"challenge": challenge}
+@app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        query = text("SELECT NOW()::timestamp AS now")
+        rows = await conn.execute(query)
+        result = rows.mappings().first()
+        logger.info(f"db connected at: {result['now']}")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    logger.warning("cleaning up...")
+    await engine.dispose()

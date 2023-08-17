@@ -2,23 +2,15 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
+from src.adapters.db import engine
+from src.adapters.db.entities import SlackEventEntity
+from src.adapters.db.respositories import SlackEventRepository
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
+from src.logger import logger
 
 router = APIRouter()
-
-
-class SlackEventCallbackBody(BaseModel):
-    token: str
-    team_id: str
-    api_app_id: str
-    event: dict | None = None
-    type: str
-    authorizations: list | dict | None = None
-    event_context: str
-    event_id: str
-    event_time: int
 
 
 def is_slack_callback_valid(token: str, api_app_id: str):
@@ -106,11 +98,43 @@ async def slack_events(request: Request) -> Any:
                     ]
                 },
             )
-        slack_callback_event = SlackEventCallbackBody(**body)
-        print("******************")
-        print(slack_callback_event)
-        print("******************")
+        try:
+            slack_event_entity = SlackEventEntity(**body)
+        except ValidationError as e:
+            print("notify admin: event callback is not valid!")
+            print(e)
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "errors": [
+                        {
+                            "status": 400,
+                            "title": "Bad Request",
+                            "detail": "event callback validation failed.",
+                        }
+                    ]
+                },
+            )
+
         # todo: create a service to handle the request
+        slack_event_repository = SlackEventRepository(engine=engine)
+        error, result = await slack_event_repository.add(slack_event_entity)
+        if error:
+            print("notify admin: error while capturing event.")
+            print(error)
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "errors": [
+                        {
+                            "status": 500,
+                            "title": "Internal Server Error",
+                            "detail": "error while capturing event.",
+                        }
+                    ]
+                },
+            )
+        logger.info(f"result after adding to database {result}")
         return JSONResponse(
             status_code=202,
             content={

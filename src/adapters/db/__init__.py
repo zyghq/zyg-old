@@ -1,3 +1,9 @@
-from databases import Database
+from sqlalchemy.engine.base import Engine
+from sqlalchemy.ext.asyncio import create_async_engine
+from src.config import POSTGRES_URI
 
-database = Database("sqlite+aiosqlite:///example.db")
+engine: Engine = create_async_engine(
+    POSTGRES_URI,
+    future=True,
+    echo=True,
+)
