@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
+from src.adapters.tasker.tasks import add
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
 from src.logger import logger
 from src.services import SlackEventService
@@ -30,6 +31,13 @@ router = APIRouter()
 
 def is_slack_callback_valid(token: str, api_app_id: str):
     return token == SLACK_VERIFICATION_TOKEN and api_app_id == SLACK_APP_ID
+
+
+@router.get("/-/health/")
+async def health_check() -> Any:
+    result = add.delay(1, 200)
+    print(result)
+    return {"foobar": "foobar"}
 
 
 @router.post("/-/slack/callback/")
@@ -132,7 +140,9 @@ async def slack_events(request: Request) -> Any:
             )
 
         slack_event_service = SlackEventService()
-        error, result = await slack_event_service.capture(slack_event.model_dump())
+        error, result = await slack_event_service.capture_with_async_issue(
+            slack_event.model_dump()
+        )
         if error:
             logger.info("notify admin: error while capturing event.")
             logger.error(error)

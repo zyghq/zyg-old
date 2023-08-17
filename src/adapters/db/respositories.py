@@ -26,7 +26,7 @@ class SlackEventRepository(AbstractSlackEventRepository):
         self.conn = connection
 
     @classmethod
-    def to_slack_event_entity(cls, event: dict):
+    def to_entity(cls, event: dict):
         return SlackEventEntity(
             event_id=event.get("event_id"),
             token=event.get("token"),
@@ -56,6 +56,13 @@ class SlackEventRepository(AbstractSlackEventRepository):
             rows = await self.conn.execute(statement=text(query), parameters=values)
             result = rows.mappings().first()
         except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
             raise DBIntegrityException(e)
         return result
 
