@@ -2,12 +2,13 @@ import abc
 import json
 
 from pydantic import BaseModel
-from sqlalchemy.engine.base import Engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
 
 from src.domain.models import Issue
 
 from .entities import SlackEventEntity
+from .exceptions import DBIntegrityException
 
 
 class AbstractSlackEventRepository(abc.ABC):
@@ -21,8 +22,21 @@ class AbstractSlackEventRepository(abc.ABC):
 
 
 class SlackEventRepository(AbstractSlackEventRepository):
-    def __init__(self, engine: Engine) -> None:
-        self.engine = engine
+    def __init__(self, connection) -> None:
+        self.conn = connection
+
+    @classmethod
+    def to_slack_event_entity(cls, event: dict):
+        return SlackEventEntity(
+            event_id=event.get("event_id"),
+            token=event.get("token"),
+            team_id=event.get("team_id"),
+            api_app_id=event.get("api_app_id"),
+            event=event.get("event"),
+            type=event.get("type"),
+            event_context=event.get("event_context"),
+            event_time=event.get("event_time"),
+        )
 
     async def add(self, slack_event: SlackEventEntity):
         query = f"""
@@ -38,17 +52,12 @@ class SlackEventRepository(AbstractSlackEventRepository):
         values = slack_event.model_dump()
         if isinstance(values["event"], dict):
             values["event"] = json.dumps(values["event"])
-
         try:
-            async with self.engine.begin() as conn:
-                rows = await conn.execute(
-                    statement=text(query),
-                    parameters=values,
-                )
-                result = rows.mappings().first()
-            return None, result
-        except Exception as e:
-            return e, None
+            rows = await self.conn.execute(statement=text(query), parameters=values)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            raise DBIntegrityException(e)
+        return result
 
     async def get(self, event_id: str):
         pass

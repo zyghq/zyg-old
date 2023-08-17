@@ -4,11 +4,26 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
-from src.adapters.db import engine
-from src.adapters.db.entities import SlackEventEntity
-from src.adapters.db.respositories import SlackEventRepository
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
 from src.logger import logger
+from src.services import SlackEventService
+
+
+class SlackCallbackEvent(BaseModel):
+    event_id: str
+    token: str
+    team_id: str
+    api_app_id: str
+    event: dict | None = None
+    type: str
+    event_context: str
+    event_time: int
+    authorizations: dict | list[dict] | None = None
+    authed_users: list[str] | None = None
+    is_ext_shared_channel: bool | None = None
+    context_team_id: str | None = None
+    context_enterprise_id: str | None = None
+
 
 router = APIRouter()
 
@@ -54,7 +69,7 @@ async def slack_events(request: Request) -> Any:
 
     event_type = body.get("type", None)
     if event_type is None:
-        print(
+        logger.info(
             "notify admin: event type not received from Slack API response!"
         )  # todo: add logger and admin notification.
         return JSONResponse(
@@ -83,7 +98,7 @@ async def slack_events(request: Request) -> Any:
         api_app_id = body.get("api_app_id", None)
         is_valid = is_slack_callback_valid(token, api_app_id)
         if not is_valid:
-            print(
+            logger.info(
                 "notify admin: event callback is not valid!"
             )  # todo: add admin notification service
             return JSONResponse(
@@ -99,10 +114,10 @@ async def slack_events(request: Request) -> Any:
                 },
             )
         try:
-            slack_event_entity = SlackEventEntity(**body)
+            slack_event = SlackCallbackEvent(**body)
         except ValidationError as e:
-            print("notify admin: event callback is not valid!")
-            print(e)
+            logger.info("notify admin: event callback is not valid!")
+            logger.warning(e)
             return JSONResponse(
                 status_code=400,
                 content={
@@ -116,12 +131,11 @@ async def slack_events(request: Request) -> Any:
                 },
             )
 
-        # todo: create a service to handle the request
-        slack_event_repository = SlackEventRepository(engine=engine)
-        error, result = await slack_event_repository.add(slack_event_entity)
+        slack_event_service = SlackEventService()
+        error, result = await slack_event_service.capture(slack_event.model_dump())
         if error:
-            print("notify admin: error while capturing event.")
-            print(error)
+            logger.info("notify admin: error while capturing event.")
+            logger.error(error)
             return JSONResponse(
                 status_code=500,
                 content={
