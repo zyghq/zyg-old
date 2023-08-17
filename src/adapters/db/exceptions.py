@@ -1,0 +1,2 @@
+class DBIntegrityException(Exception):
+    pass

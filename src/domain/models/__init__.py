@@ -1,3 +1,18 @@
+from enum import Enum
+
+
+class UserType(Enum):
+    OWNER = "owner"
+    ADMIN = "admin"
+    USER = "user"
+
+
+class User:
+    def __init__(self, user_id: str, email: str) -> None:
+        self.user_id = user_id
+        self.email = email
+
+
 class Requester:
     def __init__(self, requester_id: str, email: str) -> None:
         self.requester_id = requester_id
