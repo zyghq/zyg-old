@@ -3,15 +3,13 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class SlackEventEntity(BaseModel):
-    event_id: str
-    token: str
+class SlackEventDbEntity(BaseModel):
+    event_id: str  # primary key
     team_id: str
-    api_app_id: str
     event: dict | None = None
-    type: str
-    event_context: str
-    event_time: int
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    event_type: str
+    event_ts: int
+    metadata: dict | None = None
+    created_at: datetime | None = None  # db timestamp
+    updated_at: datetime | None = None  # db timestamp
     is_ack: bool = False

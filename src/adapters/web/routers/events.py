@@ -4,13 +4,13 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
-from src.adapters.tasker.tasks import add
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
 from src.logger import logger
-from src.services import SlackEventService
+from src.services.events import SlackEventService
+from src.services.exceptions import SlackCaptureException
 
 
-class SlackCallbackEvent(BaseModel):
+class SlackCallbackRequestEvent(BaseModel):
     event_id: str
     token: str
     team_id: str
@@ -33,19 +33,12 @@ def is_slack_callback_valid(token: str, api_app_id: str):
     return token == SLACK_VERIFICATION_TOKEN and api_app_id == SLACK_APP_ID
 
 
-@router.get("/-/health/")
-async def health_check() -> Any:
-    result = add.delay(1, 200)
-    print(result)
-    return {"foobar": "foobar"}
-
-
 @router.post("/-/slack/callback/")
 async def slack_events(request: Request) -> Any:
     body = await request.json()
 
     token = body.get("token", None)
-    if token is None:
+    if token is None or token != SLACK_VERIFICATION_TOKEN:
         # todo: add async event admin notification
         return JSONResponse(
             status_code=401,
@@ -55,21 +48,6 @@ async def slack_events(request: Request) -> Any:
                         "status": 401,
                         "title": "Unauthorized",
                         "detail": "cannot verify the request came from Slack.",
-                    }
-                ]
-            },
-        )
-
-    if token != SLACK_VERIFICATION_TOKEN:
-        # todo: add async event admin notification
-        return JSONResponse(
-            status_code=403,
-            content={
-                "errors": [
-                    {
-                        "status": 403,
-                        "title": "Forbidden",
-                        "detail": "cannot authenticate the request came from Slack.",
                     }
                 ]
             },
@@ -122,7 +100,7 @@ async def slack_events(request: Request) -> Any:
                 },
             )
         try:
-            slack_event = SlackCallbackEvent(**body)
+            slack_event_request = SlackCallbackRequestEvent(**body)
         except ValidationError as e:
             logger.info("notify admin: event callback is not valid!")
             logger.warning(e)
@@ -138,33 +116,45 @@ async def slack_events(request: Request) -> Any:
                     ]
                 },
             )
-
-        slack_event_service = SlackEventService()
-        error, result = await slack_event_service.capture_with_async_issue(
-            slack_event.model_dump()
-        )
-        if error:
-            logger.info("notify admin: error while capturing event.")
-            logger.error(error)
+        try:
+            slack_event_service = SlackEventService()
+            slack_event = {
+                "event_id": slack_event_request.event_id,
+                "team_id": slack_event_request.team_id,
+                "event": slack_event_request.event,
+                "event_type": slack_event_request.type,
+                "event_ts": slack_event_request.event_time,
+                "metadata": {
+                    "token": slack_event_request.token,
+                    "authorizations": slack_event_request.authorizations,
+                    "authed_users": slack_event_request.authed_users,
+                    "is_ext_shared_channel": slack_event_request.is_ext_shared_channel,
+                    "context_team_id": slack_event_request.context_team_id,
+                    "context_enterprise_id": slack_event_request.context_enterprise_id,
+                },
+            }
+            await slack_event_service.capture(slack_event)
             return JSONResponse(
-                status_code=500,
+                status_code=202,
+                content={
+                    "detail": "captured",
+                },
+            )
+        except (SlackCaptureException, Exception) as e:
+            logger.error("notify admin: error while capturing event.")
+            logger.error(e)
+            return JSONResponse(
+                status_code=503,
                 content={
                     "errors": [
                         {
-                            "status": 500,
+                            "status": 503,
                             "title": "Internal Server Error",
                             "detail": "error while capturing event.",
                         }
                     ]
                 },
             )
-        logger.info(f"result after adding to database {result}")
-        return JSONResponse(
-            status_code=202,
-            content={
-                "detail": "captured",
-            },
-        )
 
     return JSONResponse(
         status_code=200,

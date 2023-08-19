@@ -1,0 +1,2 @@
+class SlackCaptureException(Exception):
+    pass
