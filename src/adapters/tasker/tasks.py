@@ -9,9 +9,10 @@ def add(x, y):
     print(f"Adding {x} + {y}")
     return x + y
 
+
 @app.task
-def slack_event_issue_task(event):
-    print("*************** inside slack_event_issue ***************")
+def create_in_slack_issue_task(event):
+    print("*************** inside task ***************")
     print(event)
-    print("*************** inside slack_event_issue ***************")
-    return event
+    print("*************** inside task ***************")
+    return True

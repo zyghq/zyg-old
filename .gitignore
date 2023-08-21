@@ -161,3 +161,4 @@ cython_debug/
 
 _scratch/
 _http/
+env.sh
