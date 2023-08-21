@@ -5,3 +5,6 @@ import logging
 # logger should be more generic, here it's tied to uvicorn.
 # if there is a way to get uniform logger that would be better.
 logger = logging.getLogger("uvicorn")
+
+# make sqlalchemy logger use uvicorn logger
+logging.getLogger("sqlalchemy").addHandler(logger)

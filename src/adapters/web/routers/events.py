@@ -5,12 +5,20 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
+from src.domain.commands.events import SlackEventCommand
 from src.logger import logger
-from src.services.events import SlackEventService
-from src.services.exceptions import SlackCaptureException
+from src.services.events.dispatcher import SlackEventServiceDispatcher
 
 
-class SlackCallbackRequestEvent(BaseModel):
+class SlackEventCallBackRequestBody(BaseModel):
+    """
+    based on Slack API response for event callback:
+    https://api.slack.com/events-api#receiving_events
+
+    We assume these are the attributes that we receive from Slack API
+    and we validate them using pydantic BaseModel.
+    """
+
     event_id: str
     token: str
     team_id: str
@@ -39,7 +47,6 @@ async def slack_events(request: Request) -> Any:
 
     token = body.get("token", None)
     if token is None or token != SLACK_VERIFICATION_TOKEN:
-        # todo: add async event admin notification
         return JSONResponse(
             status_code=401,
             content={
@@ -53,11 +60,9 @@ async def slack_events(request: Request) -> Any:
             },
         )
 
-    event_type = body.get("type", None)
-    if event_type is None:
-        logger.info(
-            "notify admin: event type not received from Slack API response!"
-        )  # todo: add logger and admin notification.
+    callback_type = body.get("type", None)
+    if callback_type is None:
+        logger.info("notify admin: callback type not received from Slack API response!")
         return JSONResponse(
             status_code=400,
             content={
@@ -65,13 +70,16 @@ async def slack_events(request: Request) -> Any:
                     {
                         "status": 400,
                         "title": "Bad Request",
-                        "detail": "event type is missing or unsupported.",
+                        "detail": "callback type is missing or unsupported.",
                     }
                 ]
             },
         )
 
-    if event_type == "url_verification":
+    # based on callback type sent by Slack when doing initial verification
+    # https://api.slack.com/events/url_verification
+    # we send back the challenge value as it is
+    if callback_type == "url_verification":
         challenge = body.get("challenge", None)
         return JSONResponse(
             status_code=200,
@@ -80,13 +88,14 @@ async def slack_events(request: Request) -> Any:
             },
         )
 
-    if event_type == "event_callback":
+    # based on callback type sent by Slack, this event is processed further.
+    # https://api.slack.com/events-api#receiving_events
+    # these events are processed for business logic.
+    if callback_type == "event_callback":
         api_app_id = body.get("api_app_id", None)
         is_valid = is_slack_callback_valid(token, api_app_id)
         if not is_valid:
-            logger.info(
-                "notify admin: event callback is not valid!"
-            )  # todo: add admin notification service
+            logger.info("notify admin: event callback is not valid!")
             return JSONResponse(
                 status_code=403,
                 content={
@@ -100,7 +109,7 @@ async def slack_events(request: Request) -> Any:
                 },
             )
         try:
-            slack_event_request = SlackCallbackRequestEvent(**body)
+            slack_request_body = SlackEventCallBackRequestBody(**body)
         except ValidationError as e:
             logger.info("notify admin: event callback is not valid!")
             logger.warning(e)
@@ -116,32 +125,37 @@ async def slack_events(request: Request) -> Any:
                     ]
                 },
             )
+
+        event_type = slack_request_body.event.get("type", None)
+        command = SlackEventCommand(
+            event_id=slack_request_body.event_id,
+            team_id=slack_request_body.team_id,
+            api_app_id=slack_request_body.api_app_id,
+            event=slack_request_body.event,
+            event_type=event_type,
+            event_ts=slack_request_body.event_time,
+            callback_type=callback_type,
+            context_team_id=slack_request_body.context_team_id,
+            context_enterprise_id=slack_request_body.context_enterprise_id,
+            metadata={
+                "token": slack_request_body.token,
+                "authorizations": slack_request_body.authorizations,
+                "authed_users": slack_request_body.authed_users,
+                "is_ext_shared_channel": slack_request_body.is_ext_shared_channel,
+                "event_context": slack_request_body.event_context,
+            },
+        )
         try:
-            slack_event_service = SlackEventService()
-            slack_event = {
-                "event_id": slack_event_request.event_id,
-                "team_id": slack_event_request.team_id,
-                "event": slack_event_request.event,
-                "event_type": slack_event_request.type,
-                "event_ts": slack_event_request.event_time,
-                "metadata": {
-                    "token": slack_event_request.token,
-                    "authorizations": slack_event_request.authorizations,
-                    "authed_users": slack_event_request.authed_users,
-                    "is_ext_shared_channel": slack_event_request.is_ext_shared_channel,
-                    "context_team_id": slack_event_request.context_team_id,
-                    "context_enterprise_id": slack_event_request.context_enterprise_id,
-                },
-            }
-            await slack_event_service.capture(slack_event)
-            return JSONResponse(
-                status_code=202,
-                content={
-                    "detail": "captured",
-                },
+            #
+            # pass the event command to the dispatcher
+            # based on the inner `type` of the event we dispatch it to the
+            # appropriate service.
+            slack_event_service_dispatcher = SlackEventServiceDispatcher(
+                command, capture=True, override=True
             )
-        except (SlackCaptureException, Exception) as e:
-            logger.error("notify admin: error while capturing event.")
+            await slack_event_service_dispatcher.dispatch()
+        except Exception as e:
+            logger.error("notify admin: error while capturing or dispatching event.")
             logger.error(e)
             return JSONResponse(
                 status_code=503,
@@ -149,13 +163,23 @@ async def slack_events(request: Request) -> Any:
                     "errors": [
                         {
                             "status": 503,
-                            "title": "Internal Server Error",
-                            "detail": "error while capturing event.",
+                            "title": "Service Unavailable",
+                            "detail": "error while capturing or processing event.",
                         }
                     ]
                 },
             )
 
+        return JSONResponse(
+            status_code=202,
+            content={
+                "detail": "captured",
+            },
+        )
+
+    # callback type that is not supported by us, assuming we receive from
+    # Slack API, we ignore it by sending back 200 OK.
+    # read more about Slack events API: https://api.slack.com/events
     return JSONResponse(
         status_code=200,
         content={
