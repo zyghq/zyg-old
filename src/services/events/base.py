@@ -7,13 +7,14 @@ from src.adapters.db.exceptions import DBIntegrityException
 from src.adapters.db.respositories import SlackEventRepository
 from src.logger import logger
 
-from .exceptions import SlackEventEntityValidation, SlackEventDBException
+from .exceptions import SlackEventDBException, SlackEventEntityValidation
 
 
 class SlackEventCaptureService:
     def __init__(self, engine: Engine = default_engine) -> None:
         self.engine = engine
 
+    # TODO: pass the command to the service
     async def capture(self, event: dict, override=False) -> SlackEventDbEntity:
         try:
             new_db_entity = SlackEventDbEntity(
