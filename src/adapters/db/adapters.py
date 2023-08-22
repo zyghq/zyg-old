@@ -17,8 +17,8 @@ class InboxDBAdapter:
         if inbox.slack_channel is None:
             slack_channel_id = None
         else:
-            # TODO: map slack channel to db entity
-            raise NotImplementedError("TODO: map slack channel to db entity")
+            slack_channel = inbox.slack_channel
+            slack_channel_id = slack_channel.channel_id
         return InboxDbEntity(
             inbox_id=inbox_id,
             name=inbox.name,
@@ -33,15 +33,18 @@ class InboxDBAdapter:
     ) -> Inbox:
         if slack_channel_entity is None:
             slack_channel = None
+        else:
+            slack_channel = SlackChannel(
+                channel_id=slack_channel_entity.channel_id,
+                name=slack_channel_entity.name,
+                channel_type=slack_channel_entity.channel_type,
+            )
         return Inbox(
             inbox_id=inbox_entity.inbox_id,
             name=inbox_entity.name,
             description=inbox_entity.description,
             slack_channel=slack_channel,
         )
-
-    async def load_channel(self, channel_id: str) -> SlackChannel:
-        raise NotImplementedError
 
     async def save(self, inbox: Inbox) -> Inbox:
         db_entity = self._map_to_db_entity(inbox)
@@ -50,7 +53,20 @@ class InboxDBAdapter:
             if inbox_entity.slack_channel_id is None:
                 result = self._map_to_domain(inbox_entity, None)
             else:
-                raise NotImplementedError
+                slack_channel_entity = await SlackChannelRepository(conn).get(
+                    inbox_entity.slack_channel_id
+                )
+                if slack_channel_entity is None:
+                    result = self._map_to_domain(inbox_entity, None)
+                else:
+                    result = self._map_to_domain(inbox_entity, slack_channel_entity)
+        return result
+
+    async def is_slack_channel_id_linked(self, slack_channel_id: str) -> bool:
+        async with self.engine.begin() as conn:
+            result = await InboxRepository(conn).is_slack_channel_id_linked(
+                slack_channel_id
+            )
         return result
 
 
@@ -83,4 +99,18 @@ class SlackChannelDBAdapter:
         async with self.engine.begin() as conn:
             slack_channel_entity = await SlackChannelRepository(conn).add(db_entity)
             result = self._map_to_domain(slack_channel_entity)
+        return result
+
+    async def load(self, channel_id: str) -> SlackChannel | None:
+        async with self.engine.begin() as conn:
+            slack_channel_entity = await SlackChannelRepository(conn).get(channel_id)
+            if slack_channel_entity is None:
+                return None
+            else:
+                result = self._map_to_domain(slack_channel_entity)
+        return result
+
+    async def is_channel_exists(self, channel_id: str) -> bool:
+        async with self.engine.begin() as conn:
+            result = await SlackChannelRepository(conn).is_channel_exists(channel_id)
         return result

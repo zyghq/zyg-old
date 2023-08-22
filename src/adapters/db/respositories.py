@@ -34,7 +34,7 @@ class SlackEventRepository(AbstractSlackEventRepository):
         self.conn = connection
 
     async def add(self, new_slack_event: SlackEventDbEntity) -> SlackEventDbEntity:
-        query = f"""
+        query = """
             insert into slack_event (
                 event_id, team_id, event, event_type, 
                 event_ts, metadata
@@ -73,7 +73,7 @@ class SlackEventRepository(AbstractSlackEventRepository):
         return SlackEventDbEntity(**result)
 
     async def upsert(self, slack_event: SlackEventDbEntity) -> SlackEventDbEntity:
-        query = f"""
+        query = """
             insert into slack_event (
                 event_id, team_id, event, event_type, 
                 event_ts, metadata
@@ -136,7 +136,7 @@ class InboxRepository(AbstractInboxRepository, BaseRepository):
         self.conn = connection
 
     async def add(self, new_inbox: InboxDbEntity) -> InboxDbEntity:
-        query = f"""
+        query = """
             insert into inbox (
                 inbox_id, name, description, slack_channel_id
             )
@@ -168,6 +168,18 @@ class InboxRepository(AbstractInboxRepository, BaseRepository):
     async def get(self, inbox_id: str):
         raise NotImplementedError
 
+    async def is_slack_channel_id_linked(self, slack_channel_id: str) -> bool:
+        query = """
+            select exists (
+                select 1 from inbox
+                where slack_channel_id = :slack_channel_id
+            )
+        """
+        parameters = {"slack_channel_id": slack_channel_id}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.scalars().first()
+        return result
+
 
 class AbstractSlackChannelRepository(abc.ABC):
     @abc.abstractmethod
@@ -184,7 +196,7 @@ class SlackChannelRepository(AbstractSlackChannelRepository, BaseRepository):
         self.conn = connection
 
     async def add(self, slack_channel: SlackChannelDBEntity) -> SlackChannelDBEntity:
-        query = f"""
+        query = """
             insert into slack_channel (
                 channel_id, name, channel_type
             )
@@ -213,4 +225,28 @@ class SlackChannelRepository(AbstractSlackChannelRepository, BaseRepository):
         return SlackChannelDBEntity(**result)
 
     async def get(self, channel_id: str):
-        raise NotImplementedError
+        query = """
+            select channel_id, name, channel_type, created_at, updated_at
+            from slack_channel
+            where channel_id = :channel_id
+        """
+        parameters = {"channel_id": channel_id}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return SlackChannelDBEntity(**result)
+
+    async def is_channel_exists(self, channel_id: str):
+        query = """
+            select exists (
+                select 1 from slack_channel
+                where channel_id = :channel_id
+            )
+        """
+        parameters = {"channel_id": channel_id}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.scalars().first()
+        if result is None:
+            return False
+        return result
