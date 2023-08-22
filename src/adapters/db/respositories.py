@@ -6,7 +6,7 @@ import string
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
 
-from .entities import InboxDbEntity, SlackEventDbEntity
+from .entities import InboxDbEntity, SlackChannelDBEntity, SlackEventDbEntity
 from .exceptions import DBIntegrityException
 
 
@@ -166,4 +166,51 @@ class InboxRepository(AbstractInboxRepository, BaseRepository):
         return InboxDbEntity(**result)
 
     async def get(self, inbox_id: str):
+        raise NotImplementedError
+
+
+class AbstractSlackChannelRepository(abc.ABC):
+    @abc.abstractmethod
+    async def add(self, slack_channel: SlackChannelDBEntity):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get(self, channel_id: str):
+        raise NotImplementedError
+
+
+class SlackChannelRepository(AbstractSlackChannelRepository, BaseRepository):
+    def __init__(self, connection):
+        self.conn = connection
+
+    async def add(self, slack_channel: SlackChannelDBEntity) -> SlackChannelDBEntity:
+        query = f"""
+            insert into slack_channel (
+                channel_id, name, channel_type
+            )
+            values (
+                :channel_id, :name, :channel_type
+            )
+            returning channel_id, name, channel_type, created_at, updated_at
+        """
+        parameters = {
+            "channel_id": slack_channel.channel_id,
+            "name": slack_channel.name,
+            "channel_type": slack_channel.channel_type,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+        return SlackChannelDBEntity(**result)
+
+    async def get(self, channel_id: str):
         raise NotImplementedError

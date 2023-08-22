@@ -4,7 +4,7 @@ from src.adapters.db import engine
 from src.domain.models import Inbox, SlackChannel
 
 from .entities import InboxDbEntity, SlackChannelDBEntity
-from .respositories import InboxRepository
+from .respositories import InboxRepository, SlackChannelRepository
 
 
 class InboxDBAdapter:
@@ -51,4 +51,36 @@ class InboxDBAdapter:
                 result = self._map_to_domain(inbox_entity, None)
             else:
                 raise NotImplementedError
+        return result
+
+
+class SlackChannelDBAdapter:
+    def __init__(self, engine: Engine = engine) -> None:
+        self.engine = engine
+
+    def _map_to_db_entity(self, slack_channel: SlackChannel) -> SlackChannelDBEntity:
+        if slack_channel.channel_id is None:
+            channel_id = SlackChannelRepository.generate_id()
+        else:
+            channel_id = slack_channel.channel_id
+        return SlackChannelDBEntity(
+            channel_id=channel_id,
+            name=slack_channel.name,
+            channel_type=slack_channel.channel_type,
+        )
+
+    def _map_to_domain(
+        self, slack_channel_entity: SlackChannelDBEntity
+    ) -> SlackChannel:
+        return SlackChannel(
+            channel_id=slack_channel_entity.channel_id,
+            name=slack_channel_entity.name,
+            channel_type=slack_channel_entity.channel_type,
+        )
+
+    async def save(self, slack_channel: SlackChannel) -> SlackChannel:
+        db_entity = self._map_to_db_entity(slack_channel)
+        async with self.engine.begin() as conn:
+            slack_channel_entity = await SlackChannelRepository(conn).add(db_entity)
+            result = self._map_to_domain(slack_channel_entity)
         return result

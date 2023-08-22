@@ -57,8 +57,12 @@ class SlackChannel(AbstractModel):
         channel_id (str): The unique identifier for the channel.
     """
 
-    def __init__(self, channel_id: str) -> None:
+    def __init__(
+        self, channel_id: str | None, name: str | None, channel_type: str
+    ) -> None:
         self.channel_id = channel_id
+        self.name = name
+        self.channel_type = channel_type
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackChannel):
@@ -90,7 +94,7 @@ class Inbox(AbstractModel):
         self.inbox_id = inbox_id  # unique identifier
         self.name = name  # required
         self.description = description  # optional
-        self.slack_channel = slack_channel # linked Slack channel
+        self.slack_channel = slack_channel  # linked Slack channel
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Inbox):

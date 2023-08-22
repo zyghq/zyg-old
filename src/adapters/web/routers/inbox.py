@@ -2,9 +2,9 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError, constr
 
-from src.domain.commands.inbox import CreateInboxCommand
+from src.domain.commands import CreateInboxCommand
 from src.logger import logger
-from src.services.inbox import InboxService
+from src.services.inbox.base import InboxService
 
 router = APIRouter()
 

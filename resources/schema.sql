@@ -23,7 +23,7 @@ create table slack_channel (
   updated_at timestamp default current_timestamp,
 
   constraint slack_channel_idx primary key (channel_id)
-)
+);
 
 create table inbox (
   inbox_id varchar(255) not null,
@@ -36,6 +36,6 @@ create table inbox (
   updated_at timestamp default current_timestamp,
 
   constraint inbox_idx primary key (inbox_id),
-  constraint fk_slack_channel_id foreign key (slack_channel_id) references slack_channel(slack_channel_id),
+  constraint fk_slack_channel_id foreign key (slack_channel_id) references slack_channel(channel_id),
   constraint slack_channel_id_unq unique (slack_channel_id)
-)
+);
