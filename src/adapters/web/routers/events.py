@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
-from src.domain.commands.events import SlackEventCommand
+from src.domain.commands import SlackEventCommand
 from src.logger import logger
 from src.services.events.dispatcher import SlackEventServiceDispatcher
 

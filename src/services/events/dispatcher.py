@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from src.domain.commands.events import SlackEventCommand
+from src.domain.commands import SlackEventCommand
 from src.logger import logger
 
 from .base import SlackEventCaptureService

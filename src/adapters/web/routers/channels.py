@@ -1,38 +1,38 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ValidationError, constr
+from pydantic import BaseModel, ValidationError
 
-from src.domain.commands import CreateInboxCommand
+from src.domain.commands import CreateSlackChannelCommand
 from src.logger import logger
-from src.services.inbox.base import InboxService
+from src.services.inbox.channel import SlackChannelService
 
 router = APIRouter()
 
 
-class CreateInboxRequestBody(BaseModel):
+class CreateSlackChannelRequestBody(BaseModel):
     """
-    Represents the request body for creating an inbox.
+    Represents the request body for creating an Slack channel.
 
     Currently we are keeping it simple and might add more attributes later, depending on the
     use cases.
     """
 
-    name: constr(min_length=3, max_length=100)
-    description: str | None = None
-    slack_channel_id: str | None = None
+    channel_id: str | None = None
+    name: str | None = None
+    channel_type: str
 
 
 @router.post("/create/")
-async def create_inbox(inbox: CreateInboxRequestBody):
+async def create_channel(channel: CreateSlackChannelRequestBody):
     try:
-        command = CreateInboxCommand(
-            name=inbox.name,
-            description=inbox.description,
-            slack_channel_id=inbox.slack_channel_id,
+        command = CreateSlackChannelCommand(
+            channel_id=channel.channel_id,
+            name=channel.name,
+            channel_type=channel.channel_type,
         )
     except ValidationError as e:
         logger.error(e)
-        logger.error("error creating command to create inbox")
+        logger.error("error creating command to create channel")
         return JSONResponse(
             status_code=503,
             content={
@@ -47,6 +47,6 @@ async def create_inbox(inbox: CreateInboxRequestBody):
         )
 
     logger.info(f"invoking command to create inbox: {command}")
-    result = await InboxService().create(command)
+    result = await SlackChannelService().create(command)
 
     return result
