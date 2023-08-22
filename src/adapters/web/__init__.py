@@ -5,6 +5,7 @@ from src.adapters.db import engine
 from src.logger import logger
 
 from .routers import events
+from .routers import inbox
 
 app = FastAPI()
 
@@ -12,6 +13,11 @@ app = FastAPI()
 app.include_router(
     events.router,
     prefix="/events",
+)
+
+app.include_router(
+    inbox.router,
+    prefix="/inbox",
 )
 
 

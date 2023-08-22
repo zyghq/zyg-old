@@ -46,4 +46,4 @@ def test_inbox_with_channel():
     slack_channel = SlackChannel(channel_id=channel_id)
 
     inbox.link_channel(channel=slack_channel)
-    assert inbox.channel == slack_channel
+    assert inbox.slack_channel == slack_channel

@@ -77,14 +77,20 @@ class Inbox(AbstractModel):
         inbox_id (str): Unique identifier for the inbox.
         name (str): Required name of the inbox.
         description (str, optional): Optional description of the inbox.
-        channel (SlackChannel, optional): Optional Slack channel linked to the inbox.
+        slack_channel (SlackChannel, optional): Optional Slack channel linked to the inbox.
     """
 
-    def __init__(self, inbox_id: str, name: str, description: str | None) -> None:
+    def __init__(
+        self,
+        inbox_id: str | None,
+        name: str,
+        description: str | None,
+        slack_channel: SlackChannel | None,
+    ) -> None:
         self.inbox_id = inbox_id  # unique identifier
         self.name = name  # required
         self.description = description  # optional
-        self.channel = None  # linked Slack channel
+        self.slack_channel = slack_channel # linked Slack channel
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Inbox):
@@ -94,8 +100,8 @@ class Inbox(AbstractModel):
     def __repr__(self) -> str:
         return f"Inbox(inbox_id={self.inbox_id}, name={self.name}, description={self.description[: 64]})"
 
-    def link_channel(self, channel: SlackChannel) -> None:
-        self.channel = channel
+    def link_channel(self, slack_channel: SlackChannel) -> None:
+        self.slack_channel = slack_channel
 
 
 class Issue(AbstractModel):
