@@ -7,10 +7,6 @@ from .base import SlackEventCaptureService
 from .message import SlackEventChannelMesssageService
 
 
-class UnRegisteredSlackEventTypeException(Exception):
-    pass
-
-
 class SilentlyNotifyUnsupportedSlackEvent:
     """
     Fallback service for unsupported slack events.

@@ -5,6 +5,7 @@ from pydantic import BaseModel, ValidationError
 from src.domain.commands import CreateSlackChannelCommand
 from src.logger import logger
 from src.services.inbox.channel import SlackChannelService
+from src.services.inbox.exceptions import SlackChannelDuplicateException
 
 router = APIRouter()
 
@@ -13,7 +14,8 @@ class CreateSlackChannelRequestBody(BaseModel):
     """
     Represents the request body for creating an Slack channel.
 
-    Currently we are keeping it simple and might add more attributes later, depending on the
+    Currently we are keeping it simple and might add more attributes later,
+    depending on the
     use cases.
     """
 
@@ -40,13 +42,26 @@ async def create_channel(channel: CreateSlackChannelRequestBody):
                     {
                         "status": 503,
                         "title": "Service Unavailable",
-                        "detail": "unable to create inbox.",
+                        "detail": "unable to create channel.",
                     }
                 ]
             },
         )
 
-    logger.info(f"invoking command to create inbox: {command}")
-    result = await SlackChannelService().create(command)
-
+    logger.info(f"invoking command to create channel: {command}")
+    try:
+        result = await SlackChannelService().create(command)
+    except SlackChannelDuplicateException:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "errors": [
+                    {
+                        "status": 409,
+                        "title": "Conflict",
+                        "detail": "slack channel with channel_id already exists.",
+                    }
+                ]
+            },
+        )
     return result

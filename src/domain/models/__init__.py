@@ -40,7 +40,11 @@ class SlackCallbackEvent(AbstractModel):
         return self.event_id == other.event_id
 
     def __repr__(self) -> str:
-        return f"SlackCallbackEvent(event_id={self.event_id}, team_id={self.team_id}, event_type={self.event_type})"
+        return f"""SlackCallbackEvent(
+                event_id={self.event_id},
+                team_id={self.team_id},
+                event_type={self.event_type}
+            )"""
 
     def set_metadata(self, metadata: dict) -> None:
         self.metadata = metadata
@@ -81,7 +85,8 @@ class Inbox(AbstractModel):
         inbox_id (str): Unique identifier for the inbox.
         name (str): Required name of the inbox.
         description (str, optional): Optional description of the inbox.
-        slack_channel (SlackChannel, optional): Optional Slack channel linked to the inbox.
+        slack_channel (SlackChannel, optional):
+            Optional Slack channel linked to the inbox.
     """
 
     def __init__(
@@ -102,7 +107,11 @@ class Inbox(AbstractModel):
         return self.inbox_id == other.inbox_id
 
     def __repr__(self) -> str:
-        return f"Inbox(inbox_id={self.inbox_id}, name={self.name}, description={self.description[: 64]})"
+        return f"""Inbox(
+                inbox_id={self.inbox_id},
+                name={self.name},
+                description={self.description[: 64]}
+            )"""
 
     def link_channel(self, slack_channel: SlackChannel) -> None:
         self.slack_channel = slack_channel
@@ -120,4 +129,8 @@ class Issue(AbstractModel):
         return self.issue_id == other.issue_id
 
     def __repr__(self) -> str:
-        return f"Issue(issue_id={self.issue_id}, title={self.title}, body={self.body[: 64]})"
+        return f"""Issue(
+            issue_id={self.issue_id},
+            title={self.title},
+            body={self.body[: 64]}
+        )"""
