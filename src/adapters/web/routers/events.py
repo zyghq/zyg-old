@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
-from src.domain.commands import SlackEventCommand
+from src.domain.commands import CreateSlackEventCommand
 from src.logger import logger
 from src.services.event.dispatcher import SlackEventServiceDispatcher
 
@@ -45,7 +45,8 @@ def is_slack_callback_valid(token: str, api_app_id: str):
 async def slack_event(request: Request) -> Any:
     # we are not using Pydantic and FastAPI's request body validation
     # because this gives us more flexibility to handle the request body
-    # as these events are received from Slack API and we dont have control over the request data model.
+    # as these events are received from Slack API and we dont have
+    # control over the request data model.
     body = await request.json()
 
     token = body.get("token", None)
@@ -106,7 +107,8 @@ async def slack_event(request: Request) -> Any:
                         {
                             "status": 403,
                             "title": "Forbidden",
-                            "detail": "cannot authenticate the callback came from Slack.",
+                            "detail": "cannot authenticate the callback "
+                            + "came from Slack.",
                         }
                     ]
                 },
@@ -130,22 +132,22 @@ async def slack_event(request: Request) -> Any:
             )
 
         event_type = slack_request_body.event.get("type", None)
-        command = SlackEventCommand(
+        command = CreateSlackEventCommand(
             event_id=slack_request_body.event_id,
             team_id=slack_request_body.team_id,
-            api_app_id=slack_request_body.api_app_id,
             event=slack_request_body.event,
             event_type=event_type,
             event_ts=slack_request_body.event_time,
-            callback_type=callback_type,
-            context_team_id=slack_request_body.context_team_id,
-            context_enterprise_id=slack_request_body.context_enterprise_id,
             metadata={
+                "api_app_id": slack_request_body.api_app_id,
                 "token": slack_request_body.token,
                 "authorizations": slack_request_body.authorizations,
                 "authed_users": slack_request_body.authed_users,
                 "is_ext_shared_channel": slack_request_body.is_ext_shared_channel,
                 "event_context": slack_request_body.event_context,
+                "callback_type": callback_type,
+                "context_team_id": slack_request_body.context_team_id,
+                "context_enterprise_id": slack_request_body.context_enterprise_id,
             },
         )
         try:
@@ -154,7 +156,7 @@ async def slack_event(request: Request) -> Any:
             # based on the inner `type` of the event we dispatch it to the
             # appropriate service.
             slack_event_service_dispatcher = SlackEventServiceDispatcher(
-                command, capture=True, override=True
+                command, override=True
             )
             await slack_event_service_dispatcher.dispatch()
         except Exception as e:

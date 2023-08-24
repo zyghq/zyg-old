@@ -53,14 +53,22 @@ class SlackCallbackEvent(AbstractModel):
     """
 
     def __init__(
-        self, event_id: str, team_id: str, event_type: str, event: dict, event_ts: int
+        self,
+        event_id: str,
+        team_id: str,
+        event_type: str,
+        event: dict,
+        event_ts: int,
+        metadata: dict | None = None,
+        is_ack: bool = False,
     ) -> None:
-        self.event_id: str = event_id
-        self.team_id: str = team_id
-        self.event_type: str = event_type
-        self.event: dict = event
-        self.event_ts: int = event_ts  # event time stamp from Slack
-        self.metadata: dict | None = None  # other metadata from Slack
+        self.event_id = event_id
+        self.team_id = team_id
+        self.event_type = event_type
+        self.event = event
+        self.event_ts = event_ts  # event time stamp from Slack
+        self.metadata = metadata  # other metadata from Slack
+        self.is_ack = is_ack  # whether the event was acknowledged
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackCallbackEvent):
@@ -73,12 +81,6 @@ class SlackCallbackEvent(AbstractModel):
                 team_id={self.team_id},
                 event_type={self.event_type}
             )"""
-
-    def set_metadata(self, metadata: dict) -> None:
-        self.metadata = metadata
-
-    def set_event_ts(self, event_ts: int) -> None:
-        self.event_ts = event_ts
 
 
 class SlackChannel(AbstractModel):

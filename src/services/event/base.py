@@ -1,45 +1,45 @@
-from pydantic import ValidationError
-from sqlalchemy.engine.base import Engine
-
-from src.adapters.db import engine as default_engine
-from src.adapters.db.entities import SlackEventDbEntity
+from src.adapters.db.adapters import SlackEventDBAdapter
 from src.adapters.db.exceptions import DBIntegrityException
-from src.adapters.db.respositories import SlackEventRepository
+from src.domain.commands import CreateSlackEventCommand
+from src.domain.models import SlackCallbackEvent
 from src.logger import logger
 
-from .exceptions import SlackEventDBException, SlackEventEntityValidation
+from .exceptions import SlackEventDBException
 
 
 class SlackEventCaptureService:
-    def __init__(self, engine: Engine = default_engine) -> None:
-        self.engine = engine
+    def __init__(self) -> None:
+        self.slack_event_db_adapter = SlackEventDBAdapter()
 
-    # TODO: pass the command to the service
-    async def capture(self, event: dict, override=False) -> SlackEventDbEntity:
+    async def capture(
+        self, command: CreateSlackEventCommand, override=False
+    ) -> SlackCallbackEvent:
+        logger.info(f"`capture` slack event service invoked with command: `{command}`")
         try:
-            new_db_entity = SlackEventDbEntity(
-                event_id=event.get("event_id"),
-                team_id=event.get("team_id"),
-                event=event.get("event"),
-                event_type=event.get("event_type"),
-                event_ts=event.get("event_ts"),
-                metadata=event.get("metadata"),
-                created_at=None,
-                updated_at=None,
-                is_ack=False,
+            slack_event = SlackCallbackEvent(
+                event_id=command.event_id,
+                team_id=command.team_id,
+                event=command.event,
+                event_type=command.event_type,
+                event_ts=command.event_ts,
+                metadata=command.metadata,
             )
-            async with self.engine.begin() as conn:
-                if override:
-                    logger.warning(
-                        f"override slack event for event_id: `{event.get('event_id')}`"
-                    )
-                    result = await SlackEventRepository(conn).upsert(new_db_entity)
-                else:
-                    result = await SlackEventRepository(conn).add(new_db_entity)
+            if override:
+                logger.warning(
+                    f"override slack event for event_id: `{command.event_id}`"
+                )
+                result = await self.slack_event_db_adapter.update(slack_event)
+            else:
+                result = await self.slack_event_db_adapter.save(slack_event)
             return result
         except DBIntegrityException as e:
             logger.error(e)
             raise SlackEventDBException("error when capturing slack event.")
-        except ValidationError as e:
-            logger.error(e)
-            raise SlackEventEntityValidation("error when validating slack event.")
+
+
+class SlackEventChannelMesssageService:
+    async def execute(self, slack_event: SlackCallbackEvent):
+        print("**********************************")
+        print("handle execute command for message")
+        print(slack_event)
+        print("**********************************")

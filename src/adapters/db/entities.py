@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class SlackEventDbEntity(BaseModel):
+class SlackEventDBEntity(BaseModel):
     event_id: str  # primary key
     team_id: str
     event: dict | None = None
@@ -15,7 +15,7 @@ class SlackEventDbEntity(BaseModel):
     is_ack: bool = False
 
 
-class InboxDbEntity(BaseModel):
+class InboxDBEntity(BaseModel):
     inbox_id: str  # primary key
     name: str
     description: str | None = None

@@ -1,6 +1,6 @@
 import pytest
 
-from src.adapters.db.entities import SlackEventDbEntity
+from src.adapters.db.entities import SlackEventDBEntity
 from src.services.event import SlackEventService
 
 # from src.domain.models import SlackCallbackEvent
@@ -27,7 +27,7 @@ async def test_service_event_capture():
     slack_callback_event = generate_slack_callback_event()
     result = await slack_event_service.capture(slack_callback_event)
 
-    assert isinstance(result, SlackEventDbEntity)
+    assert isinstance(result, SlackEventDBEntity)
     assert result.event_id == slack_callback_event.get("event_id")
     assert result.team_id == slack_callback_event.get("team_id")
     assert result.created_at is not None
@@ -42,7 +42,7 @@ async def test_service_event_capture_with_scheduled_task():
         slack_callback_event
     )
 
-    assert isinstance(result, SlackEventDbEntity)
+    assert isinstance(result, SlackEventDBEntity)
     assert result.event_id == slack_callback_event.get("event_id")
     assert result.team_id == slack_callback_event.get("team_id")
     assert result.created_at is not None

@@ -7,10 +7,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
 
 from .entities import (
-    InboxDbEntity,
+    InboxDBEntity,
     IssueDBEntity,
     SlackChannelDBEntity,
-    SlackEventDbEntity,
+    SlackEventDBEntity,
 )
 from .exceptions import DBIntegrityException
 
@@ -26,7 +26,7 @@ class BaseRepository:
 
 class AbstractSlackEventRepository(abc.ABC):
     @abc.abstractmethod
-    async def add(self, new_slack_event: SlackEventDbEntity):
+    async def add(self, new_slack_event: SlackEventDBEntity):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -34,11 +34,11 @@ class AbstractSlackEventRepository(abc.ABC):
         raise NotImplementedError
 
 
-class SlackEventRepository(AbstractSlackEventRepository):
+class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
     def __init__(self, connection) -> None:
         self.conn = connection
 
-    async def add(self, new_slack_event: SlackEventDbEntity) -> SlackEventDbEntity:
+    async def add(self, new_slack_event: SlackEventDBEntity) -> SlackEventDBEntity:
         query = """
             insert into slack_event (
                 event_id, team_id, event, event_type, 
@@ -75,9 +75,9 @@ class SlackEventRepository(AbstractSlackEventRepository):
             # Having custom exceptions for database related exceptions
             # also helps us to have a better control over the error handling.
             raise DBIntegrityException(e)
-        return SlackEventDbEntity(**result)
+        return SlackEventDBEntity(**result)
 
-    async def upsert(self, slack_event: SlackEventDbEntity) -> SlackEventDbEntity:
+    async def upsert(self, slack_event: SlackEventDBEntity) -> SlackEventDBEntity:
         query = """
             insert into slack_event (
                 event_id, team_id, event, event_type, 
@@ -120,7 +120,7 @@ class SlackEventRepository(AbstractSlackEventRepository):
             # Having custom exceptions for database related exceptions
             # also helps us to have a better control over the error handling.
             raise DBIntegrityException(e)
-        return SlackEventDbEntity(**result)
+        return SlackEventDBEntity(**result)
 
     async def get(self, event_id: str):
         raise NotImplementedError
@@ -128,7 +128,7 @@ class SlackEventRepository(AbstractSlackEventRepository):
 
 class AbstractInboxRepository(abc.ABC):
     @abc.abstractmethod
-    async def add(self, inbox: InboxDbEntity):
+    async def add(self, inbox: InboxDBEntity):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -140,7 +140,7 @@ class InboxRepository(AbstractInboxRepository, BaseRepository):
     def __init__(self, connection) -> None:
         self.conn = connection
 
-    async def add(self, new_inbox: InboxDbEntity) -> InboxDbEntity:
+    async def add(self, new_inbox: InboxDBEntity) -> InboxDBEntity:
         query = """
             insert into inbox (
                 inbox_id, name, description, slack_channel_id
@@ -169,9 +169,9 @@ class InboxRepository(AbstractInboxRepository, BaseRepository):
             # Having custom exceptions for database related exceptions
             # also helps us to have a better control over the error handling.
             raise DBIntegrityException(e)
-        return InboxDbEntity(**result)
+        return InboxDBEntity(**result)
 
-    async def get(self, inbox_id: str) -> InboxDbEntity | None:
+    async def get(self, inbox_id: str) -> InboxDBEntity | None:
         query = """
             select inbox_id, name, description, slack_channel_id, created_at, updated_at
             from inbox
@@ -182,11 +182,11 @@ class InboxRepository(AbstractInboxRepository, BaseRepository):
         result = rows.mappings().first()
         if result is None:
             return None
-        return InboxDbEntity(**result)
+        return InboxDBEntity(**result)
 
     async def get_by_slack_channel_id(
         self, slack_channel_id: str
-    ) -> InboxDbEntity | None:
+    ) -> InboxDBEntity | None:
         query = """
             select inbox_id, name, description, slack_channel_id, created_at, updated_at
             from inbox
@@ -197,7 +197,7 @@ class InboxRepository(AbstractInboxRepository, BaseRepository):
         result = rows.mappings().first()
         if result is None:
             return None
-        return InboxDbEntity(**result)
+        return InboxDBEntity(**result)
 
     async def is_slack_channel_id_linked(self, slack_channel_id: str) -> bool:
         query = """

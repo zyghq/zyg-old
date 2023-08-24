@@ -1,17 +1,69 @@
 from sqlalchemy.engine.base import Engine
 
 from src.adapters.db import engine
-from src.domain.models import Inbox, Issue, SlackChannel
+from src.domain.models import Inbox, Issue, SlackCallbackEvent, SlackChannel
 
-from .entities import InboxDbEntity, IssueDBEntity, SlackChannelDBEntity
-from .respositories import InboxRepository, IssueRepository, SlackChannelRepository
+from .entities import (
+    InboxDBEntity,
+    IssueDBEntity,
+    SlackChannelDBEntity,
+    SlackEventDBEntity,
+)
+from .respositories import (
+    InboxRepository,
+    IssueRepository,
+    SlackChannelRepository,
+    SlackEventRepository,
+)
+
+
+class SlackEventDBAdapter:
+    def __init__(self, engine: Engine = engine) -> None:
+        self.engine = engine
+
+    def _map_to_db_entity(self, slack_event: SlackCallbackEvent) -> SlackEventDBEntity:
+        return SlackEventDBEntity(
+            event_id=slack_event.event_id,
+            team_id=slack_event.team_id,
+            event=slack_event.event,
+            event_type=slack_event.event_type,
+            event_ts=slack_event.event_ts,
+            metadata=slack_event.metadata,
+        )
+
+    def _map_to_domain(
+        self, slack_event_entity: SlackEventDBEntity
+    ) -> SlackCallbackEvent:
+        return SlackCallbackEvent(
+            event_id=slack_event_entity.event_id,
+            team_id=slack_event_entity.team_id,
+            event=slack_event_entity.event,
+            event_type=slack_event_entity.event_type,
+            event_ts=slack_event_entity.event_ts,
+            metadata=slack_event_entity.metadata,
+            is_ack=slack_event_entity.is_ack,
+        )
+
+    async def save(self, slack_event: SlackCallbackEvent) -> SlackCallbackEvent:
+        db_entity = self._map_to_db_entity(slack_event)
+        async with self.engine.begin() as conn:
+            slack_event_entity = await SlackEventRepository(conn).add(db_entity)
+            result = self._map_to_domain(slack_event_entity)
+        return result
+
+    async def update(self, slack_event: SlackCallbackEvent) -> SlackCallbackEvent:
+        db_entity = self._map_to_db_entity(slack_event)
+        async with self.engine.begin() as conn:
+            slack_event_entity = await SlackEventRepository(conn).upsert(db_entity)
+            result = self._map_to_domain(slack_event_entity)
+        return result
 
 
 class InboxDBAdapter:
     def __init__(self, engine: Engine = engine) -> None:
         self.engine = engine
 
-    def _map_to_db_entity(self, inbox: Inbox) -> InboxDbEntity:
+    def _map_to_db_entity(self, inbox: Inbox) -> InboxDBEntity:
         if inbox.inbox_id is None:
             inbox_id = InboxRepository.generate_id()
         if inbox.slack_channel is None:
@@ -19,7 +71,7 @@ class InboxDBAdapter:
         else:
             slack_channel = inbox.slack_channel
             slack_channel_id = slack_channel.channel_id
-        return InboxDbEntity(
+        return InboxDBEntity(
             inbox_id=inbox_id,
             name=inbox.name,
             description=inbox.description,
@@ -28,7 +80,7 @@ class InboxDBAdapter:
 
     def _map_to_domain(
         self,
-        inbox_entity: InboxDbEntity,
+        inbox_entity: InboxDBEntity,
         slack_channel_entity: SlackChannelDBEntity | None,
     ) -> Inbox:
         if slack_channel_entity is None:
