@@ -27,7 +27,7 @@ class CreateInboxRequestBody(BaseModel):
     slack_channel_id: str | None = None
 
 
-@router.post("/create/")
+@router.post("/")
 async def create_inbox(inbox: CreateInboxRequestBody):
     try:
         command = CreateInboxCommand(

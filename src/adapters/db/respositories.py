@@ -6,7 +6,12 @@ import string
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
 
-from .entities import InboxDbEntity, SlackChannelDBEntity, SlackEventDbEntity
+from .entities import (
+    InboxDbEntity,
+    IssueDBEntity,
+    SlackChannelDBEntity,
+    SlackEventDbEntity,
+)
 from .exceptions import DBIntegrityException
 
 
@@ -143,7 +148,8 @@ class InboxRepository(AbstractInboxRepository, BaseRepository):
             values (
                 :inbox_id, :name, :description, :slack_channel_id
             )
-            returning inbox_id, name, description, slack_channel_id, created_at, updated_at
+            returning 
+            inbox_id, name, description, slack_channel_id, created_at, updated_at
         """
         parameters = {
             "inbox_id": new_inbox.inbox_id,
@@ -165,8 +171,33 @@ class InboxRepository(AbstractInboxRepository, BaseRepository):
             raise DBIntegrityException(e)
         return InboxDbEntity(**result)
 
-    async def get(self, inbox_id: str):
-        raise NotImplementedError
+    async def get(self, inbox_id: str) -> InboxDbEntity | None:
+        query = """
+            select inbox_id, name, description, slack_channel_id, created_at, updated_at
+            from inbox
+            where inbox_id = :inbox_id
+        """
+        parameters = {"inbox_id": inbox_id}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return InboxDbEntity(**result)
+
+    async def get_by_slack_channel_id(
+        self, slack_channel_id: str
+    ) -> InboxDbEntity | None:
+        query = """
+            select inbox_id, name, description, slack_channel_id, created_at, updated_at
+            from inbox
+            where slack_channel_id = :slack_channel_id
+        """
+        parameters = {"slack_channel_id": slack_channel_id}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return InboxDbEntity(**result)
 
     async def is_slack_channel_id_linked(self, slack_channel_id: str) -> bool:
         query = """
@@ -250,3 +281,63 @@ class SlackChannelRepository(AbstractSlackChannelRepository, BaseRepository):
         if result is None:
             return False
         return result
+
+
+class AbstractIssueRepository(abc.ABC):
+    @abc.abstractmethod
+    async def add(self, issue: IssueDBEntity):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get(self, issue_id: str):
+        raise NotImplementedError
+
+
+class IssueRepository(AbstractIssueRepository, BaseRepository):
+    def __init__(self, connection) -> None:
+        self.conn = connection
+
+    async def add(self, issue: IssueDBEntity) -> IssueDBEntity:
+        query = """
+            insert into issue (
+                issue_id, title, body, inbox_id, requester_id
+            )
+            values (
+                :issue_id, :title, :body, :inbox_id, :requester_id
+            )
+            returning 
+            issue_id, title, body, inbox_id, requester_id, created_at, updated_at
+        """
+        parameters = {
+            "issue_id": issue.issue_id,
+            "title": issue.title,
+            "body": issue.body,
+            "inbox_id": issue.inbox_id,
+            "requester_id": issue.requester_id,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+        return IssueDBEntity(**result)
+
+    async def get(self, issue_id: str) -> IssueDBEntity | None:
+        query = """
+            select issue_id, title, body, inbox_id, requester_id, created_at, updated_at
+            from issue
+            where issue_id = :issue_id
+        """
+        parameters = {"issue_id": issue_id}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return IssueDBEntity(**result)

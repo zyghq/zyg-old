@@ -1,7 +1,7 @@
 import pytest
 
 from src.adapters.db.entities import SlackEventDbEntity
-from src.services.events import SlackEventService
+from src.services.event import SlackEventService
 
 # from src.domain.models import SlackCallbackEvent
 # from src.services.exceptions import SlackCaptureException

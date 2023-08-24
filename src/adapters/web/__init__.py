@@ -4,7 +4,7 @@ from sqlalchemy.sql import text
 from src.adapters.db import engine
 from src.logger import logger
 
-from .routers import channels, events, inbox
+from .routers import channels, events, inboxes, issues
 
 app = FastAPI()
 
@@ -20,8 +20,13 @@ app.include_router(
 )
 
 app.include_router(
-    inbox.router,
-    prefix="/inbox",
+    issues.router,
+    prefix="/issues",
+)
+
+app.include_router(
+    inboxes.router,
+    prefix="/inboxes",
 )
 
 

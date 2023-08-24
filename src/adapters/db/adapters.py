@@ -1,10 +1,10 @@
 from sqlalchemy.engine.base import Engine
 
 from src.adapters.db import engine
-from src.domain.models import Inbox, SlackChannel
+from src.domain.models import Inbox, Issue, SlackChannel
 
-from .entities import InboxDbEntity, SlackChannelDBEntity
-from .respositories import InboxRepository, SlackChannelRepository
+from .entities import InboxDbEntity, IssueDBEntity, SlackChannelDBEntity
+from .respositories import InboxRepository, IssueRepository, SlackChannelRepository
 
 
 class InboxDBAdapter:
@@ -62,11 +62,47 @@ class InboxDBAdapter:
                     result = self._map_to_domain(inbox_entity, slack_channel_entity)
         return result
 
-    async def is_slack_channel_id_linked(self, slack_channel_id: str) -> bool:
+    async def is_slack_channel_linked(self, slack_channel_id: str) -> bool:
         async with self.engine.begin() as conn:
             result = await InboxRepository(conn).is_slack_channel_id_linked(
                 slack_channel_id
             )
+        return result
+
+    async def load(self, inbox_id: str) -> Inbox | None:
+        async with self.engine.begin() as conn:
+            inbox_repository = InboxRepository(conn)
+            slack_channel_repository = SlackChannelRepository(conn)
+            inbox_entity = await inbox_repository.get(inbox_id)
+            if inbox_entity is None:
+                return None
+            else:
+                if inbox_entity.slack_channel_id is None:
+                    result = self._map_to_domain(inbox_entity, None)
+                else:
+                    slack_channel_entity = await slack_channel_repository.get(
+                        inbox_entity.slack_channel_id
+                    )
+                    result = self._map_to_domain(inbox_entity, slack_channel_entity)
+        return result
+
+    async def load_by_slack_channel_id(self, slack_channel_id: str) -> Inbox | None:
+        async with self.engine.begin() as conn:
+            inbox_repository = InboxRepository(conn)
+            slack_channel_repository = SlackChannelRepository(conn)
+            inbox_entity = await inbox_repository.get_by_slack_channel_id(
+                slack_channel_id
+            )
+            if inbox_entity is None:
+                return None
+            else:
+                if inbox_entity.slack_channel_id is None:
+                    result = self._map_to_domain(inbox_entity, None)
+                else:
+                    slack_channel_entity = await slack_channel_repository.get(
+                        inbox_entity.slack_channel_id
+                    )
+                    result = self._map_to_domain(inbox_entity, slack_channel_entity)
         return result
 
 
@@ -113,4 +149,38 @@ class SlackChannelDBAdapter:
     async def is_channel_exists(self, channel_id: str) -> bool:
         async with self.engine.begin() as conn:
             result = await SlackChannelRepository(conn).is_channel_exists(channel_id)
+        return result
+
+
+class IssueDBAdapter:
+    def __init__(self, engine: Engine = engine) -> None:
+        self.engine = engine
+
+    def _map_to_db_entity(self, issue: Issue) -> IssueDBEntity:
+        if issue.issue_id is None:
+            issue_id = IssueRepository.generate_id()
+        else:
+            issue_id = issue.issue_id
+        return IssueDBEntity(
+            issue_id=issue_id,
+            inbox_id=issue.inbox_id,
+            requester_id=issue.requester_id,
+            title=issue.title,
+            body=issue.body,
+        )
+
+    def _map_to_domain(self, issue_entity: IssueDBEntity) -> Issue:
+        return Issue(
+            issue_id=issue_entity.issue_id,
+            inbox_id=issue_entity.inbox_id,
+            requester_id=issue_entity.requester_id,
+            title=issue_entity.title,
+            body=issue_entity.body,
+        )
+
+    async def save(self, issue: Issue) -> Issue:
+        db_entity = self._map_to_db_entity(issue)
+        async with self.engine.begin() as conn:
+            issue_entity = await IssueRepository(conn).add(db_entity)
+            result = self._map_to_domain(issue_entity)
         return result

@@ -24,3 +24,10 @@ class CreateSlackChannelCommand(BaseModel):
     channel_id: str | None
     name: str
     channel_type: str
+
+
+class CreateIssueCommand(BaseModel):
+    title: str | None = None
+    body: str
+    requester_id: str
+    slack_channel_id: str

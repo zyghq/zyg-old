@@ -30,3 +30,13 @@ class SlackChannelDBEntity(BaseModel):
     channel_type: str
     created_at: datetime | None = None  # db timestamp
     updated_at: datetime | None = None  # db timestamp
+
+
+class IssueDBEntity(BaseModel):
+    issue_id: str  # primary key
+    title: str
+    body: str
+    inbox_id: str
+    requester_id: str
+    created_at: datetime | None = None  # db timestamp
+    updated_at: datetime | None = None  # db timestamp

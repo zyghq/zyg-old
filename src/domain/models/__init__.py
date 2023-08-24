@@ -1,4 +1,11 @@
 import abc
+from enum import Enum
+
+
+class UserRole(Enum):
+    OWNER = "owner"
+    ADMINISTRATOR = "administrator"
+    MEMBER = "member"
 
 
 class AbstractModel(abc.ABC):
@@ -9,6 +16,27 @@ class AbstractModel(abc.ABC):
     @abc.abstractmethod
     def __repr__(self) -> str:
         raise NotImplementedError
+
+
+class User(AbstractModel):
+    def __init__(
+        self, user_id: str | None, name: str | None, role: UserRole.MEMBER
+    ) -> None:
+        self.user_id = user_id
+        self.name = name
+        self.role = role
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, User):
+            return False
+        return self.user_id == other.user_id
+
+    def __repr__(self) -> str:
+        return f"""User(
+            user_id={self.user_id},
+            name={self.name},
+            role={self.role}
+        )"""
 
 
 class SlackCallbackEvent(AbstractModel):
@@ -84,9 +112,8 @@ class Inbox(AbstractModel):
     Attributes:
         inbox_id (str): Unique identifier for the inbox.
         name (str): Required name of the inbox.
-        description (str, optional): Optional description of the inbox.
-        slack_channel (SlackChannel, optional):
-            Optional Slack channel linked to the inbox.
+        description (str, optional): description of the inbox.
+        slack_channel (SlackChannel, optional): Slack channel linked to the inbox.
     """
 
     def __init__(
@@ -118,19 +145,43 @@ class Inbox(AbstractModel):
 
 
 class Issue(AbstractModel):
-    def __init__(self, issue_id: str, title: str, body: str) -> None:
+    def __init__(
+        self,
+        issue_id: str | None,
+        inbox_id: str,
+        requester_id: str,
+        body: str,
+        title: str | None,
+    ) -> None:
         self.issue_id = issue_id
-        self.title = title
+        self.inbox_id = inbox_id
+        self.requester_id = requester_id
         self.body = body
+        self._title = title
+
+    @property
+    def title(self) -> str:
+        if self._title is None:
+            return f"{self.body[:64]}..."
+        return self._title
+
+    @title.setter
+    def title(self, title: str) -> None:
+        self._title = title
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Issue):
             return False
         return self.issue_id == other.issue_id
 
+    def __hash__(self) -> int:
+        return hash(self.issue_id)
+
     def __repr__(self) -> str:
         return f"""Issue(
             issue_id={self.issue_id},
+            inbox_id={self.inbox_id},
+            requester_id={self.requester_id},
             title={self.title},
             body={self.body[: 64]}
         )"""

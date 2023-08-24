@@ -24,7 +24,7 @@ class CreateSlackChannelRequestBody(BaseModel):
     channel_type: str
 
 
-@router.post("/create/")
+@router.post("/")
 async def create_channel(channel: CreateSlackChannelRequestBody):
     try:
         command = CreateSlackChannelCommand(
