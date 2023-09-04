@@ -1,6 +1,6 @@
-class SlackEventDBException(Exception):
-    pass
+# class SlackEventDBException(Exception):
+#     pass
 
 
-class SlackEventEntityValidation(Exception):
-    pass
+# class SlackEventEntityValidation(Exception):
+#     pass

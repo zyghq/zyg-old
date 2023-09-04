@@ -4,10 +4,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
+from src.application.commands import SlackEventCallBackCommand
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
-from src.domain.commands import CreateSlackEventCommand
 from src.logger import logger
-from src.services.event.dispatcher import SlackEventServiceDispatcher
+from src.services.event import SlackEventCallBackDispatchService
 
 
 class SlackEventCallBackRequestBody(BaseModel):
@@ -114,7 +114,7 @@ async def slack_event(request: Request) -> Any:
                 },
             )
         try:
-            slack_request_body = SlackEventCallBackRequestBody(**body)
+            slack_callback_body = SlackEventCallBackRequestBody(**body)
         except ValidationError as e:
             logger.info("notify admin: event callback is not valid!")
             logger.warning(e)
@@ -131,34 +131,18 @@ async def slack_event(request: Request) -> Any:
                 },
             )
 
-        event_type = slack_request_body.event.get("type", None)
-        command = CreateSlackEventCommand(
-            event_id=slack_request_body.event_id,
-            team_id=slack_request_body.team_id,
-            event=slack_request_body.event,
-            event_type=event_type,
-            event_ts=slack_request_body.event_time,
-            metadata={
-                "api_app_id": slack_request_body.api_app_id,
-                "token": slack_request_body.token,
-                "authorizations": slack_request_body.authorizations,
-                "authed_users": slack_request_body.authed_users,
-                "is_ext_shared_channel": slack_request_body.is_ext_shared_channel,
-                "event_context": slack_request_body.event_context,
-                "callback_type": callback_type,
-                "context_team_id": slack_request_body.context_team_id,
-                "context_enterprise_id": slack_request_body.context_enterprise_id,
-            },
-        )
         try:
-            #
-            # pass the event command to the dispatcher
-            # based on the inner `type` of the event we dispatch it to the
-            # appropriate service.
-            slack_event_service_dispatcher = SlackEventServiceDispatcher(
-                command, override=True
+            command = SlackEventCallBackCommand(
+                slack_event_ref=slack_callback_body.event_id,
+                slack_team_ref=slack_callback_body.team_id,
+                event=slack_callback_body.event,
+                event_ts=slack_callback_body.event_time,
+                payload=slack_callback_body.model_dump(),
             )
-            await slack_event_service_dispatcher.dispatch()
+            slack_event = await SlackEventCallBackDispatchService().dispatch(command)
+            print("check logs - later do repr....")
+            print(slack_event)
+            print(slack_event.event)
         except Exception as e:
             logger.error("notify admin: error while capturing or dispatching event.")
             logger.error(e)
