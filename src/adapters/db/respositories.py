@@ -6,7 +6,7 @@ import string
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
 
-from .entities import InboxDbEntity, SlackChannelDBEntity, SlackEventDbEntity
+from .entities import SlackEventDBEntity, TenantDBEntity
 from .exceptions import DBIntegrityException
 
 
@@ -19,234 +19,285 @@ class BaseRepository:
         return result
 
 
-class AbstractSlackEventRepository(abc.ABC):
+class AbstractTenantRepository(abc.ABC):
     @abc.abstractmethod
-    async def add(self, new_slack_event: SlackEventDbEntity):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    async def get(self, event_id: str):
-        raise NotImplementedError
-
-
-class SlackEventRepository(AbstractSlackEventRepository):
-    def __init__(self, connection) -> None:
-        self.conn = connection
-
-    async def add(self, new_slack_event: SlackEventDbEntity) -> SlackEventDbEntity:
-        query = """
-            insert into slack_event (
-                event_id, team_id, event, event_type, 
-                event_ts, metadata
-            )
-            values (
-                :event_id, :team_id, :event, :event_type, 
-                :event_ts, :metadata
-            )
-            returning event_id, team_id, event, event_type, 
-                event_ts, metadata, created_at, updated_at, is_ack
-        """
-        parameters = {
-            "event_id": new_slack_event.event_id,
-            "team_id": new_slack_event.team_id,
-            "event": json.dumps(new_slack_event.event)
-            if isinstance(new_slack_event.event, dict)
-            else None,
-            "event_type": new_slack_event.event_type,
-            "event_ts": new_slack_event.event_ts,
-            "metadata": json.dumps(new_slack_event.metadata)
-            if isinstance(new_slack_event.metadata, dict)
-            else None,
-        }
-        try:
-            rows = await self.conn.execute(statement=text(query), parameters=parameters)
-            result = rows.mappings().first()
-        except IntegrityError as e:
-            # We are raising `DBIntegrityException` here
-            # to maintain common exception handling for database related
-            # exceptions, this makes sure that we are not leaking
-            # database related exceptions to the downstream layers
-            #
-            # Having custom exceptions for database related exceptions
-            # also helps us to have a better control over the error handling.
-            raise DBIntegrityException(e)
-        return SlackEventDbEntity(**result)
-
-    async def upsert(self, slack_event: SlackEventDbEntity) -> SlackEventDbEntity:
-        query = """
-            insert into slack_event (
-                event_id, team_id, event, event_type, 
-                event_ts, metadata
-            )
-            values (
-                :event_id, :team_id, :event, :event_type, 
-                :event_ts, :metadata
-            )
-            on conflict (event_id) do update set
-                team_id = :team_id,
-                event = :event,
-                event_type = :event_type,
-                event_ts = :event_ts,
-                metadata = :metadata
-            returning event_id, team_id, event, event_type, 
-                event_ts, metadata, created_at, updated_at, is_ack
-        """
-        parameters = {
-            "event_id": slack_event.event_id,
-            "team_id": slack_event.team_id,
-            "event": json.dumps(slack_event.event)
-            if isinstance(slack_event.event, dict)
-            else None,
-            "event_type": slack_event.event_type,
-            "event_ts": slack_event.event_ts,
-            "metadata": json.dumps(slack_event.metadata)
-            if isinstance(slack_event.metadata, dict)
-            else None,
-        }
-        try:
-            rows = await self.conn.execute(statement=text(query), parameters=parameters)
-            result = rows.mappings().first()
-        except IntegrityError as e:
-            # We are raising `DBIntegrityException` here
-            # to maintain common exception handling for database related
-            # exceptions, this makes sure that we are not leaking
-            # database related exceptions to the downstream layers
-            #
-            # Having custom exceptions for database related exceptions
-            # also helps us to have a better control over the error handling.
-            raise DBIntegrityException(e)
-        return SlackEventDbEntity(**result)
-
-    async def get(self, event_id: str):
-        raise NotImplementedError
-
-
-class AbstractInboxRepository(abc.ABC):
-    @abc.abstractmethod
-    async def add(self, inbox: InboxDbEntity):
+    async def find_by_id(self, tenant_id: str) -> TenantDBEntity | None:
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def get(self, inbox_id: str):
-        raise NotImplementedError
-
-
-class InboxRepository(AbstractInboxRepository, BaseRepository):
-    def __init__(self, connection) -> None:
-        self.conn = connection
-
-    async def add(self, new_inbox: InboxDbEntity) -> InboxDbEntity:
-        query = """
-            insert into inbox (
-                inbox_id, name, description, slack_channel_id
-            )
-            values (
-                :inbox_id, :name, :description, :slack_channel_id
-            )
-            returning inbox_id, name, description, slack_channel_id, created_at, updated_at
-        """
-        parameters = {
-            "inbox_id": new_inbox.inbox_id,
-            "name": new_inbox.name,
-            "description": new_inbox.description,
-            "slack_channel_id": new_inbox.slack_channel_id,
-        }
-        try:
-            rows = await self.conn.execute(statement=text(query), parameters=parameters)
-            result = rows.mappings().first()
-        except IntegrityError as e:
-            # We are raising `DBIntegrityException` here
-            # to maintain common exception handling for database related
-            # exceptions, this makes sure that we are not leaking
-            # database related exceptions to the downstream layers
-            #
-            # Having custom exceptions for database related exceptions
-            # also helps us to have a better control over the error handling.
-            raise DBIntegrityException(e)
-        return InboxDbEntity(**result)
-
-    async def get(self, inbox_id: str):
-        raise NotImplementedError
-
-    async def is_slack_channel_id_linked(self, slack_channel_id: str) -> bool:
-        query = """
-            select exists (
-                select 1 from inbox
-                where slack_channel_id = :slack_channel_id
-            )
-        """
-        parameters = {"slack_channel_id": slack_channel_id}
-        rows = await self.conn.execute(statement=text(query), parameters=parameters)
-        result = rows.scalars().first()
-        return result
-
-
-class AbstractSlackChannelRepository(abc.ABC):
-    @abc.abstractmethod
-    async def add(self, slack_channel: SlackChannelDBEntity):
+    async def save(self, tenant: TenantDBEntity) -> TenantDBEntity:
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def get(self, channel_id: str):
+    async def find_by_slack_team_ref(
+        self, slack_team_ref: str
+    ) -> TenantDBEntity | None:
         raise NotImplementedError
 
 
-class SlackChannelRepository(AbstractSlackChannelRepository, BaseRepository):
+class TenantRepository(AbstractTenantRepository, BaseRepository):
     def __init__(self, connection):
         self.conn = connection
 
-    async def add(self, slack_channel: SlackChannelDBEntity) -> SlackChannelDBEntity:
+    async def find_by_slack_team_ref(
+        self, slack_team_ref: str
+    ) -> TenantDBEntity | None:
         query = """
-            insert into slack_channel (
-                channel_id, name, channel_type
-            )
-            values (
-                :channel_id, :name, :channel_type
-            )
-            returning channel_id, name, channel_type, created_at, updated_at
+            select tenant_id, name, created_at, updated_at
+            from tenant
+            where slack_team_ref = :slack_team_ref
         """
-        parameters = {
-            "channel_id": slack_channel.channel_id,
-            "name": slack_channel.name,
-            "channel_type": slack_channel.channel_type,
-        }
-        try:
-            rows = await self.conn.execute(statement=text(query), parameters=parameters)
-            result = rows.mappings().first()
-        except IntegrityError as e:
-            # We are raising `DBIntegrityException` here
-            # to maintain common exception handling for database related
-            # exceptions, this makes sure that we are not leaking
-            # database related exceptions to the downstream layers
-            #
-            # Having custom exceptions for database related exceptions
-            # also helps us to have a better control over the error handling.
-            raise DBIntegrityException(e)
-        return SlackChannelDBEntity(**result)
-
-    async def get(self, channel_id: str):
-        query = """
-            select channel_id, name, channel_type, created_at, updated_at
-            from slack_channel
-            where channel_id = :channel_id
-        """
-        parameters = {"channel_id": channel_id}
+        parameters = {"slack_team_ref": slack_team_ref}
         rows = await self.conn.execute(statement=text(query), parameters=parameters)
         result = rows.mappings().first()
         if result is None:
             return None
-        return SlackChannelDBEntity(**result)
+        return TenantDBEntity(**result)
 
-    async def is_channel_exists(self, channel_id: str):
+    async def find_by_id(self, tenant_id: str) -> TenantDBEntity | None:
         query = """
-            select exists (
-                select 1 from slack_channel
-                where channel_id = :channel_id
-            )
+            select tenant_id, name, created_at, updated_at
+            from tenant
+            where tenant_id = :tenant_id
         """
-        parameters = {"channel_id": channel_id}
+        parameters = {"tenant_id": tenant_id}
         rows = await self.conn.execute(statement=text(query), parameters=parameters)
-        result = rows.scalars().first()
+        result = rows.mappings().first()
         if result is None:
-            return False
-        return result
+            return None
+        return TenantDBEntity(**result)
+
+    async def _upsert(self, tenant: TenantDBEntity) -> TenantDBEntity:
+        query = """
+            insert into tenant (
+                tenant_id,
+                name,
+                slack_team_ref
+            )
+            values (
+                :tenant_id,
+                :name,
+                :slack_team_ref
+            )
+            on conflict (tenant_id) do update set
+                tenant_id = :tenant_id
+                name = :name
+                slack_team_ref = :slack_team_ref
+                updated_at = now()
+            returning tenant_id, name, slack_team_ref, created_at, updated_at
+        """
+        parameters = {
+            "tenant_id": tenant.tenant_id,
+            "name": tenant.name,
+            "slack_team_ref": tenant.slack_team_ref,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+        return TenantDBEntity(**result)
+
+    async def _insert(self, tenant: TenantDBEntity) -> TenantDBEntity:
+        tenant_id = self.generate_id()
+        query = """
+            insert into tenant (
+                tenant_id,
+                name,
+                slack_team_ref
+            )
+            values (
+                :tenant_id,
+                :name,
+                :slack_team_ref
+            )
+            returning tenant_id, name, slack_team_ref, created_at, updated_at
+        """
+        parameters = {
+            "tenant_id": tenant_id,
+            "name": tenant.name,
+            "slack_team_ref": tenant.slack_team_ref,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+        return TenantDBEntity(**result)
+
+    async def save(self, tenant: TenantDBEntity) -> TenantDBEntity:
+        if tenant.tenant_id is None:
+            return await self._insert(tenant)
+        return await self._upsert(tenant)
+
+
+class AbstractSlackEventRepository(abc.ABC):
+    @abc.abstractmethod
+    async def save(self, slack_event: SlackEventDBEntity):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def find_by_id(self, event_id: str):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def find_by_slack_event_ref(self, slack_event_ref: str):
+        raise NotImplementedError
+
+
+class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
+    def __init__(self, connection) -> None:
+        self.conn = connection
+
+    async def find_by_slack_event_ref(self, slack_event_ref: str):
+        query = """
+            select event_id, tenant_id, slack_event_ref,
+                inner_event_type, event, event_ts, api_app_id,
+                token, payload, is_ack, created_at, updated_at
+            from slack_event
+            where slack_event_ref = :slack_event_ref
+        """
+        parameters = {"slack_event_ref": slack_event_ref}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return SlackEventDBEntity(**result)
+
+    async def find_by_id(self, event_id: str):
+        query = """
+            select event_id, tenant_id, slack_event_ref,
+                inner_event_type, event, event_ts, api_app_id,
+                token, payload, is_ack, created_at, updated_at
+            from slack_event
+            where event_id = :event_id
+        """
+        parameters = {"event_id": event_id}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return SlackEventDBEntity(**result)
+
+    async def _upsert(self, slack_event: SlackEventDBEntity) -> SlackEventDBEntity:
+        query = """
+            insert into slack_event (
+                event_id, tenant_id, slack_event_ref,
+                inner_event_type, event, event_ts, api_app_id,
+                token, payload, is_ack
+            )
+            values (
+                :event_id, :tenant_id, :slack_event_ref,
+                :inner_event_type, :event, :event_ts, :api_app_id,
+                :token, :payload, :is_ack
+            )
+            on conflict (event_id) do update set
+                tenant_id = :tenant_id,
+                slack_event_ref = :slack_event_ref,
+                inner_event_type = :inner_event_type,
+                event = :event,
+                event_ts = :event_ts,
+                api_app_id = :api_app_id,
+                token = :token,
+                payload = :payload,
+                is_ack = :is_ack,
+                updated_at = now()
+            returning event_id, tenant_id, slack_event_ref,
+                inner_event_type, event, event_ts, api_app_id,
+                token, payload, is_ack, created_at, updated_at
+        """
+        parameters = {
+            "event_id": slack_event.event_id,
+            "tenant_id": slack_event.tenant_id,
+            "slack_event_ref": slack_event.slack_event_ref,
+            "inner_event_type": slack_event.inner_event_type,
+            "event": json.dumps(slack_event.event)
+            if isinstance(slack_event.event, dict)
+            else None,
+            "event_ts": slack_event.event_ts,
+            "api_app_id": slack_event.api_app_id,
+            "token": slack_event.token,
+            "payload": json.dumps(slack_event.payload)
+            if isinstance(slack_event.payload, dict)
+            else None,
+            "is_ack": slack_event.is_ack,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+        return SlackEventDBEntity(**result)
+
+    async def _insert(self, slack_event: SlackEventDBEntity) -> SlackEventDBEntity:
+        event_id = self.generate_id()
+        query = """
+            insert into slack_event (
+                event_id, tenant_id, slack_event_ref,
+                inner_event_type, event, event_ts, api_app_id,
+                token, payload, is_ack
+            )
+            values (
+                :event_id, :tenant_id, :slack_event_ref,
+                :inner_event_type, :event, :event_ts, :api_app_id,
+                :token, :payload, :is_ack
+            )
+            returning event_id, tenant_id, slack_event_ref,
+                inner_event_type, event, event_ts, api_app_id,
+                token, payload, is_ack, created_at, updated_at
+        """
+        parameters = {
+            "event_id": event_id,
+            "tenant_id": slack_event.tenant_id,
+            "slack_event_ref": slack_event.slack_event_ref,
+            "inner_event_type": slack_event.inner_event_type,
+            "event": json.dumps(slack_event.event)
+            if isinstance(slack_event.event, dict)
+            else None,
+            "event_ts": slack_event.event_ts,
+            "api_app_id": slack_event.api_app_id,
+            "token": slack_event.token,
+            "payload": json.dumps(slack_event.payload)
+            if isinstance(slack_event.payload, dict)
+            else None,
+            "is_ack": slack_event.is_ack,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+        return SlackEventDBEntity(**result)
+
+    async def save(self, slack_event: SlackEventDBEntity) -> SlackEventDBEntity:
+        if slack_event.event_id is None:
+            return await self._insert(slack_event)
+        return await self._upsert(slack_event)
