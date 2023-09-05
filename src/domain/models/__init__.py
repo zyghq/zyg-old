@@ -18,51 +18,6 @@ class AbstractValueObject:
     pass
 
 
-# deprecate
-class SlackCallbackEvent(AbstractEntity):
-    """
-    Represents a Slack callback event.
-
-    Attributes:
-        event_id (str): The unique identifier for the event.
-        team_id (str): The unique identifier for the team.
-        event_type (str): The type of event.
-        event (dict): The event payload.
-        event_ts (int, optional): The event time stamp from Slack.
-        metadata (dict, optional): Other metadata from Slack.
-    """
-
-    def __init__(
-        self,
-        event_id: str,
-        team_id: str,
-        event_type: str,
-        event: dict,
-        event_ts: int,
-        metadata: dict | None = None,
-        is_ack: bool = False,
-    ) -> None:
-        self.event_id = event_id
-        self.team_id = team_id
-        self.event_type = event_type
-        self.event = event
-        self.event_ts = event_ts  # event time stamp from Slack
-        self.metadata = metadata  # other metadata from Slack
-        self.is_ack = is_ack  # whether the event was acknowledged
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SlackCallbackEvent):
-            return False
-        return self.event_id == other.event_id
-
-    def __repr__(self) -> str:
-        return f"""SlackCallbackEvent(
-                event_id={self.event_id},
-                team_id={self.team_id},
-                event_type={self.event_type}
-            )"""
-
-
 class Tenant(AbstractEntity):
     def __init__(self, tenant_id: str | None, name: str) -> None:
         self.tenant_id = tenant_id
@@ -288,3 +243,106 @@ class SlackEvent(AbstractEntity):
     def token(self) -> str | None:
         token = self.payload.get("token", None)
         return token
+
+
+# {
+#     "context_team_id": "T03NX4VMCRH",
+#     "created": 1691054861,
+#     "creator": "U03NGJTT5JT",
+#     "id": "C05L4282G03",
+#     "is_archived": False,
+#     "is_channel": True,
+#     "is_ext_shared": False,
+#     "is_general": False,
+#     "is_group": False,
+#     "is_im": False,
+#     "is_member": False,
+#     "is_mpim": False,
+#     "is_org_shared": False,
+#     "is_pending_ext_shared": False,
+#     "is_private": False,
+#     "is_shared": False,
+#     "name": "ext-foobar",
+#     "name_normalized": "ext-foobar",
+#     "num_members": 1,
+#     "parent_conversation": None,
+#     "pending_connected_team_ids": [],
+#     "pending_shared": [],
+#     "previous_names": [],
+#     "purpose": {"creator": "", "last_set": 0, "value": ""},
+#     "shared_team_ids": ["T03NX4VMCRH"],
+#     "topic": {"creator": "", "last_set": 0, "value": ""},
+#     "unlinked": 0,
+#     "updated": 1691054861992,
+# }
+
+
+@define
+class ForSyncSlackConversationItem(AbstractValueObject):
+    """
+    Represents a Slack conversation item, after succesful API call.
+    Attrs:
+        as defined in https://api.slack.com/types/conversation
+    """
+
+    context_team_id: str
+    created: int = field(eq=False)
+    creator: str
+    id: str
+    is_archived: bool
+    is_channel: bool
+    is_ext_shared: bool
+    is_general: bool
+    is_group: bool
+    is_im: bool
+    is_member: bool
+    is_mpim: bool
+    is_org_shared: bool
+    is_pending_ext_shared: bool
+    is_private: bool
+    is_shared: bool
+    name: str = field(eq=False)
+    name_normalized: str = field(eq=False)
+    num_members: int = field(eq=False)
+    parent_conversation: str | None = field(eq=False)
+    pending_connected_team_ids: list[str] = field(eq=False)
+    pending_shared: list[str] = field(eq=False)
+    previous_names: list[str] = field(eq=False)
+    purpose: dict[str, str] = field(eq=False)
+    shared_team_ids: list[str] = field(eq=False)
+    topic: dict[str, str] = field(eq=False)
+    unlinked: int = field(eq=False)
+    updated: int = field(eq=False)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ForSyncSlackConversationItem":
+        return cls(
+            context_team_id=data.get("context_team_id"),
+            created=data.get("created"),
+            creator=data.get("creator"),
+            id=data.get("id"),
+            is_archived=data.get("is_archived"),
+            is_channel=data.get("is_channel"),
+            is_ext_shared=data.get("is_ext_shared"),
+            is_general=data.get("is_general"),
+            is_group=data.get("is_group"),
+            is_im=data.get("is_im"),
+            is_member=data.get("is_member"),
+            is_mpim=data.get("is_mpim"),
+            is_org_shared=data.get("is_org_shared"),
+            is_pending_ext_shared=data.get("is_pending_ext_shared"),
+            is_private=data.get("is_private"),
+            is_shared=data.get("is_shared"),
+            name=data.get("name"),
+            name_normalized=data.get("name_normalized"),
+            num_members=data.get("num_members"),
+            parent_conversation=data.get("parent_conversation"),
+            pending_connected_team_ids=data.get("pending_connected_team_ids"),
+            pending_shared=data.get("pending_shared"),
+            previous_names=data.get("previous_names"),
+            purpose=data.get("purpose"),
+            shared_team_ids=data.get("shared_team_ids"),
+            topic=data.get("topic"),
+            unlinked=data.get("unlinked"),
+            updated=data.get("updated"),
+        )
