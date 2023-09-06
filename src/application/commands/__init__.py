@@ -12,3 +12,8 @@ class SlackEventCallBackCommand(BaseModel):
     event: dict
     event_ts: int
     payload: dict
+
+
+class TenantSyncChannelCommand(BaseModel):
+    tenant_id: str
+    types: list[str] | None = None

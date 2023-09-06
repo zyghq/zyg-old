@@ -1,6 +1,8 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
-from src.domain.models import ForSyncSlackConversationItem, SlackEvent
+from src.domain.models import InSyncSlackChannelItem, SlackEvent
 
 
 class TenantRepr(BaseModel):
@@ -13,7 +15,7 @@ class SlackCallBackEventRepr(BaseModel):
     id: str
 
 
-class InSyncSlackConversationItemRepr(BaseModel):
+class InSyncSlackChannelItemRepr(BaseModel):
     id: str
     name: str
     created: int
@@ -31,6 +33,8 @@ class InSyncSlackConversationItemRepr(BaseModel):
     is_shared: bool
     topic: dict
     updated: int
+    updated_at: datetime
+    created_at: datetime
 
 
 def slack_callback_event_repr(
@@ -39,13 +43,13 @@ def slack_callback_event_repr(
     pass
 
 
-def for_sync_slack_conversation_item_repr(
-    item: ForSyncSlackConversationItem,
-) -> InSyncSlackConversationItemRepr:
+def insync_slack_channel_item_repr(
+    item: InSyncSlackChannelItem,
+) -> InSyncSlackChannelItemRepr:
     topic = {
         "value": item.topic.get("value", ""),
     }
-    return InSyncSlackConversationItemRepr(
+    return InSyncSlackChannelItemRepr(
         id=item.id,
         name=item.name,
         created=item.created,
@@ -63,4 +67,6 @@ def for_sync_slack_conversation_item_repr(
         is_shared=item.is_shared,
         topic=topic,
         updated=item.updated,
+        updated_at=item.updated_at,
+        created_at=item.created_at,
     )

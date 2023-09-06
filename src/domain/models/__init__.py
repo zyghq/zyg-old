@@ -1,4 +1,5 @@
 import abc
+from datetime import datetime
 from enum import Enum
 
 from attrs import define, field
@@ -245,46 +246,16 @@ class SlackEvent(AbstractEntity):
         return token
 
 
-# {
-#     "context_team_id": "T03NX4VMCRH",
-#     "created": 1691054861,
-#     "creator": "U03NGJTT5JT",
-#     "id": "C05L4282G03",
-#     "is_archived": False,
-#     "is_channel": True,
-#     "is_ext_shared": False,
-#     "is_general": False,
-#     "is_group": False,
-#     "is_im": False,
-#     "is_member": False,
-#     "is_mpim": False,
-#     "is_org_shared": False,
-#     "is_pending_ext_shared": False,
-#     "is_private": False,
-#     "is_shared": False,
-#     "name": "ext-foobar",
-#     "name_normalized": "ext-foobar",
-#     "num_members": 1,
-#     "parent_conversation": None,
-#     "pending_connected_team_ids": [],
-#     "pending_shared": [],
-#     "previous_names": [],
-#     "purpose": {"creator": "", "last_set": 0, "value": ""},
-#     "shared_team_ids": ["T03NX4VMCRH"],
-#     "topic": {"creator": "", "last_set": 0, "value": ""},
-#     "unlinked": 0,
-#     "updated": 1691054861992,
-# }
-
-
 @define
-class ForSyncSlackConversationItem(AbstractValueObject):
+class InSyncSlackChannelItem(AbstractValueObject):
     """
     Represents a Slack conversation item, after succesful API call.
+    We call it Slack Channel for our understandings.
     Attrs:
         as defined in https://api.slack.com/types/conversation
     """
 
+    tenant_id: str
     context_team_id: str
     created: int = field(eq=False)
     creator: str
@@ -314,9 +285,13 @@ class ForSyncSlackConversationItem(AbstractValueObject):
     unlinked: int = field(eq=False)
     updated: int = field(eq=False)
 
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+
     @classmethod
-    def from_dict(cls, data: dict) -> "ForSyncSlackConversationItem":
+    def from_dict(cls, tenant_id, data: dict) -> "InSyncSlackChannelItem":
         return cls(
+            tenant_id=tenant_id,
             context_team_id=data.get("context_team_id"),
             created=data.get("created"),
             creator=data.get("creator"),

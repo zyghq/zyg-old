@@ -3,23 +3,19 @@ from typing import List
 from pydantic import BaseModel, ConfigDict
 from slack_sdk import WebClient
 
-from src.config import SLACK_BOT_OAUTH_TOKEN
-from src.domain.models import ForSyncSlackConversationItem
+from src.domain.models import InSyncSlackChannelItem, Tenant
 from src.logger import logger
 
 from .exceptions import SlackAPIException, SlackAPIResponseException
 
-#
-#  Sanchit Rk
-#  sanchitrrk@gmail.com
-#  
-#  TODO:
-#  for now we are reading from env, but ideally this will some how be injected
-#  from the tenant context
-slack_web_client = WebClient(token=SLACK_BOT_OAUTH_TOKEN)
-
 
 class SlackConversationItemResponse(BaseModel):
+    """
+    Mapped as per the response from Slack APIs for `conversations.list`
+
+    subject to change as per the Slack API response
+    """
+
     model_config: ConfigDict = ConfigDict(str_to_lower=True)
 
     context_team_id: str
@@ -45,23 +41,38 @@ class SlackConversationItemResponse(BaseModel):
     pending_connected_team_ids: list[str] = []
     pending_shared: list[str] = []
     previous_names: list[str] = []
-    purpose: dict
+    purpose: dict | None = None
     shared_team_ids: list[str] = []
-    topic: dict
-    unlinked: int
+    topic: dict | None = None
+    unlinked: int | None = None
     updated: int
 
 
 class SlackWebAPIConnector:
-    def __init__(self, client: WebClient = slack_web_client) -> None:
-        self.client = client
+    def __init__(self, tenant: Tenant, token: str) -> None:
+        self.tenant = tenant
+        self.token = token
+        self._client = WebClient(token=token)
+
+    @classmethod
+    def for_tenant(cls, tenant: Tenant, token: str) -> "SlackWebAPIConnector":
+        # TODO: later token will be fetched from the tenant context.
+        return cls(tenant=tenant, token=token)
+        # return cls(tenant=tenant, token=tenant.slack_bot_oauth_token)
 
     def get_conversation_list(
         self, types: str = "public_channels"
-    ) -> List[ForSyncSlackConversationItem]:
+    ) -> List[InSyncSlackChannelItem]:
+        """
+        refer the Slack API docs for more information at:
+        https://api.slack.com/methods/conversations.list
+
+        :param types: comma separated list of types to include in the response
+        :return: list of InSyncSlackChannelItem
+        """
         logger.info(f"invoked `get_conversation_list` for args: {types}")
         try:
-            response = self.client.conversations_list(types=types)
+            response = self._client.conversations_list(types=types)
         except SlackAPIException as e:
             logger.error(f"slack API error: {e}")
 
@@ -73,13 +84,16 @@ class SlackWebAPIConnector:
                 conversation_item_response_dict = (
                     conversation_item_response.model_dump()
                 )
-                conversation_item = ForSyncSlackConversationItem.from_dict(
-                    conversation_item_response_dict
+                insync_channel_item = InSyncSlackChannelItem.from_dict(
+                    self.tenant.tenant_id, data=conversation_item_response_dict
                 )
-                results.append(conversation_item)
+                results.append(insync_channel_item)
         else:
             error = response.get("error", "unknown")
-            logger.error(f"slack connector API error with slack error code: {error}")
+            logger.error(
+                f"slack connector API error with slack error code: {error} ",
+                f"check Slack docs for more information for error: {error}",
+            )
             raise SlackAPIResponseException(
                 f"slack connector API error with slack error code: {error}"
             )
