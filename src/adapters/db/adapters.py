@@ -2,10 +2,26 @@ import attrs
 from sqlalchemy.engine.base import Engine
 
 from src.adapters.db import engine
-from src.domain.models import SlackEvent, Tenant
+from src.domain.models import (
+    InSyncSlackChannelItem,
+    LinkedSlackChannel,
+    SlackEvent,
+    Tenant,
+    TriageSlackChannel,
+)
 
-from .entities import SlackEventDBEntity, TenantDBEntity
-from .respositories import SlackEventRepository, TenantRepository
+from .entities import (
+    InSyncSlackChannelDBEntity,
+    LinkedSlackChannelDBEntity,
+    SlackEventDBEntity,
+    TenantDBEntity,
+)
+from .respositories import (
+    InSyncChannelRepository,
+    LinkedSlackChannelRepository,
+    SlackEventRepository,
+    TenantRepository,
+)
 
 
 class SlackEventDBAdapter:
@@ -30,7 +46,8 @@ class SlackEventDBAdapter:
     def _map_to_domain(self, slack_event_entity: SlackEventDBEntity) -> SlackEvent:
         tenant_id = slack_event_entity.tenant_id
         payload = slack_event_entity.payload
-        slack_event = SlackEvent.init_from_payload(tenant_id=tenant_id, payload=payload)
+        slack_event = SlackEvent.from_payload(tenant_id=tenant_id, payload=payload)
+        slack_event.set_event_id(slack_event_entity.event_id)
         return slack_event
 
     async def save(self, slack_event: SlackEvent) -> SlackEvent:
@@ -93,4 +110,153 @@ class TenantDBAdapter:
                 return None
             else:
                 result = self._map_to_domain(tenant_entity)
+        return result
+
+    async def get_by_id(self, tenant_id: str) -> Tenant:
+        async with self.engine.begin() as conn:
+            tenant_entity = await TenantRepository(conn).get_by_id(tenant_id)
+            result = self._map_to_domain(tenant_entity)
+        return result
+
+
+class InSyncChannelDBAdapter:
+    def __init__(self, engine: Engine = engine) -> None:
+        self.engine = engine
+
+    def _map_to_db_entity(
+        self, insync_slack_channel: InSyncSlackChannelItem
+    ) -> InSyncSlackChannelDBEntity:
+        return InSyncSlackChannelDBEntity(
+            tenant_id=insync_slack_channel.tenant_id,
+            context_team_id=insync_slack_channel.context_team_id,
+            created=insync_slack_channel.created,
+            creator=insync_slack_channel.creator,
+            id=insync_slack_channel.id,
+            is_archived=insync_slack_channel.is_archived,
+            is_channel=insync_slack_channel.is_channel,
+            is_ext_shared=insync_slack_channel.is_ext_shared,
+            is_general=insync_slack_channel.is_general,
+            is_group=insync_slack_channel.is_group,
+            is_im=insync_slack_channel.is_im,
+            is_member=insync_slack_channel.is_member,
+            is_mpim=insync_slack_channel.is_mpim,
+            is_org_shared=insync_slack_channel.is_org_shared,
+            is_pending_ext_shared=insync_slack_channel.is_pending_ext_shared,
+            is_private=insync_slack_channel.is_private,
+            is_shared=insync_slack_channel.is_shared,
+            name=insync_slack_channel.name,
+            name_normalized=insync_slack_channel.name_normalized,
+            num_members=insync_slack_channel.num_members,
+            parent_conversation=insync_slack_channel.parent_conversation,
+            pending_connected_team_ids=insync_slack_channel.pending_connected_team_ids,
+            pending_shared=insync_slack_channel.pending_shared,
+            previous_names=insync_slack_channel.previous_names,
+            purpose=insync_slack_channel.purpose,
+            shared_team_ids=insync_slack_channel.shared_team_ids,
+            topic=insync_slack_channel.topic,
+            unlinked=insync_slack_channel.unlinked,
+            updated=insync_slack_channel.updated,
+            updated_at=insync_slack_channel.updated_at,
+            created_at=insync_slack_channel.created_at,
+        )
+
+    def _map_to_domain(
+        self, sync_channel_entity: InSyncSlackChannelDBEntity
+    ) -> InSyncSlackChannelItem:
+        return InSyncSlackChannelItem(
+            tenant_id=sync_channel_entity.tenant_id,
+            context_team_id=sync_channel_entity.context_team_id,
+            created=sync_channel_entity.created,
+            creator=sync_channel_entity.creator,
+            id=sync_channel_entity.id,
+            is_archived=sync_channel_entity.is_archived,
+            is_channel=sync_channel_entity.is_channel,
+            is_ext_shared=sync_channel_entity.is_ext_shared,
+            is_general=sync_channel_entity.is_general,
+            is_group=sync_channel_entity.is_group,
+            is_im=sync_channel_entity.is_im,
+            is_member=sync_channel_entity.is_member,
+            is_mpim=sync_channel_entity.is_mpim,
+            is_org_shared=sync_channel_entity.is_org_shared,
+            is_pending_ext_shared=sync_channel_entity.is_pending_ext_shared,
+            is_private=sync_channel_entity.is_private,
+            is_shared=sync_channel_entity.is_shared,
+            name=sync_channel_entity.name,
+            name_normalized=sync_channel_entity.name_normalized,
+            num_members=sync_channel_entity.num_members,
+            parent_conversation=sync_channel_entity.parent_conversation,
+            pending_connected_team_ids=sync_channel_entity.pending_connected_team_ids,
+            pending_shared=sync_channel_entity.pending_shared,
+            previous_names=sync_channel_entity.previous_names,
+            purpose=sync_channel_entity.purpose,
+            shared_team_ids=sync_channel_entity.shared_team_ids,
+            topic=sync_channel_entity.topic,
+            unlinked=sync_channel_entity.unlinked,
+            updated=sync_channel_entity.updated,
+            updated_at=sync_channel_entity.updated_at,
+            created_at=sync_channel_entity.created_at,
+        )
+
+    async def save(
+        self, insync_slack_channel: InSyncSlackChannelItem
+    ) -> InSyncSlackChannelItem:
+        db_entity = self._map_to_db_entity(insync_slack_channel)
+        async with self.engine.begin() as conn:
+            sync_channel_entity = await InSyncChannelRepository(conn).save(db_entity)
+            result = self._map_to_domain(sync_channel_entity)
+        return result
+
+    async def get_by_tenant_id_slack_channel_ref(
+        self, tenant_id: str, slack_channel_ref: str
+    ) -> InSyncSlackChannelItem:
+        async with self.engine.begin() as conn:
+            insync_channel_entity = await InSyncChannelRepository(
+                conn
+            ).get_by_tenant_id_id(tenant_id, slack_channel_ref)
+            result = self._map_to_domain(insync_channel_entity)
+        return result
+
+
+class LinkedSlackChannelDBAdapter:
+    def __init__(self, engine: Engine = engine) -> None:
+        self.engine = engine
+
+    def _map_to_db_entity(
+        self, linked_slack_channel: LinkedSlackChannel
+    ) -> LinkedSlackChannelDBEntity:
+        triage_channel = linked_slack_channel.triage_channel
+        return LinkedSlackChannelDBEntity(
+            tenant_id=linked_slack_channel.tenant_id,
+            linked_slack_channel_id=linked_slack_channel.linked_slack_channel_id,
+            slack_channel_ref=linked_slack_channel.slack_channel_ref,
+            slack_channel_name=linked_slack_channel.slack_channel_name,
+            triage_slack_channel_ref=triage_channel.slack_channel_ref,
+            triage_slack_channel_name=triage_channel.slack_channel_name,
+        )
+
+    def _map_to_domain(
+        self, linked_slack_channel_entity: LinkedSlackChannelDBEntity
+    ) -> LinkedSlackChannel:
+        linked_channel = LinkedSlackChannel(
+            tenant_id=linked_slack_channel_entity.tenant_id,
+            linked_slack_channel_id=linked_slack_channel_entity.linked_slack_channel_id,
+            slack_channel_ref=linked_slack_channel_entity.slack_channel_ref,
+            slack_channel_name=linked_slack_channel_entity.slack_channel_name,
+        )
+        linked_channel.add_triage_channel(
+            TriageSlackChannel(
+                tenant_id=linked_slack_channel_entity.tenant_id,
+                slack_channel_ref=linked_slack_channel_entity.triage_slack_channel_ref,
+                slack_channel_name=linked_slack_channel_entity.triage_slack_channel_name,
+            )
+        )
+        return linked_channel
+
+    async def save(self, linked_channel: LinkedSlackChannel) -> LinkedSlackChannel:
+        db_entity = self._map_to_db_entity(linked_channel)
+        async with self.engine.begin() as conn:
+            linked_channel_entity = await LinkedSlackChannelRepository(conn).save(
+                db_entity
+            )
+            result = self._map_to_domain(linked_channel_entity)
         return result

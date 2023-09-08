@@ -1,7 +1,10 @@
 import abc
+from datetime import datetime
 from enum import Enum
 
 from attrs import define, field
+
+from src.domain.exceptions import SlackChannelReferenceValueError, TenantValueError
 
 
 class AbstractEntity(abc.ABC):
@@ -16,51 +19,6 @@ class AbstractEntity(abc.ABC):
 
 class AbstractValueObject:
     pass
-
-
-# deprecate
-class SlackCallbackEvent(AbstractEntity):
-    """
-    Represents a Slack callback event.
-
-    Attributes:
-        event_id (str): The unique identifier for the event.
-        team_id (str): The unique identifier for the team.
-        event_type (str): The type of event.
-        event (dict): The event payload.
-        event_ts (int, optional): The event time stamp from Slack.
-        metadata (dict, optional): Other metadata from Slack.
-    """
-
-    def __init__(
-        self,
-        event_id: str,
-        team_id: str,
-        event_type: str,
-        event: dict,
-        event_ts: int,
-        metadata: dict | None = None,
-        is_ack: bool = False,
-    ) -> None:
-        self.event_id = event_id
-        self.team_id = team_id
-        self.event_type = event_type
-        self.event = event
-        self.event_ts = event_ts  # event time stamp from Slack
-        self.metadata = metadata  # other metadata from Slack
-        self.is_ack = is_ack  # whether the event was acknowledged
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SlackCallbackEvent):
-            return False
-        return self.event_id == other.event_id
-
-    def __repr__(self) -> str:
-        return f"""SlackCallbackEvent(
-                event_id={self.event_id},
-                team_id={self.team_id},
-                event_type={self.event_type}
-            )"""
 
 
 class Tenant(AbstractEntity):
@@ -211,7 +169,7 @@ class SlackEvent(AbstractEntity):
         return slack_event_ref.strip().lower()
 
     @classmethod
-    def init_from_payload(cls, tenant_id: str, payload: dict) -> "SlackEvent":
+    def from_payload(cls, tenant_id: str, payload: dict) -> "SlackEvent":
         slack_event_ref = payload.get("event_id", None)
         slack_event_ref = cls._clean_slack_event_ref(slack_event_ref)
         if not slack_event_ref:
@@ -268,6 +226,9 @@ class SlackEvent(AbstractEntity):
             return
         self.event = event
 
+    def set_event_id(self, event_id: str) -> None:
+        self.event_id = event_id
+
     @property
     def inner_event_type(self) -> str:
         if self.event is None:
@@ -288,3 +249,135 @@ class SlackEvent(AbstractEntity):
     def token(self) -> str | None:
         token = self.payload.get("token", None)
         return token
+
+
+@define
+class InSyncSlackChannelItem(AbstractValueObject):
+    """
+    Represents a Slack conversation item, after succesful API call.
+    We call it Slack Channel for our understandings.
+    Attrs:
+        as defined in https://api.slack.com/types/conversation
+    """
+
+    tenant_id: str
+    context_team_id: str
+    created: int = field(eq=False)
+    creator: str
+    id: str
+    is_archived: bool
+    is_channel: bool
+    is_ext_shared: bool
+    is_general: bool
+    is_group: bool
+    is_im: bool
+    is_member: bool
+    is_mpim: bool
+    is_org_shared: bool
+    is_pending_ext_shared: bool
+    is_private: bool
+    is_shared: bool
+    name: str = field(eq=False)
+    name_normalized: str = field(eq=False)
+    num_members: int = field(eq=False)
+    parent_conversation: str | None = field(eq=False)
+    pending_connected_team_ids: list[str] = field(eq=False)
+    pending_shared: list[str] = field(eq=False)
+    previous_names: list[str] = field(eq=False)
+    purpose: dict[str, str] = field(eq=False)
+    shared_team_ids: list[str] = field(eq=False)
+    topic: dict[str, str] = field(eq=False)
+    unlinked: int = field(eq=False)
+    updated: int = field(eq=False)
+
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+
+    @classmethod
+    def from_dict(cls, tenant_id, data: dict) -> "InSyncSlackChannelItem":
+        return cls(
+            tenant_id=tenant_id,
+            context_team_id=data.get("context_team_id"),
+            created=data.get("created"),
+            creator=data.get("creator"),
+            id=data.get("id"),
+            is_archived=data.get("is_archived"),
+            is_channel=data.get("is_channel"),
+            is_ext_shared=data.get("is_ext_shared"),
+            is_general=data.get("is_general"),
+            is_group=data.get("is_group"),
+            is_im=data.get("is_im"),
+            is_member=data.get("is_member"),
+            is_mpim=data.get("is_mpim"),
+            is_org_shared=data.get("is_org_shared"),
+            is_pending_ext_shared=data.get("is_pending_ext_shared"),
+            is_private=data.get("is_private"),
+            is_shared=data.get("is_shared"),
+            name=data.get("name"),
+            name_normalized=data.get("name_normalized"),
+            num_members=data.get("num_members"),
+            parent_conversation=data.get("parent_conversation"),
+            pending_connected_team_ids=data.get("pending_connected_team_ids"),
+            pending_shared=data.get("pending_shared"),
+            previous_names=data.get("previous_names"),
+            purpose=data.get("purpose"),
+            shared_team_ids=data.get("shared_team_ids"),
+            topic=data.get("topic"),
+            unlinked=data.get("unlinked"),
+            updated=data.get("updated"),
+        )
+
+
+@define
+class TriageSlackChannel(AbstractValueObject):
+    tenant_id: str
+    slack_channel_ref: str
+    slack_channel_name: str
+
+
+class LinkedSlackChannel(AbstractEntity):
+    def __init__(
+        self,
+        tenant_id: str,
+        linked_slack_channel_id: str | None,
+        slack_channel_ref: str,
+        slack_channel_name: str,
+    ) -> None:
+        self.tenant_id = tenant_id
+        self.linked_slack_channel_id = linked_slack_channel_id
+        self.slack_channel_ref = slack_channel_ref
+        self.slack_channel_name = slack_channel_name
+
+        self.triage_channel: TriageSlackChannel | None = None
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LinkedSlackChannel):
+            return False
+        return (
+            self.tenant_id == other.tenant_id
+            and self.linked_slack_channel_id == other.linked_slack_channel_id
+            and self.slack_channel_ref == other.slack_channel_ref
+        )
+
+    def __repr__(self) -> str:
+        return f"""LinkedSlackChannel(
+            tenant_id={self.tenant_id},
+            linked_slack_channel_id={self.linked_slack_channel_id},
+            slack_channel_ref={self.slack_channel_ref},
+            slack_channel_name={self.slack_channel_name}
+        )"""
+
+    def add_triage_channel(self, triage_channel: TriageSlackChannel) -> None:
+        """
+        Checks if it is of the same tenant and linked slack channel ref
+        is not same as triage's slack channel ref.
+        """
+        if self.tenant_id != triage_channel.tenant_id:
+            raise TenantValueError(
+                "cannot link triage channel of different tenant - this cannot happen!"
+            )
+        if self.slack_channel_ref == triage_channel.slack_channel_ref:
+            raise SlackChannelReferenceValueError(
+                "cannot add triage channel for the same linked slack channel"
+            )
+        self.triage_channel = triage_channel
