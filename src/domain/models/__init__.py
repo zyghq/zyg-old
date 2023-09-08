@@ -4,6 +4,8 @@ from enum import Enum
 
 from attrs import define, field
 
+from src.domain.exceptions import SlackChannelReferenceValueError, TenantValueError
+
 
 class AbstractEntity(abc.ABC):
     @abc.abstractmethod
@@ -167,7 +169,7 @@ class SlackEvent(AbstractEntity):
         return slack_event_ref.strip().lower()
 
     @classmethod
-    def init_from_payload(cls, tenant_id: str, payload: dict) -> "SlackEvent":
+    def from_payload(cls, tenant_id: str, payload: dict) -> "SlackEvent":
         slack_event_ref = payload.get("event_id", None)
         slack_event_ref = cls._clean_slack_event_ref(slack_event_ref)
         if not slack_event_ref:
@@ -223,6 +225,9 @@ class SlackEvent(AbstractEntity):
             self.event = None
             return
         self.event = event
+
+    def set_event_id(self, event_id: str) -> None:
+        self.event_id = event_id
 
     @property
     def inner_event_type(self) -> str:
@@ -321,3 +326,58 @@ class InSyncSlackChannelItem(AbstractValueObject):
             unlinked=data.get("unlinked"),
             updated=data.get("updated"),
         )
+
+
+@define
+class TriageSlackChannel(AbstractValueObject):
+    tenant_id: str
+    slack_channel_ref: str
+    slack_channel_name: str
+
+
+class LinkedSlackChannel(AbstractEntity):
+    def __init__(
+        self,
+        tenant_id: str,
+        linked_slack_channel_id: str | None,
+        slack_channel_ref: str,
+        slack_channel_name: str,
+    ) -> None:
+        self.tenant_id = tenant_id
+        self.linked_slack_channel_id = linked_slack_channel_id
+        self.slack_channel_ref = slack_channel_ref
+        self.slack_channel_name = slack_channel_name
+
+        self.triage_channel: TriageSlackChannel | None = None
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LinkedSlackChannel):
+            return False
+        return (
+            self.tenant_id == other.tenant_id
+            and self.linked_slack_channel_id == other.linked_slack_channel_id
+            and self.slack_channel_ref == other.slack_channel_ref
+        )
+
+    def __repr__(self) -> str:
+        return f"""LinkedSlackChannel(
+            tenant_id={self.tenant_id},
+            linked_slack_channel_id={self.linked_slack_channel_id},
+            slack_channel_ref={self.slack_channel_ref},
+            slack_channel_name={self.slack_channel_name}
+        )"""
+
+    def add_triage_channel(self, triage_channel: TriageSlackChannel) -> None:
+        """
+        Checks if it is of the same tenant and linked slack channel ref
+        is not same as triage's slack channel ref.
+        """
+        if self.tenant_id != triage_channel.tenant_id:
+            raise TenantValueError(
+                "cannot link triage channel of different tenant - this cannot happen!"
+            )
+        if self.slack_channel_ref == triage_channel.slack_channel_ref:
+            raise SlackChannelReferenceValueError(
+                "cannot add triage channel for the same linked slack channel"
+            )
+        self.triage_channel = triage_channel

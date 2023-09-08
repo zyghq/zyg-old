@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
 from src.application.commands import SlackEventCallBackCommand
+from src.application.repr import slack_callback_event_repr
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
 from src.logger import logger
 from src.services.event import SlackEventCallBackDispatchService
@@ -140,9 +141,6 @@ async def slack_event(request: Request) -> Any:
                 payload=slack_callback_body.model_dump(),
             )
             slack_event = await SlackEventCallBackDispatchService().dispatch(command)
-            print("check logs - later do repr....")
-            print(slack_event)
-            print(slack_event.event)
         except Exception as e:
             logger.error("notify admin: error while capturing or dispatching event.")
             logger.error(e)
@@ -159,12 +157,8 @@ async def slack_event(request: Request) -> Any:
                 },
             )
 
-        return JSONResponse(
-            status_code=202,
-            content={
-                "detail": "captured",
-            },
-        )
+        event_repr = slack_callback_event_repr(slack_event)
+        return JSONResponse(status_code=202, content=event_repr.model_dump())
 
     # callback type that is not supported by us, assuming we receive from
     # Slack API, we ignore it by sending back 200 OK.

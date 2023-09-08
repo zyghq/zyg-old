@@ -17,3 +17,9 @@ class SlackEventCallBackCommand(BaseModel):
 class TenantSyncChannelCommand(BaseModel):
     tenant_id: str
     types: list[str] | None = None
+
+
+class LinkSlackChannelCommand(BaseModel):
+    tenant_id: str
+    slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
+    triage_slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)

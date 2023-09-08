@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from src.domain.models import InSyncSlackChannelItem, SlackEvent
+from src.domain.models import InSyncSlackChannelItem, LinkedSlackChannel, SlackEvent
 
 
 class TenantRepr(BaseModel):
@@ -12,7 +12,8 @@ class TenantRepr(BaseModel):
 
 
 class SlackCallBackEventRepr(BaseModel):
-    id: str
+    event_id: str
+    is_ack: bool
 
 
 class InSyncSlackChannelItemRepr(BaseModel):
@@ -37,10 +38,28 @@ class InSyncSlackChannelItemRepr(BaseModel):
     created_at: datetime
 
 
+class SlackChannelRepr(BaseModel):
+    channel_ref: str
+    channel_name: str
+
+
+class TriageSlackChannelRepr(SlackChannelRepr):
+    pass
+
+
+class LinkedSlackChannelRepr(BaseModel):
+    linked_slack_channel_id: str
+    slack_channel: SlackChannelRepr
+    triage_slack_channel: TriageSlackChannelRepr
+
+
 def slack_callback_event_repr(
     slack_event: SlackEvent,
 ) -> SlackCallBackEventRepr:
-    pass
+    return SlackCallBackEventRepr(
+        event_id=slack_event.event_id,
+        is_ack=slack_event.is_ack,
+    )
 
 
 def insync_slack_channel_item_repr(
@@ -69,4 +88,21 @@ def insync_slack_channel_item_repr(
         updated=item.updated,
         updated_at=item.updated_at,
         created_at=item.created_at,
+    )
+
+
+def linked_slack_channel_repr(item: LinkedSlackChannel):
+    slack_channel = SlackChannelRepr(
+        channel_ref=item.slack_channel_ref,
+        channel_name=item.slack_channel_name,
+    )
+    triage_channel = item.triage_channel
+    triage_slack_channel = TriageSlackChannelRepr(
+        channel_ref=triage_channel.slack_channel_ref,
+        channel_name=triage_channel.slack_channel_name,
+    )
+    return LinkedSlackChannelRepr(
+        linked_slack_channel_id=item.linked_slack_channel_id,
+        slack_channel=slack_channel,
+        triage_slack_channel=triage_slack_channel,
     )

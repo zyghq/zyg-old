@@ -59,3 +59,14 @@ class InSyncSlackChannelDBEntity(DBEntity):
     updated: int
     created_at: datetime | None = None  # db timestamp
     updated_at: datetime | None = None  # db timestamp
+
+
+class LinkedSlackChannelDBEntity(DBEntity):
+    tenant_id: str
+    linked_slack_channel_id: str | None = None  # primary key
+    slack_channel_ref: str
+    slack_channel_name: str | None = None
+    triage_slack_channel_ref: str
+    triage_slack_channel_name: str | None = None
+    created_at: datetime | None = None  # db timestamp
+    updated_at: datetime | None = None  # db timestamp

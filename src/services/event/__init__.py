@@ -13,6 +13,7 @@ class SlackEventCallBackDispatchService:
     async def _capture(self, slack_event: SlackEvent) -> None:
         slack_event = await self.slack_event_db.save(slack_event)
         logger.info('captured slack event: "%s"', slack_event)
+        return slack_event
 
     async def _dispatch(self, slack_event: SlackEvent) -> None:
         raise NotImplementedError
@@ -46,7 +47,7 @@ class SlackEventCallBackDispatchService:
                 + "is not mapped to a tenant or is invalid."
             )
 
-        slack_event = SlackEvent.init_from_payload(
+        slack_event = SlackEvent.from_payload(
             tenant_id=tenant.tenant_id, payload=command.payload
         )
 
@@ -54,10 +55,10 @@ class SlackEventCallBackDispatchService:
             command.slack_event_ref
         )
 
-        if slack_event.equals_by_slack_event_ref(captured_slack_event):
+        if captured_slack_event.equals_by_slack_event_ref(slack_event):
             logger.warning(
-                'slack event already captured: "%s". skipping dispactching.',
-                slack_event,
+                'slack event already captured: "%s" skipping dispatch.',
+                captured_slack_event,
             )
             return captured_slack_event
 

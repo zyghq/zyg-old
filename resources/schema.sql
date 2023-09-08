@@ -50,7 +50,7 @@ create table slack_event(
 
 
 -- mapped as per raw conversation item from Slack API reponse.
--- for conversation list with reference to tenant.
+-- with reference to tenant.
 create table insync_slack_channel(
   tenant_id varchar(255) not null, -- reference to tenant.
   context_team_id varchar(255) not null,
@@ -85,4 +85,18 @@ create table insync_slack_channel(
   updated_at timestamp default current_timestamp,
   constraint insync_slack_channel_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id), 
   constraint insync_slack_channel_tenant_id_id_key unique (tenant_id, id)
+);
+
+create table linked_slack_channel(
+  tenant_id varchar(255) not null, -- reference to tenant.
+  linked_slack_channel_id varchar(255) not null,
+  slack_channel_ref varchar(255) not null, -- reference to Slack channel(id).
+  slack_channel_name varchar(255) null, -- reference to Slack channel(name).
+  triage_slack_channel_ref varchar(255) not null, -- reference to Slack channel(id).
+  triage_slack_channel_name varchar(255) null, -- reference to Slack channel(name).
+  created_at timestamp default current_timestamp,
+  updated_at timestamp default current_timestamp,
+  constraint linked_slack_channel_id_pkey primary key (linked_slack_channel_id),
+  constraint linked_slack_channel_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
+  constraint linked_slack_channel_tenant_id_slack_channel_ref_key unique (tenant_id, slack_channel_ref)
 );
