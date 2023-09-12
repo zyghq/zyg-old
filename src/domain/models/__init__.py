@@ -2,7 +2,7 @@ import abc
 from datetime import datetime
 from enum import Enum
 
-from attrs import define, field
+from attrs import asdict, define, field
 
 from src.domain.exceptions import SlackChannelReferenceValueError, TenantValueError
 
@@ -21,11 +21,30 @@ class AbstractValueObject:
     pass
 
 
+@define(frozen=True)
+class TenantContext(AbstractValueObject):
+    """
+    Represents a tenant context.
+
+    Attributes:
+        tenant_id (str): The ID of the tenant.
+        name (str): The name of the tenant.
+        slack_team_ref (str): The reference to the Slack team.
+
+    Note: This is different from `Tenant` entity. This is a value object,
+    to be used for tenant context to pass around as a value with no business logic.
+    """
+
+    tenant_id: str
+    name: str = field(eq=False)
+    slack_team_ref: str
+
+
 class Tenant(AbstractEntity):
-    def __init__(self, tenant_id: str | None, name: str) -> None:
+    def __init__(self, tenant_id: str | None, name: str, slack_team_ref: str) -> None:
         self.tenant_id = tenant_id
         self.name = name
-        self.slack_team_ref: str | None = None  # Slack team reference id
+        self.slack_team_ref = slack_team_ref
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Tenant):
@@ -39,14 +58,27 @@ class Tenant(AbstractEntity):
             slack_team_ref={self.slack_team_ref}
         )"""
 
-    def _clean_slack_team_ref(self, team_ref: str) -> str:
-        return team_ref.strip().lower()
+    def to_dict(self) -> dict:
+        return {
+            "tenant_id": self.tenant_id,
+            "name": self.name,
+            "slack_team_ref": self.slack_team_ref,
+        }
 
-    def set_slack_team_ref(self, team_ref: str | None) -> None:
-        if team_ref is None:
-            self.slack_team_ref = None
-            return
-        self.slack_team_ref = self._clean_slack_team_ref(team_ref)
+    @classmethod
+    def from_dict(cls, data: dict) -> "Tenant":
+        return cls(
+            tenant_id=data.get("tenant_id"),
+            name=data.get("name"),
+            slack_team_ref=data.get("slack_team_ref"),
+        )
+
+    def build_context(self) -> TenantContext:
+        return TenantContext(
+            tenant_id=self.tenant_id,
+            name=self.name,
+            slack_team_ref=self.slack_team_ref,
+        )
 
 
 class UserRole(Enum):
@@ -82,7 +114,7 @@ class User(AbstractEntity):
         )"""
 
 
-@define(kw_only=True)
+@define(kw_only=True, frozen=True)
 class BaseEvent(AbstractValueObject):
     """
     Represents a base event.
@@ -102,7 +134,7 @@ class BaseEvent(AbstractValueObject):
     inner_event_type: str = field(eq=False)
 
 
-@define
+@define(frozen=True)
 class EventChannelMessage(BaseEvent):
     """
     Represents a message channel event.
@@ -121,12 +153,12 @@ class EventChannelMessage(BaseEvent):
 
     slack_event_ref: str
     slack_channel_ref: str
-
-    # subscribed_event: str = "message.channels"
-    subscribed_event: str = field(default="message.channels", eq=False)
+    subscribed_event: str = "message.channels"
 
 
 class SlackEvent(AbstractEntity):
+    subscribed_events = ("message.channels",)
+
     def __init__(
         self,
         tenant_id: str,
@@ -140,7 +172,7 @@ class SlackEvent(AbstractEntity):
         self.event_id = event_id
         self.slack_event_ref = slack_event_ref
         self.event_ts = event_ts
-        self.payload = payload
+        self.payload = payload  # slack event payload
 
         self.is_ack = is_ack
 
@@ -229,6 +261,10 @@ class SlackEvent(AbstractEntity):
     def set_event_id(self, event_id: str) -> None:
         self.event_id = event_id
 
+    @classmethod
+    def is_event_subscribed(cls, name):
+        return name in cls.subscribed_events
+
     @property
     def inner_event_type(self) -> str:
         if self.event is None:
@@ -250,8 +286,23 @@ class SlackEvent(AbstractEntity):
         token = self.payload.get("token", None)
         return token
 
+    def to_dict(self):
+        if isinstance(self.event, BaseEvent):
+            event = asdict(self.event)
+        else:
+            event = None
+        return {
+            "tenant_id": self.tenant_id,
+            "event_id": self.event_id,
+            "slack_event_ref": self.slack_event_ref,
+            "event_ts": self.event_ts,
+            "payload": self.payload,
+            "is_ack": self.is_ack,
+            "event": event,
+        }
 
-@define
+
+@define(frozen=True)
 class InSyncSlackChannelItem(AbstractValueObject):
     """
     Represents a Slack conversation item, after succesful API call.
@@ -328,7 +379,7 @@ class InSyncSlackChannelItem(AbstractValueObject):
         )
 
 
-@define
+@define(frozen=True)
 class TriageSlackChannel(AbstractValueObject):
     tenant_id: str
     slack_channel_ref: str
@@ -348,6 +399,7 @@ class LinkedSlackChannel(AbstractEntity):
         self.slack_channel_ref = slack_channel_ref
         self.slack_channel_name = slack_channel_name
 
+        # TODO: shall we make it global compulsory to add triage channel?
         self.triage_channel: TriageSlackChannel | None = None
 
     def __eq__(self, other: object) -> bool:

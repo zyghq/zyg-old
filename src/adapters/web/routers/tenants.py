@@ -1,14 +1,19 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, constr
 
-from src.application.commands import LinkSlackChannelCommand, TenantSyncChannelCommand
+from src.application.commands import (
+    LinkSlackChannelCommand,
+    SearchLinkedSlackChannelCommand,
+    TenantSyncChannelCommand,
+)
 from src.application.repr import (
     insync_slack_channel_item_repr,
     linked_slack_channel_repr,
 )
-from src.services.channel import ChannelLinkService
+from src.services.channel import LinkSlackChannelService
 from src.services.tenant import TenantChannelSyncService
 
 router = APIRouter()
@@ -23,6 +28,12 @@ class LinkChannelRequestBody(BaseModel):
     tenant_id: str
     slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
     triage_slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
+
+
+class SearchLinkedChannelRequestBody(BaseModel):
+    linked_slack_channel_id: Optional[str] = None
+    slack_channel_name: Optional[str] = None
+    slack_channel_ref: Optional[str] = None
 
 
 @router.post("/channels/sync/")
@@ -45,7 +56,23 @@ async def link_channel(request_body: LinkChannelRequestBody):
         triage_slack_channel_ref=request_body.triage_slack_channel_ref,
     )
 
-    channel_link_service = ChannelLinkService()
-    result = await channel_link_service.link(command=command)
+    service = LinkSlackChannelService()
+    result = await service.link(command=command)
+    linked_slack_channel = linked_slack_channel_repr(result)
+    return linked_slack_channel
+
+
+@router.post("/channels/linked/:search/")
+async def search_linked_channel(request_body: SearchLinkedChannelRequestBody):
+    command = SearchLinkedSlackChannelCommand(
+        tenant_id="z320czxkpt5u",
+        linked_slack_channel_id=request_body.linked_slack_channel_id,
+        slack_channel_name=request_body.slack_channel_name,
+        slack_channel_ref=request_body.slack_channel_ref,
+    )
+    service = LinkSlackChannelService()
+    result = await service.search(command=command)
+    if result is None:
+        return JSONResponse(status_code=200, content=[])
     linked_slack_channel = linked_slack_channel_repr(result)
     return linked_slack_channel

@@ -81,8 +81,11 @@ class TenantDBAdapter:
         )
 
     def _map_to_domain(self, tenant_entity: TenantDBEntity) -> Tenant:
-        tenant = Tenant(tenant_id=tenant_entity.tenant_id, name=tenant_entity.name)
-        tenant.set_slack_team_ref(tenant_entity.slack_team_ref)
+        tenant = Tenant(
+            tenant_id=tenant_entity.tenant_id,
+            name=tenant_entity.name,
+            slack_team_ref=tenant_entity.slack_team_ref,
+        )
         return tenant
 
     async def save(self, tenant: Tenant) -> Tenant:
@@ -258,5 +261,41 @@ class LinkedSlackChannelDBAdapter:
             linked_channel_entity = await LinkedSlackChannelRepository(conn).save(
                 db_entity
             )
+            result = self._map_to_domain(linked_channel_entity)
+        return result
+
+    async def find_by_id(
+        self, linked_slack_channel_id: str
+    ) -> LinkedSlackChannel | None:
+        async with self.engine.begin() as conn:
+            linked_channel_entity = await LinkedSlackChannelRepository(
+                conn
+            ).find_by_linked_slack_channel_id(linked_slack_channel_id)
+            if linked_channel_entity is None:
+                return None
+            result = self._map_to_domain(linked_channel_entity)
+        return result
+
+    async def find_by_slack_channel_ref(
+        self, slack_channel_ref: str
+    ) -> LinkedSlackChannel | None:
+        async with self.engine.begin() as conn:
+            linked_channel_entity = await LinkedSlackChannelRepository(
+                conn
+            ).find_by_slack_channel_ref(slack_channel_ref)
+            if linked_channel_entity is None:
+                return None
+            result = self._map_to_domain(linked_channel_entity)
+        return result
+
+    async def find_by_tenant_id_slack_channel_name(
+        self, tenant_id: str, slack_channel_name: str
+    ) -> LinkedSlackChannel | None:
+        async with self.engine.begin() as conn:
+            linked_channel_entity = await LinkedSlackChannelRepository(
+                conn
+            ).find_by_tenant_id_slack_channel_name(tenant_id, slack_channel_name)
+            if linked_channel_entity is None:
+                return None
             result = self._map_to_domain(linked_channel_entity)
         return result

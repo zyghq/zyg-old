@@ -18,6 +18,7 @@ asyncio = "^3.4.3"
 celery = {extras = ["redis"], version = "^5.3.1"}
 requests = "^2.31.0"
 attrs = "^23.1.0"
+httpx = "^0.24.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"

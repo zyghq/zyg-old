@@ -27,6 +27,7 @@ app.include_router(
 
 @app.get("/")
 async def root():
+    logger.info("Hey there! I am willow.")
     return {"message": "Hey there! I am willow."}
 
 

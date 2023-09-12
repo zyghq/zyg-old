@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, constr
@@ -5,8 +7,9 @@ from pydantic import BaseModel, constr
 from src.application.commands import TenantProvisionCommand
 from src.application.exceptions import SlackTeamRefMapException
 from src.application.repr import TenantRepr
-from src.logger import logger
 from src.services.tenant import TenantProvisionService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
