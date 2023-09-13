@@ -1,12 +1,14 @@
+import logging
 from typing import List
 
 from pydantic import BaseModel, ConfigDict
 from slack_sdk import WebClient
 
-from src.domain.models import InSyncSlackChannelItem, Tenant
-from src.logger import logger
+from src.domain.models import InSyncSlackChannelItem, TenantContext
 
 from .exceptions import SlackAPIException, SlackAPIResponseException
+
+logger = logging.getLogger(__name__)
 
 
 class SlackConversationItemResponse(BaseModel):
@@ -49,16 +51,17 @@ class SlackConversationItemResponse(BaseModel):
 
 
 class SlackWebAPIConnector:
-    def __init__(self, tenant: Tenant, token: str) -> None:
-        self.tenant = tenant
+    def __init__(self, tenant_context: TenantContext, token: str) -> None:
+        self.tenant_context = tenant_context
         self.token = token
         self._client = WebClient(token=token)
 
     @classmethod
-    def for_tenant(cls, tenant: Tenant, token: str) -> "SlackWebAPIConnector":
+    def for_tenant(
+        cls, tenant_context: TenantContext, token: str
+    ) -> "SlackWebAPIConnector":
         # TODO: later token will be fetched from the tenant context.
-        return cls(tenant=tenant, token=token)
-        # return cls(tenant=tenant, token=tenant.slack_bot_oauth_token)
+        return cls(tenant_context=tenant_context, token=token)
 
     def get_conversation_list(
         self, types: str = "public_channels"
@@ -85,7 +88,7 @@ class SlackWebAPIConnector:
                     conversation_item_response.model_dump()
                 )
                 insync_channel_item = InSyncSlackChannelItem.from_dict(
-                    self.tenant.tenant_id, data=conversation_item_response_dict
+                    self.tenant_context.tenant_id, data=conversation_item_response_dict
                 )
                 results.append(insync_channel_item)
         else:
@@ -98,3 +101,25 @@ class SlackWebAPIConnector:
                 f"slack connector API error with slack error code: {error}"
             )
         return results
+
+    def chat_post_message(self, channel, text, blocks):
+        logger.info(f"invoked `chat_post_message` for args: {channel}")
+        try:
+            response = self._client.chat_postMessage(
+                channel=channel, text=text, blocks=blocks
+            )
+        except SlackAPIException as e:
+            logger.error(f"slack API error: {e}")
+
+        logger.info("slack got response!")
+        if response.get("ok"):
+            return response
+        else:
+            error = response.get("error", "unknown")
+            logger.error(
+                f"slack connector API error with slack error code: {error} ",
+                f"check Slack docs for more information for error: {error}",
+            )
+            raise SlackAPIResponseException(
+                f"slack connector API error with slack error code: {error}"
+            )

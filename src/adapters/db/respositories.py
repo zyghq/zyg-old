@@ -636,3 +636,52 @@ class LinkedSlackChannelRepository(
                 f"linked channel with id `{linked_slack_channel_id}` not found"
             )
         return linked_channel
+
+    async def find_by_slack_channel_ref(
+        self, slack_channel_ref: str
+    ) -> LinkedSlackChannelDBEntity | None:
+        query = """
+            select tenant_id, linked_slack_channel_id, slack_channel_ref,
+                slack_channel_name, triage_slack_channel_ref, triage_slack_channel_name,
+                created_at, updated_at
+            from linked_slack_channel
+            where slack_channel_ref = :slack_channel_ref
+        """
+        parameters = {
+            "slack_channel_ref": slack_channel_ref,
+        }
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return LinkedSlackChannelDBEntity(**result)
+
+    async def get_by_slack_channel_ref(
+        self, slack_channel_ref: str
+    ) -> LinkedSlackChannelDBEntity:
+        linked_channel = await self.find_by_slack_channel_ref(slack_channel_ref)
+        if linked_channel is None:
+            raise DBNotFoundException(
+                f"linked channel with ref `{slack_channel_ref}` not found"
+            )
+        return linked_channel
+
+    async def find_by_tenant_id_slack_channel_name(
+        self, tenant_id: str, slack_channel_name: str
+    ) -> LinkedSlackChannelDBEntity:
+        query = """
+            select tenant_id, linked_slack_channel_id, slack_channel_ref,
+                slack_channel_name, triage_slack_channel_ref, triage_slack_channel_name,
+                created_at, updated_at
+            from linked_slack_channel
+            where tenant_id = :tenant_id and slack_channel_name = :slack_channel_name
+        """
+        parameters = {
+            "tenant_id": tenant_id,
+            "slack_channel_name": slack_channel_name,
+        }
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return LinkedSlackChannelDBEntity(**result)

@@ -1,0 +1,2 @@
+class UnSupportedSlackEventException(Exception):
+    pass

@@ -1,10 +1,54 @@
 import logging
+import logging.config
+import sys
 
-# @sanchitrk
-# Note: I'm not sure I want to do this, but I'm going to do it for now.
-# logger should be more generic, here it's tied to uvicorn.
-# if there is a way to get uniform logger that would be better.
-logger = logging.getLogger("uvicorn")
+_SYSLOG_PLATFORM_ADDRESS = {
+    "win32": ("localhost", 514),
+    "darwin": "/var/run/syslog",
+}
 
-# make sqlalchemy logger use uvicorn logger
-logging.getLogger("sqlalchemy").addHandler(logger)
+logging.basicConfig(
+    format=(
+        "[zygapp] %(levelname)s %(asctime)s %(module)s %(process)d "
+        "%(filename)s:%(lineno)d %(message)s"
+    ),
+    datefmt="%Y-%m-%d %H:%M:%S %Z",
+    level=logging.INFO,
+)
+
+
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "formatters": {
+            "default": {
+                "format": (
+                    "[zygapp] %(levelname)s %(asctime)s %(module)s %(process)d "
+                    "%(filename)s:%(lineno)d %(funcName)s "
+                    "%(message)s"
+                ),
+                "datefmt": "%Y-%m-%d %H:%M:%S %Z",
+            },
+        },
+        "handlers": {
+            "console": {
+                "level": "INFO",
+                "class": "logging.StreamHandler",
+                "formatter": "default",
+                "stream": "ext://sys.stdout",
+            },
+            "syslog": {
+                "level": "INFO",
+                "class": "logging.handlers.SysLogHandler",
+                "formatter": "default",
+                "address": _SYSLOG_PLATFORM_ADDRESS.get(sys.platform, "/dev/log"),
+            },
+        },
+        "root": {
+            "handlers": ["console", "syslog"],
+            "level": "INFO",
+        },
+    }
+)
+
+logger = logging.getLogger(__name__)

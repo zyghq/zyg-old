@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -7,8 +8,9 @@ from pydantic import BaseModel, ValidationError
 from src.application.commands import SlackEventCallBackCommand
 from src.application.repr import slack_callback_event_repr
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
-from src.logger import logger
 from src.services.event import SlackEventCallBackDispatchService
+
+logger = logging.getLogger(__name__)
 
 
 class SlackEventCallBackRequestBody(BaseModel):

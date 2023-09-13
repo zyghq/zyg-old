@@ -1,3 +1,5 @@
+import logging
+
 from src.adapters.db.adapters import InSyncChannelDBAdapter, TenantDBAdapter
 from src.adapters.rpc.ext import SlackWebAPIConnector
 from src.application.commands import TenantProvisionCommand, TenantSyncChannelCommand
@@ -6,7 +8,8 @@ from src.application.exceptions import SlackTeamRefMapException
 # TODO: later this will be fetched from tenant context, and will be removed.
 from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import Tenant
-from src.logger import logger
+
+logger = logging.getLogger(__name__)
 
 
 class TenantProvisionService:
@@ -29,8 +32,8 @@ class TenantProvisionService:
         tenant = Tenant(
             tenant_id=None,
             name=command.name,
+            slack_team_ref=command.slack_team_ref,
         )
-        tenant.set_slack_team_ref(command.slack_team_ref)
         tenant = await self.tenant_db.save(tenant)
         return tenant
 
@@ -51,8 +54,10 @@ class TenantChannelSyncService:
         tenant = await self.tenant_db.get_by_id(command.tenant_id)
         logger.info(f"sync channels for tenant with tenant context: `{tenant}`")
 
+        tenant_context = tenant.build_context()
+        
         slack_api = SlackWebAPIConnector.for_tenant(
-            tenant=tenant,
+            tenant_context=tenant_context,
             token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
         )
         results = slack_api.get_conversation_list(",".join([t for t in types]))

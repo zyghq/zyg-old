@@ -1,4 +1,6 @@
-from pydantic import BaseModel, constr
+from typing import Optional
+
+from pydantic import BaseModel, constr, validator
 
 
 class TenantProvisionCommand(BaseModel):
@@ -23,3 +25,18 @@ class LinkSlackChannelCommand(BaseModel):
     tenant_id: str
     slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
     triage_slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
+
+
+class SearchLinkedSlackChannelCommand(BaseModel):
+    tenant_id: str
+    linked_slack_channel_id: Optional[str] = None
+    slack_channel_name: Optional[str] = None
+    slack_channel_ref: Optional[str] = None
+
+    @validator("slack_channel_ref")
+    def to_lower(cls, v):
+        return v.lower() if v else v
+
+
+class CreateIssueWithSlackCommand(BaseModel):
+    pass
