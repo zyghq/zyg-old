@@ -9,7 +9,7 @@ _SYSLOG_PLATFORM_ADDRESS = {
 
 logging.basicConfig(
     format=(
-        "[willow] %(levelname)s %(asctime)s %(module)s %(process)d "
+        "[zygapp] %(levelname)s %(asctime)s %(module)s %(process)d "
         "%(filename)s:%(lineno)d %(message)s"
     ),
     datefmt="%Y-%m-%d %H:%M:%S %Z",
@@ -23,7 +23,7 @@ logging.config.dictConfig(
         "formatters": {
             "default": {
                 "format": (
-                    "[willow] %(levelname)s %(asctime)s %(module)s %(process)d "
+                    "[zygapp] %(levelname)s %(asctime)s %(module)s %(process)d "
                     "%(filename)s:%(lineno)d %(funcName)s "
                     "%(message)s"
                 ),

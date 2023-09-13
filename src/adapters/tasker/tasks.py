@@ -6,7 +6,7 @@ from src.services.task import lookup_event_handler
 from src.worker import app
 
 
-@app.task(bind=True, name="willow.slack_event_dispatch_handler")
+@app.task(bind=True, name="zygapp.slack_event_dispatch_handler")
 def slack_event_dispatch_handler(self, context: Dict[str, Any], body: Dict[str, Any]):
     dispatch_id = context["dispatch_id"]
     dispatched_at = context["dispatched_at"]
