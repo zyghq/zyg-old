@@ -23,8 +23,8 @@ logging.config.dictConfig(
         "formatters": {
             "default": {
                 "format": (
-                    "[zygapp] %(levelname)s %(asctime)s %(module)s %(process)d "
-                    "%(filename)s:%(lineno)d %(funcName)s "
+                    "[zygapp]|%(levelname)s|%(asctime)s|%(process)d|%(module)s|"
+                    "%(filename)s:%(lineno)d|%(funcName)s|"
                     "%(message)s"
                 ),
                 "datefmt": "%Y-%m-%d %H:%M:%S %Z",

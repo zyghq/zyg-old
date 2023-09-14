@@ -46,6 +46,7 @@ def is_slack_callback_valid(token: str, api_app_id: str):
 
 @router.post("/-/slack/callback/")
 async def slack_event(request: Request) -> Any:
+    logger.info("received event from Slack API")
     # we are not using Pydantic and FastAPI's request body validation
     # because this gives us more flexibility to handle the request body
     # as these events are received from Slack API and we dont have

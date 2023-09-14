@@ -42,8 +42,9 @@ app = Celery(
 def setup_loggers_for_root(*args, **kwargs):
     logger = logging.getLogger()
     formatter = logging.Formatter(
-        "[zygapp:celery] %(levelname)s %(asctime)s %(module)s %(process)d "
-        "%(filename)s:%(lineno)d %(message)s"
+        "[zygapp:celery]|%(levelname)s|%(asctime)s|%(process)d|%(module)s|"
+        "%(filename)s:%(lineno)d|%(funcName)s|"
+        "%(message)s"
     )
     handler = logging.StreamHandler()
     handler.setLevel(logging.INFO)

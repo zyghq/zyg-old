@@ -78,7 +78,7 @@ dd = {
         "api_app_id": "A05L1Q4VB63",
         "event_time": 1691953744,
         "authed_users": None,
-        "event_context": "4-eyJldCI6Im1lc3NhZ2UiLCJ0aWQiOiJUMDNOWDRWTUNSSCIsImFpZCI6IkEwNUwxUTRWQjYzIiwiY2lkIjoiQzA1TDNIOTBQTDIifQ",
+        "event_context": "4-eyJldCI6Im1lc3NhZ2UiLCJ0aWQiOiJUMDNOWDRWTUNSSCIsImFpZCI6IkEwNUwxUTRWQjYzIiwiY2lkIjoiQzA1TDNIOTBQTDIifQ",  # noqa
         "authorizations": [
             {
                 "is_bot": False,
