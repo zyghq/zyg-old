@@ -48,6 +48,13 @@ logging.config.dictConfig(
             "handlers": ["console", "syslog"],
             "level": "INFO",
         },
+        "loggers": {
+            "uvicorn": {
+                "handlers": ["console", "syslog"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
     }
 )
 

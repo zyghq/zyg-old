@@ -2,7 +2,7 @@ import asyncio
 from typing import Any, Dict
 
 from src.domain.models import SlackEvent, Tenant
-from src.services.task import lookup_event_handler
+from src.services.tasks import lookup_event_handler
 from src.worker import app
 
 

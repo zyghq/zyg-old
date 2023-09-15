@@ -22,13 +22,13 @@ async def slack_channel_message_handler(tenant: Tenant, slack_event: SlackEvent)
     return "slack_channel_message_handler invoked"
 
 
-SUBSCRIBED_EVENT_HANDLERS = {
+_SUBSCRIBED_EVENT_HANDLERS = {
     "message.channels": slack_channel_message_handler,
 }
 
 
 def lookup_event_handler(subscribed_event) -> Callable:
-    func = SUBSCRIBED_EVENT_HANDLERS.get(subscribed_event, None)
+    func = _SUBSCRIBED_EVENT_HANDLERS.get(subscribed_event, None)
     if func is None:
         raise UnSupportedSlackEventException(
             f"event: `{subscribed_event}` is not supported."

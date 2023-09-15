@@ -1,9 +1,10 @@
 import logging
 
+from src.adapters.db.adapters import TenantDBAdapter
 from src.adapters.rpc.ext import SlackWebAPIConnector
-from src.application.commands import CreateIssueWithSlackCommand
+from src.application.commands import CreateIssueCommand, CreateIssueWithSlackCommand
 from src.config import SLACK_BOT_OAUTH_TOKEN
-from src.domain.models import Tenant
+from src.domain.models import Issue, IssuePriority, IssueStatus, Tenant
 
 logger = logging.getLogger(__name__)
 
@@ -85,3 +86,23 @@ class CreateIssueWithSlackService:
         )
 
         logger.info(f"slack got response: {response}")
+
+
+class CreateIssueService:
+    def __init__(self) -> None:
+        self.tenant_db = TenantDBAdapter()
+
+    async def create(self, command: CreateIssueCommand) -> Issue:
+        tenant = await self.tenant_db.get_by_id(command.tenant_id)
+        issue = Issue(
+            tenant_id=tenant.tenant_id,
+            issue_id=None,
+            issue_number=None,
+            body=command.body,
+            status=IssueStatus(command.status) if command.status else None,
+            priority=IssuePriority(command.priority) if command.priority else None,
+        )
+        issue.add_tags(command.tags)
+        print("****************** check this logs.....")
+        print(issue)
+        return issue

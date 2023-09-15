@@ -38,5 +38,13 @@ class SearchLinkedSlackChannelCommand(BaseModel):
         return v.lower() if v else v
 
 
+class CreateIssueCommand(BaseModel):
+    tenant_id: str
+    body: str
+    status: str | None
+    priority: int | None
+    tags: list[str] = []
+
+
 class CreateIssueWithSlackCommand(BaseModel):
     pass

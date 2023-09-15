@@ -433,3 +433,79 @@ class LinkedSlackChannel(AbstractEntity):
                 "cannot add triage channel for the same linked slack channel"
             )
         self.triage_channel = triage_channel
+
+
+class IssueStatus(Enum):
+    OPEN = "open"
+    INPROGRESS = "inprogress"
+    CLOSED = "closed"
+    CANCELLED = "cancelled"
+    DUPLICATE = "duplicate"
+
+
+class IssuePriority(Enum):
+    NO_PRIORITY = 0
+    URGENT = 1
+    HIGH = 2
+    MEDIUM = 3
+    LOW = 4
+
+
+class Issue(AbstractEntity):
+    def __init__(
+        self,
+        tenant_id: str,
+        issue_id: str | None,
+        issue_number: str | None,
+        body: str,
+        status: IssueStatus | None = IssueStatus.OPEN,
+        priority: IssuePriority | None = IssuePriority.NO_PRIORITY,
+    ) -> None:
+        self.tenant_id = tenant_id
+        self.issue_id = issue_id
+        self.body = body
+
+        if status is None:
+            status = IssueStatus.OPEN
+        if priority is None:
+            priority = IssuePriority.NO_PRIORITY
+
+        self.status = status
+        self.priority = priority
+
+        self.issue_number = issue_number
+
+        self.tags = set()
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Issue):
+            return False
+        return self.issue_id == other.issue_id
+
+    def equals_by_issue_number(self, other: object) -> bool:
+        if self.issue_number is None:
+            return False
+        if not isinstance(other, Issue):
+            return False
+        return (
+            self.tenant_id == self.tenant_id and self.issue_number == other.issue_number
+        )
+
+    def __repr__(self) -> str:
+        return f"""Issue(
+            tenant_id={self.tenant_id},
+            issue_id={self.issue_id},
+            issue_number={self.issue_number},
+            body={self.body[:32]}...,
+            status={self.status},
+            priority={self.priority},
+        )"""
+
+    def add_tag(self, tag: str) -> None:
+        self.tags.add(tag)
+
+    def add_tags(self, tags: list[str]) -> None:
+        self.tags.update(tags)
+
+    def set_issue_number(self, issue_number: str) -> None:
+        self.issue_number = issue_number

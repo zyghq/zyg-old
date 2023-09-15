@@ -1,7 +1,6 @@
 import abc
 import json
-import random
-import string
+import uuid
 
 from sqlalchemy import Connection
 from sqlalchemy.exc import IntegrityError
@@ -18,11 +17,10 @@ from .exceptions import DBIntegrityException, DBNotFoundException
 
 class BaseRepository:
     @classmethod
-    def generate_id(cls, length=12, lowercase=True):
-        result = "".join(random.choices(string.ascii_letters + string.digits, k=length))
-        if lowercase:
-            return result.lower()
-        return result
+    def generate_id(cls) -> str:
+        uuid_object = uuid.uuid4()
+        base32 = uuid_object.hex
+        return base32
 
 
 class AbstractTenantRepository(abc.ABC):
@@ -685,3 +683,20 @@ class LinkedSlackChannelRepository(
         if result is None:
             return None
         return LinkedSlackChannelDBEntity(**result)
+
+
+class AbstractIssueRepository(abc.ABC):
+    @abc.abstractclassmethod
+    async def save(self, issue: dict) -> dict:
+        raise NotImplementedError
+
+
+
+class IssueRepository(AbstractIssueRepository, BaseRepository):
+    def __init__(self, connection: Connection) -> None:
+        self.conn = connection
+    
+    async def save(self, issue: dict) -> dict:
+        pass
+
+    
