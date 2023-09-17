@@ -40,11 +40,11 @@ class SlackConversationItemResponse(BaseModel):
     name_normalized: str
     num_members: int
     parent_conversation: str | None = None
-    pending_connected_team_ids: list[str] = []
-    pending_shared: list[str] = []
-    previous_names: list[str] = []
+    pending_connected_team_ids: List[str] = []
+    pending_shared: List[str] = []
+    previous_names: List[str] = []
     purpose: dict | None = None
-    shared_team_ids: list[str] = []
+    shared_team_ids: List[str] = []
     topic: dict | None = None
     unlinked: int | None = None
     updated: int

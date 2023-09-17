@@ -1,9 +1,11 @@
 import logging
+from typing import List
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from src.application.commands import CreateIssueCommand
+from src.application.repr import issue_repr
 from src.services.issue import CreateIssueService
 
 logger = logging.getLogger(__name__)
@@ -14,7 +16,7 @@ class IssueCreateRequestBody(BaseModel):
     body: str
     status: str | None
     priority: int | None
-    tags: list[str] = []
+    tags: List[str] = []
 
 
 router = APIRouter()
@@ -22,7 +24,6 @@ router = APIRouter()
 
 @router.post("/")
 async def create_issue(request_body: IssueCreateRequestBody):
-    print("********** reached tilll here....")
     command = CreateIssueCommand(
         tenant_id=request_body.tenant_id,
         body=request_body.body,
@@ -31,5 +32,5 @@ async def create_issue(request_body: IssueCreateRequestBody):
         tags=request_body.tags,
     )
     service = CreateIssueService()
-    result = await service.create(command=command)
-    return result
+    issue = await service.create(command=command)
+    return issue_repr(issue)

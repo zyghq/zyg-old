@@ -1,4 +1,5 @@
 from typing import Optional
+from typing import List
 
 from pydantic import BaseModel, constr, validator
 
@@ -18,7 +19,7 @@ class SlackEventCallBackCommand(BaseModel):
 
 class TenantSyncChannelCommand(BaseModel):
     tenant_id: str
-    types: list[str] | None = None
+    types: List[str] | None = None
 
 
 class LinkSlackChannelCommand(BaseModel):
@@ -43,7 +44,7 @@ class CreateIssueCommand(BaseModel):
     body: str
     status: str | None
     priority: int | None
-    tags: list[str] = []
+    tags: List[str] = []
 
 
 class CreateIssueWithSlackCommand(BaseModel):

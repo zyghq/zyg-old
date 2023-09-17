@@ -4,6 +4,7 @@ from sqlalchemy.engine.base import Engine
 from src.adapters.db import engine
 from src.domain.models import (
     InSyncSlackChannelItem,
+    Issue,
     LinkedSlackChannel,
     SlackEvent,
     Tenant,
@@ -12,12 +13,14 @@ from src.domain.models import (
 
 from .entities import (
     InSyncSlackChannelDBEntity,
+    IssueDBEntity,
     LinkedSlackChannelDBEntity,
     SlackEventDBEntity,
     TenantDBEntity,
 )
 from .respositories import (
     InSyncChannelRepository,
+    IssueRepository,
     LinkedSlackChannelRepository,
     SlackEventRepository,
     TenantRepository,
@@ -298,4 +301,39 @@ class LinkedSlackChannelDBAdapter:
             if linked_channel_entity is None:
                 return None
             result = self._map_to_domain(linked_channel_entity)
+        return result
+
+
+class IssueDBAdapter:
+    def __init__(self, engine: Engine = engine) -> None:
+        self.engine = engine
+
+    def _map_to_db_entity(self, issue: Issue) -> IssueDBEntity:
+        return IssueDBEntity(
+            tenant_id=issue.tenant_id,
+            issue_id=issue.issue_id,
+            issue_number=issue.issue_number,
+            body=issue.body,
+            status=issue.status,
+            priority=issue.priority,
+            tags=issue.tags,
+        )
+
+    def _map_to_domain(self, issue_entity: IssueDBEntity) -> Issue:
+        issue = Issue(
+            tenant_id=issue_entity.tenant_id,
+            issue_id=issue_entity.issue_id,
+            issue_number=issue_entity.issue_number,
+            body=issue_entity.body,
+            status=issue_entity.status,
+            priority=issue_entity.priority,
+        )
+        issue.tags = issue_entity.tags
+        return issue
+
+    async def save(self, issue: Issue) -> Issue:
+        db_entity = self._map_to_db_entity(issue)
+        async with self.engine.begin() as conn:
+            issue_entity = await IssueRepository(conn).save(db_entity)
+            result = self._map_to_domain(issue_entity)
         return result

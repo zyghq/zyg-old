@@ -32,8 +32,8 @@ app.include_router(
 
 @app.get("/")
 async def root():
-    logger.info("Hey there! I am zygapp.")
-    return {"message": "Hey there! I am zygapp."}
+    logger.info("Hey there! I am zyg.")
+    return {"message": "Hey there! I am zyg."}
 
 
 @app.on_event("startup")

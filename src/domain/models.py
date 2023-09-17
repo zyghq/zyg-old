@@ -1,6 +1,7 @@
 import abc
 from datetime import datetime
 from enum import Enum
+from typing import List
 
 from attrs import asdict, define, field
 
@@ -332,11 +333,11 @@ class InSyncSlackChannelItem(AbstractValueObject):
     name_normalized: str = field(eq=False)
     num_members: int = field(eq=False)
     parent_conversation: str | None = field(eq=False)
-    pending_connected_team_ids: list[str] = field(eq=False)
-    pending_shared: list[str] = field(eq=False)
-    previous_names: list[str] = field(eq=False)
+    pending_connected_team_ids: List[str] = field(eq=False)
+    pending_shared: List[str] = field(eq=False)
+    previous_names: List[str] = field(eq=False)
     purpose: dict[str, str] = field(eq=False)
-    shared_team_ids: list[str] = field(eq=False)
+    shared_team_ids: List[str] = field(eq=False)
     topic: dict[str, str] = field(eq=False)
     unlinked: int = field(eq=False)
     updated: int = field(eq=False)
@@ -456,10 +457,10 @@ class Issue(AbstractEntity):
         self,
         tenant_id: str,
         issue_id: str | None,
-        issue_number: str | None,
+        issue_number: int | None,
         body: str,
-        status: IssueStatus | None = IssueStatus.OPEN,
-        priority: IssuePriority | None = IssuePriority.NO_PRIORITY,
+        status: IssueStatus | None | str = IssueStatus.OPEN,
+        priority: IssuePriority | None | int = IssuePriority.NO_PRIORITY,
     ) -> None:
         self.tenant_id = tenant_id
         self.issue_id = issue_id
@@ -470,12 +471,20 @@ class Issue(AbstractEntity):
         if priority is None:
             priority = IssuePriority.NO_PRIORITY
 
-        self.status = status
-        self.priority = priority
+        if isinstance(status, str):
+            status = IssueStatus(status)
+        if isinstance(priority, int):
+            priority = IssuePriority(priority)
+
+        assert isinstance(status, IssueStatus)
+        assert isinstance(priority, IssuePriority)
+
+        self._status = status
+        self._priority = priority
 
         self.issue_number = issue_number
 
-        self.tags = set()
+        self._tags = set()
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Issue):
@@ -502,10 +511,35 @@ class Issue(AbstractEntity):
         )"""
 
     def add_tag(self, tag: str) -> None:
-        self.tags.add(tag)
-
-    def add_tags(self, tags: list[str]) -> None:
-        self.tags.update(tags)
+        self._tags.add(tag)
 
     def set_issue_number(self, issue_number: str) -> None:
         self.issue_number = issue_number
+
+    @property
+    def tags(self) -> List[str]:
+        return list(self._tags)
+
+    @tags.setter
+    def tags(self, tags: List[str]) -> None:
+        self._tags = set([str(t).lower() for t in tags])
+
+    @property
+    def status(self) -> str:
+        if self._status is None:
+            return IssueStatus.OPEN.value
+        return self._status.value
+
+    @status.setter
+    def status(self, status: str) -> None:
+        self._status = IssueStatus(status)
+
+    @property
+    def priority(self) -> int:
+        if self._priority is None:
+            return IssuePriority.NO_PRIORITY.value
+        return self._priority.value
+
+    @priority.setter
+    def priority(self, priority: int) -> None:
+        self._priority = IssuePriority(priority)

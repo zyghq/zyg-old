@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, List
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -31,7 +31,7 @@ class SlackEventCallBackRequestBody(BaseModel):
     event_context: str
     event_time: int
     authorizations: dict | list[dict] | None = None
-    authed_users: list[str] | None = None
+    authed_users: List[str] | None = None
     is_ext_shared_channel: bool | None = None
     context_team_id: str | None = None
     context_enterprise_id: str | None = None

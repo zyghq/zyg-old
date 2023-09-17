@@ -8,6 +8,7 @@ from sqlalchemy.sql import text
 
 from .entities import (
     InSyncSlackChannelDBEntity,
+    IssueDBEntity,
     LinkedSlackChannelDBEntity,
     SlackEventDBEntity,
     TenantDBEntity,
@@ -691,12 +692,104 @@ class AbstractIssueRepository(abc.ABC):
         raise NotImplementedError
 
 
-
 class IssueRepository(AbstractIssueRepository, BaseRepository):
     def __init__(self, connection: Connection) -> None:
         self.conn = connection
-    
-    async def save(self, issue: dict) -> dict:
-        pass
 
-    
+    async def _insert(self, issue: IssueDBEntity) -> IssueDBEntity:
+        issue_id = self.generate_id()
+        query = """
+            with sequencer as (
+                insert into issue_seq (tenant_id)
+                values (:tenant_id) on conflict (tenant_id)
+                do update set 
+                    seq = (
+                        select seq + 1 as seq
+                        from issue_seq
+                        where
+                        tenant_id = :tenant_id
+                    ),
+                    updated_at = now()
+                returning seq
+            )
+            insert into issue (
+                issue_id, tenant_id, body, status, priority, tags, issue_number
+            ) values (
+                :issue_id, :tenant_id, :body, :status, :priority, :tags, (
+                    select seq from sequencer
+                )
+            )
+            returning issue_id, tenant_id, body, status, priority, tags,
+            issue_number, created_at, updated_at;
+        """
+        parameters = {
+            "issue_id": issue_id,
+            "tenant_id": issue.tenant_id,
+            "body": issue.body,
+            "status": issue.status,
+            "priority": issue.priority,
+            "tags": issue.tags
+            if isinstance(issue.tags, list) and len(issue.tags)
+            else None,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+            return IssueDBEntity(**result)
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+
+    async def _upsert(self, issue: IssueDBEntity) -> IssueDBEntity:
+        query = """
+            insert into issue (
+                issue_id, tenant_id, body, status, priority, tags, issue_number
+            ) values (
+                :issue_id, :tenant_id, :body, :status, :priority, :tags, issue_number
+            )
+            on conflict (issue_id) do update set
+                tenant_id = :tenant_id,
+                body = :body,
+                status = :status,
+                priority = :priority,
+                tags = :tags,
+                issue_number = :issue_number,
+                updated_at = now()
+            returning issue_id, tenant_id, body, status, priority, tags,
+            issue_number, created_at, updated_at
+        """
+        parameters = {
+            "issue_id": issue.issue_id,
+            "tenant_id": issue.tenant_id,
+            "body": issue.body,
+            "status": issue.status,
+            "priority": issue.priority,
+            "tags": issue.tags
+            if isinstance(issue.tags, list) and len(issue.tags)
+            else None,
+            "issue_number": issue.issue_number,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+            return IssueDBEntity(**result)
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+
+    async def save(self, issue: IssueDBEntity) -> IssueDBEntity:
+        if issue.issue_id is None:
+            return await self._insert(issue)
+        return await self._upsert(issue)
