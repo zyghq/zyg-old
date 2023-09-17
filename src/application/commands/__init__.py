@@ -1,4 +1,5 @@
 from typing import Optional
+from typing import List
 
 from pydantic import BaseModel, constr, validator
 
@@ -18,7 +19,7 @@ class SlackEventCallBackCommand(BaseModel):
 
 class TenantSyncChannelCommand(BaseModel):
     tenant_id: str
-    types: list[str] | None = None
+    types: List[str] | None = None
 
 
 class LinkSlackChannelCommand(BaseModel):
@@ -36,6 +37,14 @@ class SearchLinkedSlackChannelCommand(BaseModel):
     @validator("slack_channel_ref")
     def to_lower(cls, v):
         return v.lower() if v else v
+
+
+class CreateIssueCommand(BaseModel):
+    tenant_id: str
+    body: str
+    status: str | None
+    priority: int | None
+    tags: List[str] = []
 
 
 class CreateIssueWithSlackCommand(BaseModel):

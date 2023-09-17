@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 
 from pydantic import BaseModel
 
@@ -49,16 +50,14 @@ class InSyncSlackChannelDBEntity(DBEntity):
     name_normalized: str
     num_members: int
     parent_conversation: str | None = None
-    pending_connected_team_ids: list[str] | None = None
-    pending_shared: list[str] | None = None
-    previous_names: list[str] | None = None
+    pending_connected_team_ids: List[str] | None = None
+    pending_shared: List[str] | None = None
+    previous_names: List[str] | None = None
     purpose: dict | None = None
-    shared_team_ids: list[str] | None = None
+    shared_team_ids: List[str] | None = None
     topic: dict | None = None
     unlinked: int | None = None
     updated: int
-    created_at: datetime | None = None  # db timestamp
-    updated_at: datetime | None = None  # db timestamp
 
 
 class LinkedSlackChannelDBEntity(DBEntity):
@@ -68,5 +67,13 @@ class LinkedSlackChannelDBEntity(DBEntity):
     slack_channel_name: str | None = None
     triage_slack_channel_ref: str
     triage_slack_channel_name: str | None = None
-    created_at: datetime | None = None  # db timestamp
-    updated_at: datetime | None = None  # db timestamp
+
+
+class IssueDBEntity(DBEntity):
+    tenant_id: str
+    issue_id: str | None = None  # primary key
+    issue_number: int | None = None
+    body: str
+    status: str
+    priority: int
+    tags: List[str] = []

@@ -18,7 +18,7 @@ _SYSLOG_PLATFORM_ADDRESS = {
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 app = Celery(
-    "zygapp",
+    "zyg",
     broker=redis_url,
     backend=redis_url,
     broker_connection_retry_on_startup=True,  # disable deprecation warning
@@ -42,8 +42,9 @@ app = Celery(
 def setup_loggers_for_root(*args, **kwargs):
     logger = logging.getLogger()
     formatter = logging.Formatter(
-        "[zygapp:celery] %(levelname)s %(asctime)s %(module)s %(process)d "
-        "%(filename)s:%(lineno)d %(message)s"
+        "[zyg:celery]|%(levelname)s|%(asctime)s|%(process)d|%(module)s|"
+        "%(filename)s:%(lineno)d|%(funcName)s|"
+        "%(message)s"
     )
     handler = logging.StreamHandler()
     handler.setLevel(logging.INFO)

@@ -30,6 +30,7 @@ create table tenant(
 
 
 -- represents the slack event table.
+-- with reference to a tenant.
 create table slack_event(
   event_id varchar(255) not null,
   tenant_id varchar(255) not null,
@@ -50,7 +51,7 @@ create table slack_event(
 
 
 -- mapped as per raw conversation item from Slack API reponse.
--- with reference to tenant.
+-- with reference to a tenant.
 create table insync_slack_channel(
   tenant_id varchar(255) not null, -- reference to tenant.
   context_team_id varchar(255) not null,
@@ -87,6 +88,8 @@ create table insync_slack_channel(
   constraint insync_slack_channel_tenant_id_id_key unique (tenant_id, id)
 );
 
+-- represents the linked Slack channel table
+-- with reference to a tenant.
 create table linked_slack_channel(
   tenant_id varchar(255) not null, -- reference to tenant.
   linked_slack_channel_id varchar(255) not null,
@@ -99,4 +102,33 @@ create table linked_slack_channel(
   constraint linked_slack_channel_id_pkey primary key (linked_slack_channel_id),
   constraint linked_slack_channel_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
   constraint linked_slack_channel_tenant_id_slack_channel_ref_key unique (tenant_id, slack_channel_ref)
+);
+
+-- represents issue sequence table
+-- with reference to a tenant
+-- Note: Make sure the query can generate the next sequence number
+create table issue_seq (
+  seq bigint default 1 not null,
+  tenant_id varchar(255) not null,
+  created_at timestamp default current_timestamp,
+  updated_at timestamp default current_timestamp,
+  constraint issue_seq_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
+  constraint issue_seq_tenant_id_key unique (tenant_id)
+);
+
+-- represents the issue table
+-- with reference to a tenant.
+create table issue (
+  issue_id varchar(255) not null,
+  tenant_id varchar(255) not null,
+  issue_number bigint not null,
+  body text not null,
+  status varchar(127) not null,
+  priority smallint not null,
+  tags text[] null,
+  created_at timestamp default current_timestamp,
+  updated_at timestamp default current_timestamp,
+  constraint issue_issue_id_pkey primary key (issue_id),
+  constraint issue_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
+  constraint issue_tenant_id_issue_number_key unique (tenant_id, issue_number)
 );

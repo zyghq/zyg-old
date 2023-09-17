@@ -1,6 +1,7 @@
 import abc
 from datetime import datetime
 from enum import Enum
+from typing import List
 
 from attrs import asdict, define, field
 
@@ -332,11 +333,11 @@ class InSyncSlackChannelItem(AbstractValueObject):
     name_normalized: str = field(eq=False)
     num_members: int = field(eq=False)
     parent_conversation: str | None = field(eq=False)
-    pending_connected_team_ids: list[str] = field(eq=False)
-    pending_shared: list[str] = field(eq=False)
-    previous_names: list[str] = field(eq=False)
+    pending_connected_team_ids: List[str] = field(eq=False)
+    pending_shared: List[str] = field(eq=False)
+    previous_names: List[str] = field(eq=False)
     purpose: dict[str, str] = field(eq=False)
-    shared_team_ids: list[str] = field(eq=False)
+    shared_team_ids: List[str] = field(eq=False)
     topic: dict[str, str] = field(eq=False)
     unlinked: int = field(eq=False)
     updated: int = field(eq=False)
@@ -433,3 +434,112 @@ class LinkedSlackChannel(AbstractEntity):
                 "cannot add triage channel for the same linked slack channel"
             )
         self.triage_channel = triage_channel
+
+
+class IssueStatus(Enum):
+    OPEN = "open"
+    INPROGRESS = "inprogress"
+    CLOSED = "closed"
+    CANCELLED = "cancelled"
+    DUPLICATE = "duplicate"
+
+
+class IssuePriority(Enum):
+    NO_PRIORITY = 0
+    URGENT = 1
+    HIGH = 2
+    MEDIUM = 3
+    LOW = 4
+
+
+class Issue(AbstractEntity):
+    def __init__(
+        self,
+        tenant_id: str,
+        issue_id: str | None,
+        issue_number: int | None,
+        body: str,
+        status: IssueStatus | None | str = IssueStatus.OPEN,
+        priority: IssuePriority | None | int = IssuePriority.NO_PRIORITY,
+    ) -> None:
+        self.tenant_id = tenant_id
+        self.issue_id = issue_id
+        self.body = body
+
+        if status is None:
+            status = IssueStatus.OPEN
+        if priority is None:
+            priority = IssuePriority.NO_PRIORITY
+
+        if isinstance(status, str):
+            status = IssueStatus(status)
+        if isinstance(priority, int):
+            priority = IssuePriority(priority)
+
+        assert isinstance(status, IssueStatus)
+        assert isinstance(priority, IssuePriority)
+
+        self._status = status
+        self._priority = priority
+
+        self.issue_number = issue_number
+
+        self._tags = set()
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Issue):
+            return False
+        return self.issue_id == other.issue_id
+
+    def equals_by_issue_number(self, other: object) -> bool:
+        if self.issue_number is None:
+            return False
+        if not isinstance(other, Issue):
+            return False
+        return (
+            self.tenant_id == self.tenant_id and self.issue_number == other.issue_number
+        )
+
+    def __repr__(self) -> str:
+        return f"""Issue(
+            tenant_id={self.tenant_id},
+            issue_id={self.issue_id},
+            issue_number={self.issue_number},
+            body={self.body[:32]}...,
+            status={self.status},
+            priority={self.priority},
+        )"""
+
+    def add_tag(self, tag: str) -> None:
+        self._tags.add(tag)
+
+    def set_issue_number(self, issue_number: str) -> None:
+        self.issue_number = issue_number
+
+    @property
+    def tags(self) -> List[str]:
+        return list(self._tags)
+
+    @tags.setter
+    def tags(self, tags: List[str]) -> None:
+        self._tags = set([str(t).lower() for t in tags])
+
+    @property
+    def status(self) -> str:
+        if self._status is None:
+            return IssueStatus.OPEN.value
+        return self._status.value
+
+    @status.setter
+    def status(self, status: str) -> None:
+        self._status = IssueStatus(status)
+
+    @property
+    def priority(self) -> int:
+        if self._priority is None:
+            return IssuePriority.NO_PRIORITY.value
+        return self._priority.value
+
+    @priority.setter
+    def priority(self, priority: int) -> None:
+        self._priority = IssuePriority(priority)

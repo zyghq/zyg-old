@@ -1,8 +1,14 @@
 from datetime import datetime
+from typing import List
 
 from pydantic import BaseModel
 
-from src.domain.models import InSyncSlackChannelItem, LinkedSlackChannel, SlackEvent
+from src.domain.models import (
+    InSyncSlackChannelItem,
+    Issue,
+    LinkedSlackChannel,
+    SlackEvent,
+)
 
 
 class TenantRepr(BaseModel):
@@ -51,6 +57,16 @@ class LinkedSlackChannelRepr(BaseModel):
     linked_slack_channel_id: str
     slack_channel: SlackChannelRepr
     triage_slack_channel: TriageSlackChannelRepr
+
+
+class IssueRepr(BaseModel):
+    tenant_id: str
+    issue_id: str
+    issue_number: int
+    body: str
+    status: str
+    priority: int
+    tags: List[str] = []
 
 
 def slack_callback_event_repr(
@@ -105,4 +121,16 @@ def linked_slack_channel_repr(item: LinkedSlackChannel):
         linked_slack_channel_id=item.linked_slack_channel_id,
         slack_channel=slack_channel,
         triage_slack_channel=triage_slack_channel,
+    )
+
+
+def issue_repr(item: Issue):
+    return IssueRepr(
+        tenant_id=item.tenant_id,
+        issue_id=item.issue_id,
+        issue_number=item.issue_number,
+        body=item.body,
+        status=item.status,
+        priority=item.priority,
+        tags=item.tags,
     )

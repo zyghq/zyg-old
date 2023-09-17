@@ -4,7 +4,7 @@ from sqlalchemy.sql import text
 from src.adapters.db import engine
 from src.logger import logger
 
-from .routers import events, onboardings, tenants
+from .routers import events, issues, onboardings, tenants
 
 app = FastAPI()
 
@@ -24,11 +24,16 @@ app.include_router(
     prefix="/tenants",
 )
 
+app.include_router(
+    issues.router,
+    prefix="/issues",
+)
+
 
 @app.get("/")
 async def root():
-    logger.info("Hey there! I am zygapp.")
-    return {"message": "Hey there! I am zygapp."}
+    logger.info("Hey there! I am zyg.")
+    return {"message": "Hey there! I am zyg."}
 
 
 @app.on_event("startup")
