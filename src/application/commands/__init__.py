@@ -1,5 +1,4 @@
-from typing import Optional
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, constr, validator
 
@@ -45,7 +44,3 @@ class CreateIssueCommand(BaseModel):
     status: str | None
     priority: int | None
     tags: List[str] = []
-
-
-class CreateIssueWithSlackCommand(BaseModel):
-    pass

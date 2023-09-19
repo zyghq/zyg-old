@@ -32,7 +32,10 @@ class SlackEventDBAdapter:
         self.engine = engine
 
     def _map_to_db_entity(self, slack_event: SlackEvent) -> SlackEventDBEntity:
-        event = attrs.asdict(slack_event.event) if slack_event.event else None
+        event = slack_event.event.to_dict() if slack_event.event else None
+        print("******************************")
+        print(event)
+        print("******************************")
         return SlackEventDBEntity(
             event_id=slack_event.event_id,
             tenant_id=slack_event.tenant_id,
@@ -49,8 +52,9 @@ class SlackEventDBAdapter:
     def _map_to_domain(self, slack_event_entity: SlackEventDBEntity) -> SlackEvent:
         tenant_id = slack_event_entity.tenant_id
         payload = slack_event_entity.payload
-        slack_event = SlackEvent.from_payload(tenant_id=tenant_id, payload=payload)
-        slack_event.set_event_id(slack_event_entity.event_id)
+        slack_event = SlackEvent.from_payload(
+            tenant_id=tenant_id, event_id=slack_event_entity.event_id, payload=payload
+        )
         return slack_event
 
     async def save(self, slack_event: SlackEvent) -> SlackEvent:

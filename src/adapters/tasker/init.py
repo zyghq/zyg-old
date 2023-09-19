@@ -2,6 +2,7 @@ import logging
 import logging.config
 import os
 import sys
+from logging import handlers
 
 from celery import signals
 
@@ -52,7 +53,7 @@ def setup_loggers_for_root(*args, **kwargs):
 
     logger.addHandler(handler)
 
-    slh = logging.handlers.SysLogHandler(
+    slh = handlers.SysLogHandler(
         address=_SYSLOG_PLATFORM_ADDRESS.get(sys.platform, "/dev/log")
     )
     slh.setLevel(logging.INFO)
