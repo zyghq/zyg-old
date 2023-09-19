@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 
-from attrs import asdict, define, field
+from attrs import define, field
 
 from src.domain.exceptions import SlackChannelReferenceValueError, TenantValueError
 
@@ -115,49 +115,81 @@ class User(AbstractEntity):
         )"""
 
 
-@define(kw_only=True, frozen=True)
-class BaseEvent(AbstractValueObject):
-    """
-    Represents a base event.
+class BaseEvent:
+    def __init__(
+        self,
+        tenant_id: str,
+        slack_event_ref: str,
+        inner_event_type: str,
+    ) -> None:
+        self.tenant_id = tenant_id
+        self.slack_event_ref = slack_event_ref
+        self.inner_event_type = inner_event_type
 
-    Attributes:
-        tenant_id (str): The ID of the tenant.
-        event_id (str): The ID of the event.
-        event_ts (int): The timestamp of the event.
-        event (dict | None): The event data, if any.
-        inner_event_type (str): The inner event type.
-    """
-
-    tenant_id: str
-    event_id: str
-    event_ts: int = field(eq=False)
-    event: dict | None = field(default=None, eq=False)
-    inner_event_type: str = field(eq=False)
+    def to_dict() -> dict:
+        raise NotImplementedError
 
 
-@define(frozen=True)
 class EventChannelMessage(BaseEvent):
-    """
-    Represents a message channel event.
+    subscribed_event = "message.channels"
 
-    Then naming convention follows reverse of the subscribed event name.
-    With prefix by `Event`
+    def __init__(
+        self,
+        tenant_id: str,
+        slack_event_ref: str,
+        slack_channel_ref: str,
+        inner_event_type: str,
+        event: dict,
+    ) -> None:
+        super().__init__(tenant_id, slack_event_ref, inner_event_type)
+        self.slack_channel_ref = slack_channel_ref
 
-    For example here we have `message.channels` subscribed event, so we have
-    `EventChannelMessage` as the event name.
+        self.message = self._parse(event=event)
 
-    Attributes:
-        subscribed_event (str): The name of the subscribed event.
-        slack_team_ref (str): The reference to the Slack team.
-        slack_channel_ref (str): The reference to the Slack channel.
-    """
+    def _parse(self, event: dict) -> None:
+        # XXX(@sanchitrk): update this based on testing.
+        parsed_event = {}
+        ts = event.get("ts", None)
+        body = event.get("text", None)
+        slack_user_ref = event.get("user", None)
+        client_msg_id = event.get("client_msg_id", None)
 
-    slack_event_ref: str
-    slack_channel_ref: str
-    subscribed_event: str = "message.channels"
+        assert ts is not None
+        assert body is not None
+        assert slack_user_ref is not None
+        assert client_msg_id is not None
+
+        parsed_event["ts"] = ts
+        parsed_event["body"] = body
+        parsed_event["slack_user_ref"] = slack_user_ref
+        parsed_event["client_msg_id"] = client_msg_id
+        return parsed_event
+
+    def to_dict(self) -> dict:
+        return {
+            "tenant_id": self.tenant_id,
+            "slack_event_ref": self.slack_event_ref,
+            "slack_channel_ref": self.slack_channel_ref,
+            "inner_event_type": self.inner_event_type,
+            "message": self.message,
+            "subscribed_event": self.subscribed_event,
+        }
+
+    def __repr__(self) -> str:
+        return f"""EventChannelMessage(
+            tenant_id={self.tenant_id},
+            slack_event_ref={self.slack_event_ref},
+            slack_channel_ref={self.slack_channel_ref},
+            inner_event_type={self.inner_event_type},
+            subscribed_event={self.subscribed_event},
+        )"""
 
 
 class SlackEvent(AbstractEntity):
+    """
+    `subscribed_events` - are list of events that we are subscribed to in Slack.
+    """
+
     subscribed_events = ("message.channels",)
 
     def __init__(
@@ -202,28 +234,46 @@ class SlackEvent(AbstractEntity):
         return slack_event_ref.strip().lower()
 
     @classmethod
-    def from_payload(cls, tenant_id: str, payload: dict) -> "SlackEvent":
-        slack_event_ref = payload.get("event_id", None)
+    def from_payload(
+        cls, tenant_id: str, event_id: str | None, payload: dict
+    ) -> "SlackEvent":
+        slack_event_ref = payload.get("event_id", None)  # from slack `event_id`
         slack_event_ref = cls._clean_slack_event_ref(slack_event_ref)
         if not slack_event_ref:
-            raise ValueError("slack event reference (slack `event_id`) is required")
+            raise ValueError(
+                "slack event reference (from slack `event_id`) is required"
+            )
         event_ts = payload.get("event_time", None)
         if not event_ts:
-            raise ValueError("slack event time stamp (slack `event_time`) is required")
+            raise ValueError(
+                "slack event time stamp (from slack `event_time`) is required"
+            )
+
+        payload_event = payload.get("event", None)
+        if not payload_event:
+            raise ValueError("slack inner event cannot be empty")
 
         slack_event = cls(
             tenant_id=tenant_id,
-            event_id=None,
+            event_id=event_id,
             slack_event_ref=slack_event_ref,
             event_ts=event_ts,
             payload=payload,
         )
-        payload_event = payload.get("event", {})
-        event = slack_event.make_event(event=payload_event)
-        slack_event.set_event(event=event)
+
+        event = slack_event.build_event(event=payload_event)
+        slack_event.event = event
         return slack_event
 
-    def _parse_to_subscribed_event(self, event: dict) -> None:
+    def _parse_to_subscribed_event(self, event: dict) -> str:
+        """
+        Parses the inner event type to find the subscribed event.
+        Returns the subscribed event name as subscribed.
+
+        If we are not able to find the subscribed event, we raise an error.
+
+        Note: Add support for more subscribed events.
+        """
         event_type = event.get("type", None)
         if not event_type:
             raise ValueError("event type is required")
@@ -235,32 +285,33 @@ class SlackEvent(AbstractEntity):
             if channel_type == "channel":
                 # follow the path `message.channels`
                 return "message.channels"
-        raise ValueError("event type is not supported")
+        raise ValueError("event type is not supported or subscribed")
 
-    def make_event(self, event: dict) -> None:
+    def build_event(self, event: dict) -> None:
+        """
+        First we parse the event to find the subscribed event,
+        and make sure it is in subscribed events - we dont want to end up
+        with an event that we are not subscribed to.
+
+        Then we build the event based on the subscribed event.
+        """
         subscribed_event = self._parse_to_subscribed_event(event=event)
+        if subscribed_event not in self.subscribed_events:
+            raise ValueError(
+                "subscribed event not added to subscribed events may be forgotten?"
+            )
+
         if subscribed_event == "message.channels":
             channel = event.get("channel", None)
             inner_event_type = event.get("type", "n/a")
             return EventChannelMessage(
                 tenant_id=self.tenant_id,
-                event_id=self.event_id,
                 slack_event_ref=self.slack_event_ref,
                 slack_channel_ref=channel,
-                event_ts=self.event_ts,
-                event=event,
                 inner_event_type=inner_event_type,
+                event=event,
             )
-        raise ValueError("cannot make event for unsupported event type")
-
-    def set_event(self, event: AbstractValueObject | None) -> None:
-        if event is None:
-            self.event = None
-            return
-        self.event = event
-
-    def set_event_id(self, event_id: str) -> None:
-        self.event_id = event_id
+        raise ValueError("cannot build event for unknown event type")
 
     @classmethod
     def is_event_subscribed(cls, name):
@@ -289,17 +340,20 @@ class SlackEvent(AbstractEntity):
 
     def to_dict(self):
         if isinstance(self.event, BaseEvent):
-            event = asdict(self.event)
+            event = self.event.to_dict()
         else:
             event = None
         return {
-            "tenant_id": self.tenant_id,
             "event_id": self.event_id,
+            "tenant_id": self.tenant_id,
             "slack_event_ref": self.slack_event_ref,
+            "inner_event_type": self.inner_event_type,
+            "event": event,
             "event_ts": self.event_ts,
+            "api_app_id": self.api_app_id,
+            "token": self.token,
             "payload": self.payload,
             "is_ack": self.is_ack,
-            "event": event,
         }
 
 

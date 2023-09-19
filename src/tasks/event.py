@@ -2,7 +2,6 @@ import logging
 from typing import Callable
 
 from src.adapters.rpc.ext import SlackWebAPIConnector
-from src.application.commands import CreateIssueWithSlackCommand
 from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import SlackEvent, Tenant
 from src.services.exceptions import UnSupportedSlackEventException
@@ -10,7 +9,7 @@ from src.services.exceptions import UnSupportedSlackEventException
 logger = logging.getLogger(__name__)
 
 
-text = "I am having trouble logging into the App based on OTP."
+text = "There is an issue in login for android app!!"
 
 test_block = issue_template = {
     "blocks": [
@@ -40,7 +39,7 @@ test_block = issue_template = {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "I am having trouble logging into the App based on OTP.",
+                "text": "There is an issue in login for android app!!",
             },
         },
         {"type": "divider"},
@@ -68,12 +67,12 @@ test_block = issue_template = {
 }
 
 
-class CreateIssueWithSlackService:
+class CreateIssueWithSlackTask:
     def __init__(self) -> None:
         pass
 
-    async def create(self, tenant: Tenant, command: CreateIssueWithSlackCommand):
-        logger.info(f"create issue for tenant: {tenant} with command: {command}")
+    async def create(self, tenant: Tenant):
+        logger.info(f"create issue for tenant: {tenant}")
 
         tenant_context = tenant.build_context()
         slack_api = SlackWebAPIConnector.for_tenant(
@@ -92,13 +91,17 @@ class CreateIssueWithSlackService:
 
 async def slack_channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
     logger.info("slack_channel_message_handler invoked")
-    logger.info(f"tenant: {tenant}")
-    logger.info(f"slack_event: {slack_event}")
+    # logger.info(f"tenant: {tenant}")
+    # logger.info(f"slack_event: {slack_event}")
 
-    command = CreateIssueWithSlackCommand()
+    print("----------------------------------")
+    print((tenant.to_dict()))
+    print("----------------------------------")
+    print(slack_event.to_dict())
+    print("----------------------------------")
 
-    issue_task_service = CreateIssueWithSlackService()
-    await issue_task_service.create(tenant=tenant, command=command)
+    # issue_task = CreateIssueWithSlackTask()
+    # await issue_task.create(tenant=tenant)
 
     return "slack_channel_message_handler invoked"
 

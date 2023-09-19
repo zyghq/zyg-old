@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from src.adapters.db.adapters import SlackEventDBAdapter, TenantDBAdapter
-from src.adapters.tasker.tasks import slack_event_dispatch_handler
+from src.adapters.tasker import worker
 from src.application.commands import SlackEventCallBackCommand
 from src.application.exceptions import SlackTeamRefMapException
 from src.domain.models import SlackEvent, Tenant
@@ -34,10 +34,12 @@ class SlackEventCallBackDispatchService:
             "dispatching slack event to `slack_event_dispatch_handler` "
             f"with dispatch_id: {dispatch_id} at {now.isoformat()}"
         )
-        task = slack_event_dispatch_handler.apply_async(
-            (context, slack_event.to_dict())
+
+        task = worker.apply_async(
+            "zyg.slack_event_handler", (context, slack_event.to_dict())
         )
-        logger.info("task: %s", task)
+        logger.info("invoked task with task id: %s", task)
+        return dispatch_id
 
     async def dispatch(self, command: SlackEventCallBackCommand) -> SlackEvent:
         """
@@ -70,31 +72,39 @@ class SlackEventCallBackDispatchService:
             )
 
         slack_event = SlackEvent.from_payload(
-            tenant_id=tenant.tenant_id, payload=command.payload
+            tenant_id=tenant.tenant_id, event_id=None, payload=command.payload
         )
 
-        captured_slack_event = await self.slack_event_db.find_by_slack_event_ref(
+        captured_event = await self.slack_event_db.find_by_slack_event_ref(
             command.slack_event_ref
         )
 
-        if captured_slack_event and captured_slack_event.equals_by_slack_event_ref(
-            slack_event
-        ):
+        if captured_event and captured_event.equals_by_slack_event_ref(slack_event):
             logger.warning(
                 'slack event already captured: "%s" checking if acknowledged...',
-                captured_slack_event,
+                captured_event,
             )
-            if not captured_slack_event.is_ack:
+            if not captured_event.is_ack:
                 logger.warning(
                     "slack event not acknowledged yet. dispatching again.",
                 )
-                await self._dispatch(tenant, captured_slack_event)
-            return captured_slack_event
+                dispatch_id = await self._dispatch(tenant, captured_event)
+                logger.info(
+                    'slack event dispatched again: "%s" with dispatch_id: "%s"',
+                    captured_event,
+                    dispatch_id,
+                )
+            return captured_event
 
         logger.info(
             'slack event not captured yet: "%s" capturing and dispatching now.',
             slack_event,
         )
-        captured_slack_event = await self._capture(slack_event)
-        await self._dispatch(tenant, captured_slack_event)
-        return captured_slack_event
+        captured_event = await self._capture(slack_event)
+        dispatch_id = await self._dispatch(tenant, captured_event)
+        logger.info(
+            'slack event captured and dispatched: "%s" with dispatch_id: "%s"',
+            captured_event,
+            dispatch_id,
+        )
+        return captured_event
