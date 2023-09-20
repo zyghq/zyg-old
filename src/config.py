@@ -11,3 +11,5 @@ SLACK_BOT_OAUTH_TOKEN = os.getenv("SLACK_BOT_OAUTH_TOKEN", None)
 
 POSTGRES_URI = os.getenv("POSTGRES_URI", None)
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+
+ZYG_BASE_URL = os.getenv("ZYG_BASE_URL", "http://localhost:8000")

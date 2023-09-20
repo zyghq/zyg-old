@@ -1,4 +1,3 @@
-import attrs
 from sqlalchemy.engine.base import Engine
 
 from src.adapters.db import engine

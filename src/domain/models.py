@@ -356,6 +356,11 @@ class SlackEvent(AbstractEntity):
             "is_ack": self.is_ack,
         }
 
+    def get_message(self) -> dict | None:
+        if isinstance(self.event, EventChannelMessage):
+            return self.event.message
+        return None
+
 
 @define(frozen=True)
 class InSyncSlackChannelItem(AbstractValueObject):
@@ -575,7 +580,10 @@ class Issue(AbstractEntity):
         return list(self._tags)
 
     @tags.setter
-    def tags(self, tags: List[str]) -> None:
+    def tags(self, tags: List[str] | None) -> None:
+        if tags is None:
+            self._tags = set()
+            return
         self._tags = set([str(t).lower() for t in tags])
 
     @property
@@ -597,3 +605,11 @@ class Issue(AbstractEntity):
     @priority.setter
     def priority(self, priority: int) -> None:
         self._priority = IssuePriority(priority)
+
+    @staticmethod
+    def default_status() -> str:
+        return IssueStatus.OPEN.value
+
+    @staticmethod
+    def default_priority() -> int:
+        return IssuePriority.NO_PRIORITY.value
