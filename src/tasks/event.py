@@ -1,7 +1,7 @@
 import logging
 from typing import Callable
 
-from src.adapters.rpc import WebAPIConnector
+from src.adapters.rpc.api import ZygWebAPIConnector
 from src.adapters.rpc.ext import SlackWebAPIConnector
 from src.application.commands import CreateIssueCommand
 from src.config import SLACK_BOT_OAUTH_TOKEN
@@ -100,7 +100,7 @@ class CreateIssueWithSlackTask:
             tags=[],
         )
 
-        api = WebAPIConnector(tenant_context=tenant_context)
+        api = ZygWebAPIConnector(tenant_context=tenant_context)
         err, response = await api.create_issue(command=command)
         if err:
             logger.error(f"error: {err}")

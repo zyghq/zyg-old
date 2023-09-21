@@ -1,7 +1,7 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 from pydantic import BaseModel
 
 from src.application.commands import CreateIssueCommand
@@ -22,7 +22,7 @@ class IssueCreateRequestBody(BaseModel):
 router = APIRouter()
 
 
-@router.post("/")
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_issue(request_body: IssueCreateRequestBody):
     command = CreateIssueCommand(
         tenant_id=request_body.tenant_id,

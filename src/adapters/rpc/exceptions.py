@@ -4,3 +4,11 @@ class SlackAPIResponseException(Exception):
 
 class SlackAPIException(Exception):
     pass
+
+
+class WebAPIResponseException(Exception):
+    pass
+
+
+class CreateIssueResponseException(Exception):
+    pass
