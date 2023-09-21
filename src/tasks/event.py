@@ -2,71 +2,16 @@ import logging
 from typing import Callable
 
 from src.adapters.rpc.api import ZygWebAPIConnector
+from src.adapters.rpc.exceptions import CreateIssueAPIException
 from src.adapters.rpc.ext import SlackWebAPIConnector
 from src.application.commands import CreateIssueCommand
+from src.application.commands.slack import IssueChatPostMessageCommand
+from src.application.repr.slack import issue_message_repr
 from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import Issue, SlackEvent, Tenant
 from src.services.exceptions import UnSupportedSlackEventException
 
 logger = logging.getLogger(__name__)
-
-
-# text = "There is an issue in login for android app!!"
-
-# test_block = issue_template = {
-#     "blocks": [
-#         {
-#             "type": "section",
-#             "text": {
-#                 "type": "plain_text",
-#                 "text": ":red_circle: Awaiting",
-#                 "emoji": True,
-#             },
-#         },
-#         {
-#             "type": "section",
-#             "text": {
-#                 "type": "mrkdwn",
-#                 "text": ":ticket: <https://example.com|*Issue #1789*>",
-#             },
-#         },
-#         {
-#             "type": "section",
-#             "text": {
-#                 "type": "mrkdwn",
-#                 "text": "_<@U03NGJTT5JT> In <#C05KPPM03T8> | 9 Sept 2023 at 11:08 AM_",
-#             },
-#         },
-#         {
-#             "type": "section",
-#             "text": {
-#                 "type": "mrkdwn",
-#                 "text": "There is an issue in login for android app!!",
-#             },
-#         },
-#         {"type": "divider"},
-#         {
-#             "type": "context",
-#             "elements": [
-#                 {"type": "mrkdwn", "text": "Requester: *<@U03NGJTT5JT>*"},
-#                 {"type": "mrkdwn", "text": "*Unassigned*"},
-#                 {"type": "mrkdwn", "text": "Priority: *Normal*"},
-#             ],
-#         },
-#         {
-#             "type": "actions",
-#             "elements": [
-#                 {
-#                     "type": "button",
-#                     "text": {"type": "plain_text", "text": "Claim", "emoji": True},
-#                     "style": "primary",
-#                     "value": "click_me_123",
-#                     "action_id": "actionId-0",
-#                 }
-#             ],
-#         },
-#     ]
-# }
 
 
 class CreateIssueWithSlackTask:
@@ -76,21 +21,13 @@ class CreateIssueWithSlackTask:
     async def create(self, tenant: Tenant, slack_event: SlackEvent):
         logger.info(f"create issue for tenant: {tenant}")
         tenant_context = tenant.build_context()
-        message = slack_event.get_message()
 
-        if message:
-            body = message.get("body")
+        if not slack_event.is_channel_message:
+            raise RuntimeError("slack_event is not channel message event")
 
-        # slack_api = SlackWebAPIConnector.for_tenant(
-        #     tenant_context=tenant_context,
-        #     token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
-        # )
-
-        # response = slack_api.chat_post_message(
-        #     channel="C05LB4YTKK8",
-        #     text=text,
-        #     blocks=test_block["blocks"],
-        # )
+        event = slack_event.event
+        message = event.message
+        body = message.get("body")
 
         command = CreateIssueCommand(
             tenant_id=tenant_context.tenant_id,
@@ -100,16 +37,29 @@ class CreateIssueWithSlackTask:
             tags=[],
         )
 
-        api = ZygWebAPIConnector(tenant_context=tenant_context)
-        err, response = await api.create_issue(command=command)
-        if err:
-            logger.error(f"error: {err}")
+        zyg_api = ZygWebAPIConnector(tenant_context=tenant_context)
+        try:
+            response = await zyg_api.create_issue(command=command)
+            issue = Issue.from_dict(response)
+            logger.info(f"created issue from API {issue}")
+        except CreateIssueAPIException as e:
+            logger.error(f"error: {e}")
             return None
-        logger.info(f"slack got response: {response}")
+
+        slack_command = IssueChatPostMessageCommand(
+            channel="C05LB4YTKK8", text=issue_message_repr(issue), blocks=None
+        )
+
+        slack_api = SlackWebAPIConnector(
+            tenant_context=tenant_context,
+            token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
+        )
+
+        response = slack_api.post_issue_message(command=slack_command)
 
 
 async def slack_channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
-    logger.info("slack_channel_message_handler invoked")
+    logger.info("slack_channel_message_handler invoked...")
     logger.info(f"tenant: {tenant}")
     logger.info(f"slack_event: {slack_event}")
     # print("----------------------------------")

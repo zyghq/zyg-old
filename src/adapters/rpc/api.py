@@ -8,7 +8,7 @@ from src.application.commands import CreateIssueCommand
 from src.config import ZYG_BASE_URL
 from src.domain.models import TenantContext
 
-from .exceptions import CreateIssueResponseException, WebAPIResponseException
+from .exceptions import CreateIssueAPIException, WebAPIException
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +18,15 @@ class WebAPIBaseConnector:
         if response.status_code in [HTTPStatus.OK, HTTPStatus.CREATED]:
             return response.json()
         elif response.status_code == HTTPStatus.UNAUTHORIZED:
-            raise WebAPIResponseException(HTTPStatus.UNAUTHORIZED.name)
+            raise WebAPIException(HTTPStatus.UNAUTHORIZED.name)
         elif response.status_code == HTTPStatus.BAD_REQUEST:
-            raise WebAPIResponseException(HTTPStatus.BAD_REQUEST.name)
+            raise WebAPIException(HTTPStatus.BAD_REQUEST.name)
         elif response.status_code == HTTPStatus.NOT_FOUND:
-            raise WebAPIResponseException(HTTPStatus.NOT_FOUND.name)
+            raise WebAPIException(HTTPStatus.NOT_FOUND.name)
         elif response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR:
-            raise WebAPIResponseException(HTTPStatus.INTERNAL_SERVER_ERROR.name)
+            raise WebAPIException(HTTPStatus.INTERNAL_SERVER_ERROR.name)
         else:
-            raise WebAPIResponseException("API response error - something went wrong.")
+            raise WebAPIException("API response error - something went wrong.")
 
 
 class ZygWebAPIConnector(WebAPIBaseConnector):
@@ -52,12 +52,12 @@ class ZygWebAPIConnector(WebAPIBaseConnector):
             return self.respond(response)
         except httpx.HTTPError as exc:
             logger.error(f"HTTP Exception for {exc.request.url} - {exc}")
-            raise CreateIssueResponseException(
+            raise CreateIssueAPIException(
                 "Request failed to create issue at HTTP level"
             ) from exc
-        except WebAPIResponseException as e:
+        except WebAPIException as e:
             logger.error(f"Web API Exception for {e}")
-            raise CreateIssueResponseException("Request failed to create issue") from e
+            raise CreateIssueAPIException("Request failed to create issue") from e
         except Exception as e:
             logger.error(f"Exception for {e}")
-            raise CreateIssueResponseException("Request failed to create issue") from e
+            raise CreateIssueAPIException("Something went wrong with") from e

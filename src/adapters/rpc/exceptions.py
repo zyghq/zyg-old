@@ -6,9 +6,9 @@ class SlackAPIException(Exception):
     pass
 
 
-class WebAPIResponseException(Exception):
+class WebAPIException(Exception):
     pass
 
 
-class CreateIssueResponseException(Exception):
+class CreateIssueAPIException(Exception):
     pass

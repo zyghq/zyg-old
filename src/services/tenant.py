@@ -55,8 +55,7 @@ class TenantChannelSyncService:
         logger.info(f"sync channels for tenant with tenant context: `{tenant}`")
 
         tenant_context = tenant.build_context()
-        
-        slack_api = SlackWebAPIConnector.for_tenant(
+        slack_api = SlackWebAPIConnector(
             tenant_context=tenant_context,
             token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
         )

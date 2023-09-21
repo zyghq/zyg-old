@@ -5,7 +5,7 @@ from fastapi import APIRouter, status
 from pydantic import BaseModel
 
 from src.application.commands import CreateIssueCommand
-from src.application.repr import issue_repr
+from src.application.repr.api import issue_repr
 from src.services.issue import CreateIssueService
 
 logger = logging.getLogger(__name__)

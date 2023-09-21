@@ -9,7 +9,7 @@ from src.application.commands import (
     SearchLinkedSlackChannelCommand,
     TenantSyncChannelCommand,
 )
-from src.application.repr import (
+from src.application.repr.api import (
     insync_slack_channel_item_repr,
     linked_slack_channel_repr,
 )

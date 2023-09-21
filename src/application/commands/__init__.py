@@ -34,7 +34,7 @@ class SearchLinkedSlackChannelCommand(BaseModel):
     slack_channel_ref: Optional[str] = None
 
     @validator("slack_channel_ref")
-    def to_lower(cls, v):
+    def to_lower(cls, v: str | None):
         return v.lower() if v else v
 
 

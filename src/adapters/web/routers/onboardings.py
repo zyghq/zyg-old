@@ -6,7 +6,7 @@ from pydantic import BaseModel, constr
 
 from src.application.commands import TenantProvisionCommand
 from src.application.exceptions import SlackTeamRefMapException
-from src.application.repr import TenantRepr
+from src.application.repr.api import TenantRepr
 from src.services.tenant import TenantProvisionService
 
 logger = logging.getLogger(__name__)
