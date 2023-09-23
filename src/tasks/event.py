@@ -6,7 +6,10 @@ from src.adapters.rpc.exceptions import CreateIssueAPIException
 from src.adapters.rpc.ext import SlackWebAPIConnector
 from src.application.commands import CreateIssueCommand
 from src.application.commands.slack import IssueChatPostMessageCommand
-from src.application.repr.slack import issue_message_repr
+from src.application.repr.slack import (
+    issue_message_blocks_repr,
+    issue_message_text_repr,
+)
 from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import Issue, SlackEvent, Tenant
 from src.services.exceptions import UnSupportedSlackEventException
@@ -46,8 +49,12 @@ class CreateIssueWithSlackTask:
             logger.error(f"error: {e}")
             return None
 
+        print('************************** check the block repr ....... ')
+        print(issue_message_blocks_repr(issue))
         slack_command = IssueChatPostMessageCommand(
-            channel="C05LB4YTKK8", text=issue_message_repr(issue), blocks=None
+            channel="C05LB4YTKK8",
+            text=issue_message_text_repr(issue),
+            blocks=issue_message_blocks_repr(issue),
         )
 
         slack_api = SlackWebAPIConnector(
@@ -56,6 +63,7 @@ class CreateIssueWithSlackTask:
         )
 
         response = slack_api.post_issue_message(command=slack_command)
+        return response
 
 
 async def slack_channel_message_handler(tenant: Tenant, slack_event: SlackEvent):

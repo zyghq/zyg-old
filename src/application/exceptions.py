@@ -1,2 +1,2 @@
-class SlackTeamRefMapException(Exception):
+class SlackTeamReferenceException(Exception):
     pass

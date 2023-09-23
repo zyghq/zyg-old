@@ -8,7 +8,7 @@ from pydantic import BaseModel, ValidationError
 from src.application.commands import SlackEventCallBackCommand
 from src.application.repr.api import slack_callback_event_repr
 from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
-from src.services.event import SlackEventCallBackDispatchService
+from src.services.event import SlackEventCallBackService
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,7 @@ async def slack_event(request: Request) -> Any:
                 event_ts=slack_callback_body.event_time,
                 payload=slack_callback_body.model_dump(),
             )
-            slack_event = await SlackEventCallBackDispatchService().dispatch(command)
+            slack_event = await SlackEventCallBackService().dispatch(command)
         except Exception as e:
             logger.error("notify admin: error while capturing or dispatching event.")
             logger.error(e)

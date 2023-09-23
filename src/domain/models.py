@@ -625,3 +625,17 @@ class Issue(AbstractEntity):
         )
         issue.tags = data.get("tags")
         return issue
+
+    @property
+    def priority_display_name(self) -> str:
+        r = self._priority.name
+        r = r.lower().split("_")
+        r = " ".join([w.capitalize() for w in r])
+        return r
+
+    @property
+    def status_display_name(self) -> str:
+        r = self._status.name
+        r = r.lower().split("_")
+        r = " ".join([w.capitalize() for w in r])
+        return r
