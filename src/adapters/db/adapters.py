@@ -279,6 +279,14 @@ class LinkedSlackChannelDBAdapter:
             result = self._map_to_domain(linked_channel_entity)
         return result
 
+    async def get_by_id(self, linked_slack_channel_id: str) -> LinkedSlackChannel:
+        async with self.engine.begin() as conn:
+            linked_channel_entity = await LinkedSlackChannelRepository(
+                conn
+            ).get_by_linked_slack_channel_id(linked_slack_channel_id)
+            result = self._map_to_domain(linked_channel_entity)
+        return result
+
     async def find_by_slack_channel_ref(
         self, slack_channel_ref: str
     ) -> LinkedSlackChannel | None:
@@ -317,6 +325,7 @@ class IssueDBAdapter:
             status=issue.status,
             priority=issue.priority,
             tags=issue.tags,
+            linked_slack_channel_id=issue.linked_slack_channel_id,
         )
 
     def _map_to_domain(self, issue_entity: IssueDBEntity) -> Issue:
@@ -329,6 +338,7 @@ class IssueDBAdapter:
             priority=issue_entity.priority,
         )
         issue.tags = issue_entity.tags
+        issue.linked_slack_channel_id = issue_entity.linked_slack_channel_id
         return issue
 
     async def save(self, issue: Issue) -> Issue:

@@ -44,3 +44,9 @@ class CreateIssueCommand(BaseModel):
     status: str | None
     priority: int | None
     tags: List[str] = []
+    linked_slack_channel_id: str | None = None
+
+
+class GetLinkedSlackChannelByRefCommand(BaseModel):
+    tenant_id: str
+    slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)

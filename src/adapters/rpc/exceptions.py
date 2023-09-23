@@ -12,3 +12,11 @@ class WebAPIException(Exception):
 
 class CreateIssueAPIException(Exception):
     pass
+
+
+class LinkedChannelRefAPIException(Exception):
+    pass
+
+
+class LinkedChannelRefAPINotFoundException(Exception):
+    pass

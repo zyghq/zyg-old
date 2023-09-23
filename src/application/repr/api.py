@@ -44,19 +44,16 @@ class InSyncSlackChannelItemRepr(BaseModel):
     created_at: datetime
 
 
-class SlackChannelRepr(BaseModel):
+class TriageSlackChannelRepr(BaseModel):
     channel_ref: str
     channel_name: str
 
 
-class TriageSlackChannelRepr(SlackChannelRepr):
-    pass
-
-
 class LinkedSlackChannelRepr(BaseModel):
-    linked_slack_channel_id: str
-    slack_channel: SlackChannelRepr
-    triage_slack_channel: TriageSlackChannelRepr
+    channel_id: str
+    channel_ref: str
+    channel_name: str
+    triage_channel: TriageSlackChannelRepr
 
 
 class IssueRepr(BaseModel):
@@ -67,6 +64,7 @@ class IssueRepr(BaseModel):
     status: str
     priority: int
     tags: List[str] = []
+    linked_slack_channel_id: str | None = None
 
 
 def slack_callback_event_repr(
@@ -107,24 +105,21 @@ def insync_slack_channel_item_repr(
     )
 
 
-def linked_slack_channel_repr(item: LinkedSlackChannel):
-    slack_channel = SlackChannelRepr(
-        channel_ref=item.slack_channel_ref,
-        channel_name=item.slack_channel_name,
-    )
+def linked_slack_channel_repr(item: LinkedSlackChannel) -> LinkedSlackChannelRepr:
     triage_channel = item.triage_channel
     triage_slack_channel = TriageSlackChannelRepr(
         channel_ref=triage_channel.slack_channel_ref,
         channel_name=triage_channel.slack_channel_name,
     )
     return LinkedSlackChannelRepr(
-        linked_slack_channel_id=item.linked_slack_channel_id,
-        slack_channel=slack_channel,
-        triage_slack_channel=triage_slack_channel,
+        channel_id=item.linked_slack_channel_id,
+        channel_ref=item.slack_channel_ref,
+        channel_name=item.slack_channel_name,
+        triage_channel=triage_slack_channel,
     )
 
 
-def issue_repr(item: Issue):
+def issue_repr(item: Issue) -> IssueRepr:
     return IssueRepr(
         tenant_id=item.tenant_id,
         issue_id=item.issue_id,
@@ -133,4 +128,5 @@ def issue_repr(item: Issue):
         status=item.status,
         priority=item.priority,
         tags=item.tags,
+        linked_slack_channel_id=item.linked_slack_channel_id,
     )

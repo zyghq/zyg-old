@@ -713,14 +713,15 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
                 returning seq
             )
             insert into issue (
-                issue_id, tenant_id, body, status, priority, tags, issue_number
+                issue_id, tenant_id, body, status, priority, tags, issue_number,
+                linked_slack_channel_id
             ) values (
                 :issue_id, :tenant_id, :body, :status, :priority, :tags, (
                     select seq from sequencer
-                )
+                ), :linked_slack_channel_id
             )
             returning issue_id, tenant_id, body, status, priority, tags,
-            issue_number, created_at, updated_at;
+            issue_number, linked_slack_channel_id, created_at, updated_at;
         """
         parameters = {
             "issue_id": issue_id,
@@ -731,6 +732,7 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
             "tags": issue.tags
             if isinstance(issue.tags, list) and len(issue.tags)
             else None,
+            "linked_slack_channel_id": issue.linked_slack_channel_id,
         }
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)
@@ -749,9 +751,11 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
     async def _upsert(self, issue: IssueDBEntity) -> IssueDBEntity:
         query = """
             insert into issue (
-                issue_id, tenant_id, body, status, priority, tags, issue_number
+                issue_id, tenant_id, body, status, priority, tags, issue_number,
+                linked_slack_channel_id
             ) values (
-                :issue_id, :tenant_id, :body, :status, :priority, :tags, issue_number
+                :issue_id, :tenant_id, :body, :status, :priority, :tags, :issue_number,
+                :linked_slack_channel_id
             )
             on conflict (issue_id) do update set
                 tenant_id = :tenant_id,
@@ -760,6 +764,7 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
                 priority = :priority,
                 tags = :tags,
                 issue_number = :issue_number,
+                linked_slack_channel_id = :linked_slack_channel_id,
                 updated_at = now()
             returning issue_id, tenant_id, body, status, priority, tags,
             issue_number, created_at, updated_at
@@ -774,6 +779,7 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
             if isinstance(issue.tags, list) and len(issue.tags)
             else None,
             "issue_number": issue.issue_number,
+            "linked_slack_channel_id": issue.linked_slack_channel_id,
         }
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)

@@ -17,6 +17,7 @@ class IssueCreateRequestBody(BaseModel):
     status: str | None
     priority: int | None
     tags: List[str] = []
+    linked_slack_channel_id: str | None = None
 
 
 router = APIRouter()
@@ -30,6 +31,7 @@ async def create_issue(request_body: IssueCreateRequestBody):
         status=request_body.status,
         priority=request_body.priority,
         tags=request_body.tags,
+        linked_slack_channel_id=request_body.linked_slack_channel_id,
     )
     service = CreateIssueService()
     issue = await service.create(command=command)

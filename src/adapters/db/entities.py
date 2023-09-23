@@ -77,3 +77,4 @@ class IssueDBEntity(DBEntity):
     status: str
     priority: int
     tags: List[str] | None = []
+    linked_slack_channel_id: str | None = None

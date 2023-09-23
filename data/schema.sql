@@ -126,9 +126,11 @@ create table issue (
   status varchar(127) not null,
   priority smallint not null,
   tags text[] null,
+  linked_slack_channel_id varchar(255) null,
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,
   constraint issue_issue_id_pkey primary key (issue_id),
   constraint issue_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
+  constraint issue_linked_slack_channel_id_fkey foreign key (linked_slack_channel_id) references linked_slack_channel(linked_slack_channel_id),
   constraint issue_tenant_id_issue_number_key unique (tenant_id, issue_number)
 );

@@ -2,16 +2,22 @@ import logging
 from typing import Callable
 
 from src.adapters.rpc.api import ZygWebAPIConnector
-from src.adapters.rpc.exceptions import CreateIssueAPIException
+from src.adapters.rpc.exceptions import (
+    CreateIssueAPIException,
+    LinkedChannelRefAPIException,
+)
 from src.adapters.rpc.ext import SlackWebAPIConnector
-from src.application.commands import CreateIssueCommand
+from src.application.commands import (
+    CreateIssueCommand,
+    GetLinkedSlackChannelByRefCommand,
+)
 from src.application.commands.slack import IssueChatPostMessageCommand
 from src.application.repr.slack import (
     issue_message_blocks_repr,
     issue_message_text_repr,
 )
 from src.config import SLACK_BOT_OAUTH_TOKEN
-from src.domain.models import Issue, SlackEvent, Tenant
+from src.domain.models import Issue, LinkedSlackChannel, SlackEvent, Tenant
 from src.services.exceptions import UnSupportedSlackEventException
 
 logger = logging.getLogger(__name__)
@@ -31,6 +37,42 @@ class CreateIssueWithSlackTask:
         event = slack_event.event
         message = event.message
         body = message.get("body")
+        slack_channel_ref = event.slack_channel_ref
+
+        zyg_api = ZygWebAPIConnector(tenant_context=tenant_context)
+
+        try:
+            response = await zyg_api.find_linked_channel_by_ref(
+                command=GetLinkedSlackChannelByRefCommand(
+                    tenant_id=tenant_context.tenant_id,
+                    slack_channel_ref=slack_channel_ref,
+                )
+            )
+
+            if response is None:
+                logger.warning(
+                    f"no linked slack channel found for "
+                    f"slack_channel_ref: {slack_channel_ref} "
+                    f"will not being creating an issue. "
+                    f"consider creating the linked slack channel first "
+                    "if this is the intention"
+                )
+                return None
+            data = {
+                "tenant_id": tenant_context.tenant_id,
+                "linked_slack_channel_id": response["channel_id"],
+                "slack_channel_ref": response["channel_ref"],
+                "slack_channel_name": response["channel_name"],
+                "triage_channel": {
+                    "slack_channel_ref": response["triage_channel"]["channel_ref"],
+                    "slack_channel_name": response["triage_channel"]["channel_name"],
+                },
+            }
+            slack_channel = LinkedSlackChannel.from_dict(data)
+            logger.info(f"linked slack channel: {slack_channel}")
+        except LinkedChannelRefAPIException as e:
+            logger.error(f"error: {e}")
+            return None
 
         command = CreateIssueCommand(
             tenant_id=tenant_context.tenant_id,
@@ -38,21 +80,28 @@ class CreateIssueWithSlackTask:
             status=Issue.default_status(),
             priority=Issue.default_priority(),
             tags=[],
+            linked_slack_channel_id=slack_channel.linked_slack_channel_id,
         )
 
-        zyg_api = ZygWebAPIConnector(tenant_context=tenant_context)
         try:
             response = await zyg_api.create_issue(command=command)
             issue = Issue.from_dict(response)
-            logger.info(f"created issue from API {issue}")
+            logger.info(f"created issue with API: {issue}")
         except CreateIssueAPIException as e:
             logger.error(f"error: {e}")
             return None
 
-        print('************************** check the block repr ....... ')
-        print(issue_message_blocks_repr(issue))
+        triage_channel = slack_channel.triage_channel
+        if triage_channel is None:
+            logger.warning(
+                "triage_channel not setup for linked_slack_channel cannot post message"
+            )
+            logger.warning(
+                "shall we set up a default triage channel for cases like this...?"
+            )
+            return None
         slack_command = IssueChatPostMessageCommand(
-            channel="C05LB4YTKK8",
+            channel=triage_channel.slack_channel_ref,
             text=issue_message_text_repr(issue),
             blocks=issue_message_blocks_repr(issue),
         )

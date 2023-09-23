@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 
-from attrs import define, field
+from attrs import asdict, define, field
 
 from src.domain.exceptions import SlackChannelReferenceValueError, TenantValueError
 
@@ -481,7 +481,7 @@ class LinkedSlackChannel(AbstractEntity):
     def add_triage_channel(self, triage_channel: TriageSlackChannel) -> None:
         """
         Checks if it is of the same tenant and linked slack channel ref
-        is not same as triage's slack channel ref.
+        is not same as triage's slack channel ref. - dont want to end up in a cycle.
         """
         if self.tenant_id != triage_channel.tenant_id:
             raise TenantValueError(
@@ -492,6 +492,26 @@ class LinkedSlackChannel(AbstractEntity):
                 "cannot add triage channel for the same linked slack channel"
             )
         self.triage_channel = triage_channel
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "LinkedSlackChannel":
+        tenant_id = data.get("tenant_id")
+        channel = cls(
+            tenant_id=tenant_id,
+            linked_slack_channel_id=data.get("linked_slack_channel_id"),
+            slack_channel_ref=data.get("slack_channel_ref"),
+            slack_channel_name=data.get("slack_channel_name"),
+        )
+
+        triage_channel: dict | None = data.get("triage_channel", None)
+        if triage_channel:
+            triage_channel = TriageSlackChannel(
+                tenant_id=tenant_id,
+                slack_channel_ref=triage_channel.get("slack_channel_ref"),
+                slack_channel_name=triage_channel.get("slack_channel_name"),
+            )
+            channel.add_triage_channel(triage_channel)
+        return channel
 
 
 class IssueStatus(Enum):
@@ -523,6 +543,8 @@ class Issue(AbstractEntity):
         self.tenant_id = tenant_id
         self.issue_id = issue_id
         self.body = body
+
+        self.linked_slack_channel_id: str | None = None
 
         if status is None:
             status = IssueStatus.OPEN

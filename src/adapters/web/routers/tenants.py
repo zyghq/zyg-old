@@ -75,4 +75,4 @@ async def search_linked_channel(request_body: SearchLinkedChannelRequestBody):
     if result is None:
         return JSONResponse(status_code=200, content=[])
     linked_slack_channel = linked_slack_channel_repr(result)
-    return linked_slack_channel
+    return JSONResponse(status_code=200, content=[linked_slack_channel.model_dump()])
