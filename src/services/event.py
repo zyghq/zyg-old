@@ -5,13 +5,13 @@ from datetime import datetime
 from src.adapters.db.adapters import SlackEventDBAdapter, TenantDBAdapter
 from src.adapters.tasker import worker
 from src.application.commands import SlackEventCallBackCommand
-from src.application.exceptions import SlackTeamRefMapException
+from src.application.exceptions import SlackTeamReferenceException
 from src.domain.models import SlackEvent, Tenant
 
 logger = logging.getLogger(__name__)
 
 
-class SlackEventCallBackDispatchService:
+class SlackEventCallBackService:
     def __init__(self) -> None:
         self.tenant_db = TenantDBAdapter()
         self.slack_event_db = SlackEventDBAdapter()
@@ -66,7 +66,7 @@ class SlackEventCallBackDispatchService:
         slack_team_ref = command.slack_team_ref
         tenant = await self.tenant_db.find_by_slack_team_ref(slack_team_ref)
         if not tenant:
-            raise SlackTeamRefMapException(
+            raise SlackTeamReferenceException(
                 f"tenant not found. `slack_team_ref`: {slack_team_ref} "
                 + "is not mapped to a tenant or is invalid."
             )
@@ -97,13 +97,13 @@ class SlackEventCallBackDispatchService:
             return captured_event
 
         logger.info(
-            'slack event not captured yet: "%s" capturing and dispatching now.',
+            'slack event not yet captured: "%s" capturing and dispatching now...',
             slack_event,
         )
         captured_event = await self._capture(slack_event)
         dispatch_id = await self._dispatch(tenant, captured_event)
         logger.info(
-            'slack event captured and dispatched: "%s" with dispatch_id: "%s"',
+            'slack event captured: "%s" and dispatched with dispatch_id: "%s"',
             captured_event,
             dispatch_id,
         )

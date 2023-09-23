@@ -9,3 +9,8 @@ engine: Engine = create_async_engine(
     echo=True,
     max_overflow=1,  # TODO(@sanchitrk) remove after testing.
 )
+
+
+print("****************** DB engine created ******************")
+print(id(engine))
+print("****************** DB engine created ******************")

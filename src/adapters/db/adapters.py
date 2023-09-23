@@ -1,4 +1,3 @@
-import attrs
 from sqlalchemy.engine.base import Engine
 
 from src.adapters.db import engine
@@ -33,9 +32,6 @@ class SlackEventDBAdapter:
 
     def _map_to_db_entity(self, slack_event: SlackEvent) -> SlackEventDBEntity:
         event = slack_event.event.to_dict() if slack_event.event else None
-        print("******************************")
-        print(event)
-        print("******************************")
         return SlackEventDBEntity(
             event_id=slack_event.event_id,
             tenant_id=slack_event.tenant_id,

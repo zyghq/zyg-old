@@ -3,7 +3,7 @@ import logging
 from src.adapters.db.adapters import InSyncChannelDBAdapter, TenantDBAdapter
 from src.adapters.rpc.ext import SlackWebAPIConnector
 from src.application.commands import TenantProvisionCommand, TenantSyncChannelCommand
-from src.application.exceptions import SlackTeamRefMapException
+from src.application.exceptions import SlackTeamReferenceException
 
 # TODO: later this will be fetched from tenant context, and will be removed.
 from src.config import SLACK_BOT_OAUTH_TOKEN
@@ -24,7 +24,7 @@ class TenantProvisionService:
         if command.slack_team_ref is not None:
             tenant = await self.tenant_db.find_by_slack_team_ref(command.slack_team_ref)
             if tenant:
-                raise SlackTeamRefMapException(
+                raise SlackTeamReferenceException(
                     f"slack team ref `{command.slack_team_ref}` "
                     + "is already mapped to a tenant"
                 )
@@ -55,8 +55,7 @@ class TenantChannelSyncService:
         logger.info(f"sync channels for tenant with tenant context: `{tenant}`")
 
         tenant_context = tenant.build_context()
-        
-        slack_api = SlackWebAPIConnector.for_tenant(
+        slack_api = SlackWebAPIConnector(
             tenant_context=tenant_context,
             token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
         )

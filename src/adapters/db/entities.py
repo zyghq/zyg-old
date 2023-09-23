@@ -76,4 +76,4 @@ class IssueDBEntity(DBEntity):
     body: str
     status: str
     priority: int
-    tags: List[str] = []
+    tags: List[str] | None = []

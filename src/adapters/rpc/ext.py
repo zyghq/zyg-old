@@ -4,6 +4,7 @@ from typing import List
 from pydantic import BaseModel, ConfigDict
 from slack_sdk import WebClient
 
+from src.application.commands.slack import IssueChatPostMessageCommand
 from src.domain.models import InSyncSlackChannelItem, TenantContext
 
 from .exceptions import SlackAPIException, SlackAPIResponseException
@@ -56,13 +57,6 @@ class SlackWebAPIConnector:
         self.token = token
         self._client = WebClient(token=token)
 
-    @classmethod
-    def for_tenant(
-        cls, tenant_context: TenantContext, token: str
-    ) -> "SlackWebAPIConnector":
-        # TODO: later token will be fetched from the tenant context.
-        return cls(tenant_context=tenant_context, token=token)
-
     def get_conversation_list(
         self, types: str = "public_channels"
     ) -> List[InSyncSlackChannelItem]:
@@ -102,7 +96,7 @@ class SlackWebAPIConnector:
             )
         return results
 
-    def chat_post_message(self, channel, text, blocks):
+    def _chat_post_message(self, channel, text, blocks):
         logger.info(f"invoked `chat_post_message` for args: {channel}")
         try:
             response = self._client.chat_postMessage(
@@ -123,3 +117,8 @@ class SlackWebAPIConnector:
             raise SlackAPIResponseException(
                 f"slack connector API error with slack error code: {error}"
             )
+
+    def post_issue_message(self, command: IssueChatPostMessageCommand):
+        return self._chat_post_message(
+            channel=command.channel, text=command.text, blocks=command.blocks
+        )

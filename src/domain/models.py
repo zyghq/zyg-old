@@ -146,7 +146,7 @@ class EventChannelMessage(BaseEvent):
 
         self.message = self._parse(event=event)
 
-    def _parse(self, event: dict) -> None:
+    def _parse(self, event: dict) -> dict:
         # XXX(@sanchitrk): update this based on testing.
         parsed_event = {}
         ts = event.get("ts", None)
@@ -209,7 +209,7 @@ class SlackEvent(AbstractEntity):
 
         self.is_ack = is_ack
 
-        self.event: BaseEvent | None = None
+        self.event: BaseEvent | EventChannelMessage | None = None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackEvent):
@@ -355,6 +355,10 @@ class SlackEvent(AbstractEntity):
             "payload": self.payload,
             "is_ack": self.is_ack,
         }
+
+    @property
+    def is_channel_message(self) -> bool:
+        return isinstance(self.event, EventChannelMessage)
 
 
 @define(frozen=True)
@@ -559,7 +563,7 @@ class Issue(AbstractEntity):
             tenant_id={self.tenant_id},
             issue_id={self.issue_id},
             issue_number={self.issue_number},
-            body={self.body[:32]}...,
+            body={self.body[:32] + "..." if len(self.body) > 32 else self.body},
             status={self.status},
             priority={self.priority},
         )"""
@@ -575,7 +579,10 @@ class Issue(AbstractEntity):
         return list(self._tags)
 
     @tags.setter
-    def tags(self, tags: List[str]) -> None:
+    def tags(self, tags: List[str] | None) -> None:
+        if tags is None:
+            self._tags = set()
+            return
         self._tags = set([str(t).lower() for t in tags])
 
     @property
@@ -597,3 +604,38 @@ class Issue(AbstractEntity):
     @priority.setter
     def priority(self, priority: int) -> None:
         self._priority = IssuePriority(priority)
+
+    @staticmethod
+    def default_status() -> str:
+        return IssueStatus.OPEN.value
+
+    @staticmethod
+    def default_priority() -> int:
+        return IssuePriority.NO_PRIORITY.value
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Issue":
+        issue = cls(
+            tenant_id=data.get("tenant_id"),
+            issue_id=data.get("issue_id"),
+            issue_number=data.get("issue_number"),
+            body=data.get("body"),
+            status=data.get("status"),
+            priority=data.get("priority"),
+        )
+        issue.tags = data.get("tags")
+        return issue
+
+    @property
+    def priority_display_name(self) -> str:
+        r = self._priority.name
+        r = r.lower().split("_")
+        r = " ".join([w.capitalize() for w in r])
+        return r
+
+    @property
+    def status_display_name(self) -> str:
+        r = self._status.name
+        r = r.lower().split("_")
+        r = " ".join([w.capitalize() for w in r])
+        return r

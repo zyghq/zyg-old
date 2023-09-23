@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, constr
 
 from src.application.commands import TenantProvisionCommand
-from src.application.exceptions import SlackTeamRefMapException
-from src.application.repr import TenantRepr
+from src.application.exceptions import SlackTeamReferenceException
+from src.application.repr.api import TenantRepr
 from src.services.tenant import TenantProvisionService
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ async def tenant(request_body: ProvisionTenantRequestBody):
     try:
         tenant_provision_service = TenantProvisionService()
         tenant = await tenant_provision_service.provision(command)
-    except SlackTeamRefMapException as e:
+    except SlackTeamReferenceException as e:
         logger.warning(
             f"slack team ref `{command.slack_team_ref}` "
             f"is already mapped to a tenant {e}"
