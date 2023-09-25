@@ -78,3 +78,25 @@ class IssueDBEntity(DBEntity):
     priority: int
     tags: List[str] | None = []
     linked_slack_channel_id: str | None = None
+
+
+class InSyncSlackUserDBEntity(DBEntity):
+    tenant_id: str
+    id: str
+    is_admin: bool
+    is_app_user: bool
+    is_bot: bool
+    is_email_confirmed: bool
+    is_owner: bool
+    is_primary_owner: bool
+    is_restricted: bool
+    is_stranger: bool | None = None
+    is_ultra_restricted: bool
+    name: str
+    profile: dict
+    real_name: str
+    team_id: str
+    tz: str
+    tz_label: str
+    tz_offset: int
+    updated: int

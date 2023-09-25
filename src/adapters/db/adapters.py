@@ -2,7 +2,8 @@ from sqlalchemy.engine.base import Engine
 
 from src.adapters.db import engine
 from src.domain.models import (
-    InSyncSlackChannelItem,
+    InSyncSlackChannel,
+    InSyncSlackUser,
     Issue,
     LinkedSlackChannel,
     SlackEvent,
@@ -12,6 +13,7 @@ from src.domain.models import (
 
 from .entities import (
     InSyncSlackChannelDBEntity,
+    InSyncSlackUserDBEntity,
     IssueDBEntity,
     LinkedSlackChannelDBEntity,
     SlackEventDBEntity,
@@ -130,7 +132,7 @@ class InSyncChannelDBAdapter:
         self.engine = engine
 
     def _map_to_db_entity(
-        self, insync_slack_channel: InSyncSlackChannelItem
+        self, insync_slack_channel: InSyncSlackChannel
     ) -> InSyncSlackChannelDBEntity:
         return InSyncSlackChannelDBEntity(
             tenant_id=insync_slack_channel.tenant_id,
@@ -168,8 +170,8 @@ class InSyncChannelDBAdapter:
 
     def _map_to_domain(
         self, sync_channel_entity: InSyncSlackChannelDBEntity
-    ) -> InSyncSlackChannelItem:
-        return InSyncSlackChannelItem(
+    ) -> InSyncSlackChannel:
+        return InSyncSlackChannel(
             tenant_id=sync_channel_entity.tenant_id,
             context_team_id=sync_channel_entity.context_team_id,
             created=sync_channel_entity.created,
@@ -204,8 +206,8 @@ class InSyncChannelDBAdapter:
         )
 
     async def save(
-        self, insync_slack_channel: InSyncSlackChannelItem
-    ) -> InSyncSlackChannelItem:
+        self, insync_slack_channel: InSyncSlackChannel
+    ) -> InSyncSlackChannel:
         db_entity = self._map_to_db_entity(insync_slack_channel)
         async with self.engine.begin() as conn:
             sync_channel_entity = await InSyncChannelRepository(conn).save(db_entity)
@@ -214,7 +216,7 @@ class InSyncChannelDBAdapter:
 
     async def get_by_tenant_id_slack_channel_ref(
         self, tenant_id: str, slack_channel_ref: str
-    ) -> InSyncSlackChannelItem:
+    ) -> InSyncSlackChannel:
         async with self.engine.begin() as conn:
             insync_channel_entity = await InSyncChannelRepository(
                 conn
@@ -346,4 +348,68 @@ class IssueDBAdapter:
         async with self.engine.begin() as conn:
             issue_entity = await IssueRepository(conn).save(db_entity)
             result = self._map_to_domain(issue_entity)
+        return result
+
+
+class InSyncSlackUserDBAdapter:
+    def __init__(self, engine: Engine = engine) -> None:
+        self.engine = engine
+
+    def _map_to_db_entity(
+        self, insync_slack_user: InSyncSlackUser
+    ) -> InSyncSlackUserDBEntity:
+        return InSyncSlackUserDBEntity(
+            tenant_id=insync_slack_user.tenant_id,
+            id=insync_slack_user.id,
+            is_admin=insync_slack_user.is_admin,
+            is_app_user=insync_slack_user.is_app_user,
+            is_bot=insync_slack_user.is_bot,
+            is_email_confirmed=insync_slack_user.is_email_confirmed,
+            is_owner=insync_slack_user.is_owner,
+            is_primary_owner=insync_slack_user.is_primary_owner,
+            is_restricted=insync_slack_user.is_restricted,
+            is_stranger=insync_slack_user.is_stranger,
+            is_ultra_restricted=insync_slack_user.is_ultra_restricted,
+            name=insync_slack_user.name,
+            profile=insync_slack_user.profile,
+            real_name=insync_slack_user.real_name,
+            team_id=insync_slack_user.team_id,
+            tz=insync_slack_user.tz,
+            tz_label=insync_slack_user.tz_label,
+            tz_offset=insync_slack_user.tz_offset,
+            updated=insync_slack_user.updated,
+        )
+
+    def _map_to_domain(
+        self, insync_slack_user_entity: InSyncSlackUserDBEntity
+    ) -> InSyncSlackUser:
+        return InSyncSlackUser(
+            tenant_id=insync_slack_user_entity.tenant_id,
+            id=insync_slack_user_entity.id,
+            is_admin=insync_slack_user_entity.is_admin,
+            is_app_user=insync_slack_user_entity.is_app_user,
+            is_bot=insync_slack_user_entity.is_bot,
+            is_email_confirmed=insync_slack_user_entity.is_email_confirmed,
+            is_owner=insync_slack_user_entity.is_owner,
+            is_primary_owner=insync_slack_user_entity.is_primary_owner,
+            is_restricted=insync_slack_user_entity.is_restricted,
+            is_stranger=insync_slack_user_entity.is_stranger,
+            is_ultra_restricted=insync_slack_user_entity.is_ultra_restricted,
+            name=insync_slack_user_entity.name,
+            profile=insync_slack_user_entity.profile,
+            real_name=insync_slack_user_entity.real_name,
+            team_id=insync_slack_user_entity.team_id,
+            tz=insync_slack_user_entity.tz,
+            tz_label=insync_slack_user_entity.tz_label,
+            tz_offset=insync_slack_user_entity.tz_offset,
+            updated=insync_slack_user_entity.updated,
+        )
+
+    async def save(self, insync_slack_user: InSyncSlackUser) -> InSyncSlackUser:
+        db_entity = self._map_to_db_entity(insync_slack_user)
+        async with self.engine.begin() as conn:
+            insync_slack_user_entity = await InSyncChannelRepository(conn).save(
+                db_entity
+            )
+            result = self._map_to_domain(insync_slack_user_entity)
         return result

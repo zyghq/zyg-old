@@ -21,6 +21,10 @@ class TenantSyncChannelCommand(BaseModel):
     types: List[str] | None = None
 
 
+class TenantSyncUserCommand(BaseModel):
+    tenant_id: str
+
+
 class LinkSlackChannelCommand(BaseModel):
     tenant_id: str
     slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)

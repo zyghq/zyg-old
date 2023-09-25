@@ -10,7 +10,7 @@ from src.application.commands import (
     TenantSyncChannelCommand,
 )
 from src.application.repr.api import (
-    insync_slack_channel_item_repr,
+    insync_slack_channel_repr,
     linked_slack_channel_repr,
 )
 from src.services.channel import LinkSlackChannelService
@@ -44,7 +44,7 @@ async def sync_channels(request_body: TenantSyncChannelsRequestBody):
     )
     channel_sync_services = TenantChannelSyncService()
     results = await channel_sync_services.sync_now(command=command)
-    response = (insync_slack_channel_item_repr(r) for r in results)
+    response = (insync_slack_channel_repr(r) for r in results)
     return response
 
 

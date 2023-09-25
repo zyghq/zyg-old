@@ -21,4 +21,4 @@ def issue_message_blocks_repr(issue: Issue):
 
 
 def issue_message_text_repr(issue: Issue):
-    return f"{issue.body}[:128]... with {issue.priority}"
+    return f"{issue.body[:128]}... with {issue.priority}"

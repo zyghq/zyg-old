@@ -8,6 +8,7 @@ from sqlalchemy.sql import text
 
 from .entities import (
     InSyncSlackChannelDBEntity,
+    InSyncSlackUserDBEntity,
     IssueDBEntity,
     LinkedSlackChannelDBEntity,
     SlackEventDBEntity,
@@ -316,7 +317,7 @@ class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
 class AbstractInSyncChannelRepository(abc.ABC):
     @abc.abstractmethod
     async def save(
-        self, channel: InSyncSlackChannelDBEntity
+        self, insync_channel: InSyncSlackChannelDBEntity
     ) -> InSyncSlackChannelDBEntity:
         raise NotImplementedError
 
@@ -687,8 +688,8 @@ class LinkedSlackChannelRepository(
 
 
 class AbstractIssueRepository(abc.ABC):
-    @abc.abstractclassmethod
-    async def save(self, issue: dict) -> dict:
+    @abc.abstractmethod
+    async def save(self, issue: IssueDBEntity) -> dict:
         raise NotImplementedError
 
 
@@ -799,3 +800,9 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
         if issue.issue_id is None:
             return await self._insert(issue)
         return await self._upsert(issue)
+
+
+class InSyncSlackUserAbstractRepository(abc.ABC):
+    @abc.abstractmethod
+    async def save(self, user: InSyncSlackUserDBEntity) -> InSyncSlackUserDBEntity:
+        raise NotImplementedError

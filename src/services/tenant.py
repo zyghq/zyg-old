@@ -2,7 +2,11 @@ import logging
 
 from src.adapters.db.adapters import InSyncChannelDBAdapter, TenantDBAdapter
 from src.adapters.rpc.ext import SlackWebAPIConnector
-from src.application.commands import TenantProvisionCommand, TenantSyncChannelCommand
+from src.application.commands import (
+    TenantProvisionCommand,
+    TenantSyncChannelCommand,
+    TenantSyncUserCommand,
+)
 from src.application.exceptions import SlackTeamReferenceException
 
 # TODO: later this will be fetched from tenant context, and will be removed.
@@ -71,3 +75,21 @@ class TenantChannelSyncService:
         sync channels with asynchronous approach
         """
         raise NotImplementedError
+
+
+class TenantUserSyncService:
+    def __init__(self) -> None:
+        self.tenant_db = TenantDBAdapter()
+
+    async def sync_now(self, command: TenantSyncUserCommand):
+        """
+        sync users in Slack workspace with syncronous approach
+        """
+        tenant = await self.tenant_db.get_by_id(command.tenant_id)
+        logger.info(f"sync users for tenant with tenant context: `{tenant}`")
+
+        tenant_context = tenant.build_context()
+        slack_api = SlackWebAPIConnector(
+            tenant_context=tenant_context,
+            token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
+        )

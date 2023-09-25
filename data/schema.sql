@@ -90,6 +90,7 @@ create table insync_slack_channel(
 
 -- represents the linked Slack channel table
 -- with reference to a tenant.
+-- TODO: add name column
 create table linked_slack_channel(
   tenant_id varchar(255) not null, -- reference to tenant.
   linked_slack_channel_id varchar(255) not null,
@@ -134,3 +135,29 @@ create table issue (
   constraint issue_linked_slack_channel_id_fkey foreign key (linked_slack_channel_id) references linked_slack_channel(linked_slack_channel_id),
   constraint issue_tenant_id_issue_number_key unique (tenant_id, issue_number)
 );
+
+create table insync_slack_user (
+  tenant_id varchar(255) not null, -- reference to tenant.
+  id varchar(255) not null,
+  is_admin boolean not null,
+  is_app_user boolean not null,
+  is_bot boolean not null,
+  is_email_confirmed boolean not null,
+  is_owner boolean not null,
+  is_primary_owner boolean not null,
+  is_restricted boolean not null,
+  is_stranger boolean null,
+  is_ultra_restricted boolean not null,
+  name varchar(255) not null,
+  profile jsonb not null,
+  real_name varchar(255) not null,
+  team_id varchar(255) not null,
+  tz varchar(255) not null,
+  tz_label varchar(255) not null,
+  tz_offset varchar(255) not null,
+  updated bigint not null,
+  created_at timestamp default current_timestamp,
+  updated_at timestamp default current_timestamp,
+  constraint insync_slack_user_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
+  constraint insync_slack_user_tenant_id_id_key unique (tenant_id, id)
+)

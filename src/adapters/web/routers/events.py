@@ -53,6 +53,10 @@ async def slack_event(request: Request) -> Any:
     # control over the request data model.
     body = await request.json()
 
+    print("**************** body ****************")
+    print(body)
+    print("**************** body ****************")
+
     token = body.get("token", None)
     if token is None or token != SLACK_VERIFICATION_TOKEN:
         return JSONResponse(

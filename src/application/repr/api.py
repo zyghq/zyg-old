@@ -3,12 +3,7 @@ from typing import List
 
 from pydantic import BaseModel
 
-from src.domain.models import (
-    InSyncSlackChannelItem,
-    Issue,
-    LinkedSlackChannel,
-    SlackEvent,
-)
+from src.domain.models import InSyncSlackChannel, Issue, LinkedSlackChannel, SlackEvent
 
 
 class TenantRepr(BaseModel):
@@ -22,7 +17,7 @@ class SlackCallBackEventRepr(BaseModel):
     is_ack: bool
 
 
-class InSyncSlackChannelItemRepr(BaseModel):
+class InSyncSlackChannelRepr(BaseModel):
     id: str
     name: str
     created: int
@@ -76,13 +71,13 @@ def slack_callback_event_repr(
     )
 
 
-def insync_slack_channel_item_repr(
-    item: InSyncSlackChannelItem,
-) -> InSyncSlackChannelItemRepr:
+def insync_slack_channel_repr(
+    item: InSyncSlackChannel,
+) -> InSyncSlackChannelRepr:
     topic = {
         "value": item.topic.get("value", ""),
     }
-    return InSyncSlackChannelItemRepr(
+    return InSyncSlackChannelRepr(
         id=item.id,
         name=item.name,
         created=item.created,

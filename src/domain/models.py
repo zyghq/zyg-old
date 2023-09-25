@@ -1,9 +1,10 @@
 import abc
+import re
 from datetime import datetime
 from enum import Enum
 from typing import List
 
-from attrs import asdict, define, field
+from attrs import define, field
 
 from src.domain.exceptions import SlackChannelReferenceValueError, TenantValueError
 
@@ -187,7 +188,7 @@ class EventChannelMessage(BaseEvent):
 
 class SlackEvent(AbstractEntity):
     """
-    `subscribed_events` - are list of events that we are subscribed to in Slack.
+    `subscribed_events` - list of events that we are subscribed to in Slack.
     """
 
     subscribed_events = ("message.channels",)
@@ -362,7 +363,7 @@ class SlackEvent(AbstractEntity):
 
 
 @define(frozen=True)
-class InSyncSlackChannelItem(AbstractValueObject):
+class InSyncSlackChannel(AbstractValueObject):
     """
     Represents a Slack conversation item, after succesful API call.
     We call it Slack Channel for our understandings.
@@ -404,7 +405,7 @@ class InSyncSlackChannelItem(AbstractValueObject):
     created_at: datetime | None = None
 
     @classmethod
-    def from_dict(cls, tenant_id, data: dict) -> "InSyncSlackChannelItem":
+    def from_dict(cls, tenant_id, data: dict) -> "InSyncSlackChannel":
         return cls(
             tenant_id=tenant_id,
             context_team_id=data.get("context_team_id"),
@@ -436,6 +437,29 @@ class InSyncSlackChannelItem(AbstractValueObject):
             unlinked=data.get("unlinked"),
             updated=data.get("updated"),
         )
+
+
+@define(frozen=True)
+class InSyncSlackUser(AbstractValueObject):
+    tenant_id: str
+    id: str
+    is_admin: bool
+    is_app_user: bool
+    is_bot: bool
+    is_email_confirmed: bool
+    is_owner: bool
+    is_primary_owner: bool
+    is_restricted: bool
+    is_ultra_restricted: bool
+    name: str = field(eq=False)
+    profile: dict = field(eq=False)
+    real_name: str = field(eq=False)
+    team_id: str
+    tz: str = field(eq=False)
+    tz_label: str = field(eq=False)
+    tz_offset: int = field(eq=False)
+    updated: int = field(eq=False)
+    is_stranger: bool | None = field(eq=False, default=None)
 
 
 @define(frozen=True)
@@ -605,7 +629,7 @@ class Issue(AbstractEntity):
         if tags is None:
             self._tags = set()
             return
-        self._tags = set([str(t).lower() for t in tags])
+        self._tags = set([re.sub(r"\s+", "_", str(t).lower()) for t in tags])
 
     @property
     def status(self) -> str:

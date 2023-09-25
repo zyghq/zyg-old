@@ -4,7 +4,7 @@ from sqlalchemy.sql import text
 from src.adapters.db import engine
 from src.logger import logger
 
-from .routers import events, issues, onboardings, tenants
+from .routers import events, interactions, issues, onboardings, tenants
 
 app = FastAPI()
 
@@ -12,6 +12,11 @@ app = FastAPI()
 app.include_router(
     events.router,
     prefix="/events",
+)
+
+app.include_router(
+    interactions.router,
+    prefix="/interactions",
 )
 
 app.include_router(
