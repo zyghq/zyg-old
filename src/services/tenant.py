@@ -1,11 +1,15 @@
 import logging
 
-from src.adapters.db.adapters import InSyncChannelDBAdapter, TenantDBAdapter
+from src.adapters.db.adapters import (
+    InSyncChannelDBAdapter,
+    InSyncSlackUserDBAdapter,
+    TenantDBAdapter,
+)
 from src.adapters.rpc.ext import SlackWebAPIConnector
 from src.application.commands import (
+    SlackSyncUserCommand,
     TenantProvisionCommand,
     TenantSyncChannelCommand,
-    TenantSyncUserCommand,
 )
 from src.application.exceptions import SlackTeamReferenceException
 
@@ -42,7 +46,7 @@ class TenantProvisionService:
         return tenant
 
 
-class TenantChannelSyncService:
+class SlackChannelSyncService:
     def __init__(self) -> None:
         self.tenant_db = TenantDBAdapter()
         self.insync_channel_db = InSyncChannelDBAdapter()
@@ -70,18 +74,19 @@ class TenantChannelSyncService:
             saved_results.append(saved_result)
         return saved_results
 
-    def sync_task(self):
+    async def sync_task(self):
         """
         sync channels with asynchronous approach
         """
         raise NotImplementedError
 
 
-class TenantUserSyncService:
+class SlackUserSyncService:
     def __init__(self) -> None:
         self.tenant_db = TenantDBAdapter()
+        self.insync_user_db = InSyncSlackUserDBAdapter()
 
-    async def sync_now(self, command: TenantSyncUserCommand):
+    async def sync_now(self, command: SlackSyncUserCommand):
         """
         sync users in Slack workspace with syncronous approach
         """
@@ -93,3 +98,9 @@ class TenantUserSyncService:
             tenant_context=tenant_context,
             token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
         )
+        results = slack_api.get_users(limit=100)
+        saved_results = []
+        for result in results:
+            saved_result = await self.insync_user_db.save(result)
+            saved_results.append(saved_result)
+        return saved_results

@@ -154,7 +154,7 @@ create table insync_slack_user (
   team_id varchar(255) not null,
   tz varchar(255) not null,
   tz_label varchar(255) not null,
-  tz_offset varchar(255) not null,
+  tz_offset bigint not null,
   updated bigint not null,
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,

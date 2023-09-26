@@ -7,14 +7,16 @@ from pydantic import BaseModel, constr
 from src.application.commands import (
     LinkSlackChannelCommand,
     SearchLinkedSlackChannelCommand,
+    SlackSyncUserCommand,
     TenantSyncChannelCommand,
 )
 from src.application.repr.api import (
     insync_slack_channel_repr,
+    insync_slack_user_repr,
     linked_slack_channel_repr,
 )
 from src.services.channel import LinkSlackChannelService
-from src.services.tenant import TenantChannelSyncService
+from src.services.tenant import SlackChannelSyncService, SlackUserSyncService
 
 router = APIRouter()
 
@@ -22,6 +24,10 @@ router = APIRouter()
 class TenantSyncChannelsRequestBody(BaseModel):
     tenant_id: str
     types: List[str]
+
+
+class TenantSyncUsersRequestBody(BaseModel):
+    tenant_id: str
 
 
 class LinkChannelRequestBody(BaseModel):
@@ -37,23 +43,34 @@ class SearchLinkedChannelRequestBody(BaseModel):
 
 
 @router.post("/channels/sync/")
-async def sync_channels(request_body: TenantSyncChannelsRequestBody):
+async def sync_channels(body: TenantSyncChannelsRequestBody):
     command = TenantSyncChannelCommand(
-        tenant_id=request_body.tenant_id,
-        types=request_body.types,
+        tenant_id=body.tenant_id,
+        types=body.types,
     )
-    channel_sync_services = TenantChannelSyncService()
-    results = await channel_sync_services.sync_now(command=command)
+    sync_service = SlackChannelSyncService()
+    results = await sync_service.sync_now(command=command)
     response = (insync_slack_channel_repr(r) for r in results)
     return response
 
 
+@router.post("/users/sync/")
+async def sync_users(body: TenantSyncUsersRequestBody):
+    command = SlackSyncUserCommand(
+        tenant_id=body.tenant_id,
+    )
+    sync_service = SlackUserSyncService()
+    results = await sync_service.sync_now(command=command)
+    response = (insync_slack_user_repr(r) for r in results)
+    return response
+
+
 @router.post("/channels/link/")
-async def link_channel(request_body: LinkChannelRequestBody):
+async def link_channel(body: LinkChannelRequestBody):
     command = LinkSlackChannelCommand(
-        tenant_id=request_body.tenant_id,
-        slack_channel_ref=request_body.slack_channel_ref,
-        triage_slack_channel_ref=request_body.triage_slack_channel_ref,
+        tenant_id=body.tenant_id,
+        slack_channel_ref=body.slack_channel_ref,
+        triage_slack_channel_ref=body.triage_slack_channel_ref,
     )
 
     service = LinkSlackChannelService()
@@ -63,12 +80,12 @@ async def link_channel(request_body: LinkChannelRequestBody):
 
 
 @router.post("/channels/linked/:search/")
-async def search_linked_channel(request_body: SearchLinkedChannelRequestBody):
+async def search_linked_channel(body: SearchLinkedChannelRequestBody):
     command = SearchLinkedSlackChannelCommand(
         tenant_id="z320czxkpt5u",
-        linked_slack_channel_id=request_body.linked_slack_channel_id,
-        slack_channel_name=request_body.slack_channel_name,
-        slack_channel_ref=request_body.slack_channel_ref,
+        linked_slack_channel_id=body.linked_slack_channel_id,
+        slack_channel_name=body.slack_channel_name,
+        slack_channel_ref=body.slack_channel_ref,
     )
     service = LinkSlackChannelService()
     result = await service.search(command=command)

@@ -401,8 +401,8 @@ class InSyncSlackChannel(AbstractValueObject):
     unlinked: int = field(eq=False)
     updated: int = field(eq=False)
 
-    updated_at: datetime | None = None
-    created_at: datetime | None = None
+    updated_at: datetime | None = field(eq=False, default=None)
+    created_at: datetime | None = field(eq=False, default=None)
 
     @classmethod
     def from_dict(cls, tenant_id, data: dict) -> "InSyncSlackChannel":
@@ -460,6 +460,32 @@ class InSyncSlackUser(AbstractValueObject):
     tz_offset: int = field(eq=False)
     updated: int = field(eq=False)
     is_stranger: bool | None = field(eq=False, default=None)
+
+    updated_at: datetime | None = field(eq=False, default=None)
+    created_at: datetime | None = field(eq=False, default=None)
+
+    @classmethod
+    def from_dict(cls, tenant_id, data: dict) -> "InSyncSlackUser":
+        return cls(
+            tenant_id=tenant_id,
+            id=data.get("id"),
+            is_admin=data.get("is_admin"),
+            is_app_user=data.get("is_app_user"),
+            is_bot=data.get("is_bot"),
+            is_email_confirmed=data.get("is_email_confirmed"),
+            is_owner=data.get("is_owner"),
+            is_primary_owner=data.get("is_primary_owner"),
+            is_restricted=data.get("is_restricted"),
+            is_ultra_restricted=data.get("is_ultra_restricted"),
+            name=data.get("name"),
+            profile=data.get("profile"),
+            real_name=data.get("real_name"),
+            team_id=data.get("team_id"),
+            tz=data.get("tz"),
+            tz_label=data.get("tz_label"),
+            tz_offset=data.get("tz_offset"),
+            updated=data.get("updated"),
+        )
 
 
 @define(frozen=True)

@@ -21,6 +21,7 @@ from .entities import (
 )
 from .respositories import (
     InSyncChannelRepository,
+    InSyncSlackUserRepository,
     IssueRepository,
     LinkedSlackChannelRepository,
     SlackEventRepository,
@@ -378,6 +379,8 @@ class InSyncSlackUserDBAdapter:
             tz_label=insync_slack_user.tz_label,
             tz_offset=insync_slack_user.tz_offset,
             updated=insync_slack_user.updated,
+            created_at=insync_slack_user.created_at,
+            updated_at=insync_slack_user.updated_at,
         )
 
     def _map_to_domain(
@@ -403,12 +406,14 @@ class InSyncSlackUserDBAdapter:
             tz_label=insync_slack_user_entity.tz_label,
             tz_offset=insync_slack_user_entity.tz_offset,
             updated=insync_slack_user_entity.updated,
+            created_at=insync_slack_user_entity.created_at,
+            updated_at=insync_slack_user_entity.updated_at,
         )
 
     async def save(self, insync_slack_user: InSyncSlackUser) -> InSyncSlackUser:
         db_entity = self._map_to_db_entity(insync_slack_user)
         async with self.engine.begin() as conn:
-            insync_slack_user_entity = await InSyncChannelRepository(conn).save(
+            insync_slack_user_entity = await InSyncSlackUserRepository(conn).save(
                 db_entity
             )
             result = self._map_to_domain(insync_slack_user_entity)

@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from slack_sdk import WebClient
 
 from src.application.commands.slack import IssueChatPostMessageCommand
-from src.domain.models import InSyncSlackChannel, TenantContext
+from src.domain.models import InSyncSlackChannel, InSyncSlackUser, TenantContext
 
 from .exceptions import SlackAPIException, SlackAPIResponseException
 
@@ -51,6 +51,30 @@ class SlackConversationItemResponse(BaseModel):
     updated: int
 
 
+class SlackUserItemResponse(BaseModel):
+    model_config = ConfigDict(str_to_lower=True)
+    id: str
+    team_id: str
+    name: str
+    deleted: bool
+    color: str
+    real_name: str
+    tz: str
+    tz_label: str
+    tz_offset: int
+    profile: dict
+    is_admin: bool
+    is_owner: bool
+    is_primary_owner: bool
+    is_restricted: bool
+    is_ultra_restricted: bool
+    is_bot: bool
+    is_app_user: bool
+    updated: int
+    is_email_confirmed: bool
+    who_can_share_contact_card: str
+
+
 # TODO:
 # @sanchitrk - API wrapper is pretty basic at the moment, we need to
 # handle more use cases like pagination, rate limiting, etc.
@@ -85,22 +109,20 @@ class SlackWebAPIConnector:
         results = []
         if response.get("ok"):
             for channel in response.get("channels", []):
-                conversation_item_response = SlackConversationItemResponse(**channel)
-                conversation_item_response_dict = (
-                    conversation_item_response.model_dump()
-                )
+                item = SlackConversationItemResponse(**channel)
+                item_dict = item.model_dump()
                 insync_channel = InSyncSlackChannel.from_dict(
-                    self.tenant_context.tenant_id, data=conversation_item_response_dict
+                    self.tenant_context.tenant_id, data=item_dict
                 )
                 results.append(insync_channel)
         else:
             error = response.get("error", "unknown")
             logger.error(
-                f"slack connector API error with slack error code: {error} ",
+                f"slack response error with slack error code: {error} ",
                 f"check Slack docs for more information for error: {error}",
             )
             raise SlackAPIResponseException(
-                f"slack connector API error with slack error code: {error}"
+                f"slack response error with slack error code: {error}"
             )
         return results
 
@@ -119,11 +141,11 @@ class SlackWebAPIConnector:
         else:
             error = response.get("error", "unknown")
             logger.error(
-                f"slack connector API error with slack error code: {error} ",
+                f"slack response error with slack error code: {error} ",
                 f"check Slack docs for more information for error: {error}",
             )
             raise SlackAPIResponseException(
-                f"slack connector API error with slack error code: {error}"
+                f"slack response error with slack error code: {error}"
             )
 
     def post_issue_message(self, command: IssueChatPostMessageCommand):
@@ -131,12 +153,13 @@ class SlackWebAPIConnector:
             channel=command.channel, text=command.text, blocks=command.blocks
         )
 
-    def users_list(self, limit=200):
+    # TODO: @sanchitrk - for now keep it simple we'll tweak it later
+    # once we have better understanding of how to deal with pagination.
+    def _users_list(self, limit=200):
         """
         refer the Slack API docs for more information at:
         https://api.slack.com/methods/users.list
 
-        :param command: UserListCommand
         """
         try:
             response = self._client.users_list(limit=limit)
@@ -151,10 +174,24 @@ class SlackWebAPIConnector:
         else:
             error = response.get("error", "unknown")
             logger.error(
-                f"slack connector API error with slack error code: {error} ",
+                f"slack response error with slack error code: {error} ",
                 f"check Slack docs for more information for error: {error}",
             )
             raise SlackAPIResponseException(
-                f"slack connector API error with slack error code: {error}"
+                f"slack response error with slack error code: {error}"
             )
         return results
+
+    # TODO: @sanchitrk - update this later to take `command` as input
+    def get_users(self, limit):
+        results = self._users_list(limit=limit)
+        results = list(filter(lambda d: d["deleted"] is False, results))
+        users = []
+        for result in results:
+            item = SlackUserItemResponse(**result)
+            item_dict = item.model_dump()
+            insync_user = InSyncSlackUser.from_dict(
+                self.tenant_context.tenant_id, data=item_dict
+            )
+            users.append(insync_user)
+        return users

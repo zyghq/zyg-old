@@ -3,7 +3,13 @@ from typing import List
 
 from pydantic import BaseModel
 
-from src.domain.models import InSyncSlackChannel, Issue, LinkedSlackChannel, SlackEvent
+from src.domain.models import (
+    InSyncSlackChannel,
+    InSyncSlackUser,
+    Issue,
+    LinkedSlackChannel,
+    SlackEvent,
+)
 
 
 class TenantRepr(BaseModel):
@@ -35,6 +41,14 @@ class InSyncSlackChannelRepr(BaseModel):
     is_shared: bool
     topic: dict
     updated: int
+    updated_at: datetime
+    created_at: datetime
+
+
+class InSyncSlackUserRepr(BaseModel):
+    id: str
+    name: str
+    is_bot: bool
     updated_at: datetime
     created_at: datetime
 
@@ -95,6 +109,16 @@ def insync_slack_channel_repr(
         is_shared=item.is_shared,
         topic=topic,
         updated=item.updated,
+        updated_at=item.updated_at,
+        created_at=item.created_at,
+    )
+
+
+def insync_slack_user_repr(item: InSyncSlackUser) -> dict:
+    return InSyncSlackUserRepr(
+        id=item.id,
+        name=item.name,
+        is_bot=item.is_bot,
         updated_at=item.updated_at,
         created_at=item.created_at,
     )

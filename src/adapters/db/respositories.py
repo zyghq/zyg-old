@@ -327,6 +327,12 @@ class AbstractInSyncChannelRepository(abc.ABC):
     ) -> InSyncSlackChannelDBEntity | None:
         raise NotImplementedError
 
+    @abc.abstractmethod
+    async def get_by_tenant_id_id(
+        self, tenant_id: str, id: str
+    ) -> InSyncSlackChannelDBEntity:
+        raise NotImplementedError
+
 
 class InSyncChannelRepository(AbstractInSyncChannelRepository, BaseRepository):
     def __init__(self, connection: Connection) -> None:
@@ -471,8 +477,6 @@ class InSyncChannelRepository(AbstractInSyncChannelRepository, BaseRepository):
         }
 
         try:
-            # query = text(query)
-            # rows = await self.conn.execute(query.bindparams(**parameters))
             rows = await self.conn.execute(statement=text(query), parameters=parameters)
             result = rows.mappings().first()
         except IntegrityError as e:
@@ -804,5 +808,90 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
 
 class InSyncSlackUserAbstractRepository(abc.ABC):
     @abc.abstractmethod
-    async def save(self, user: InSyncSlackUserDBEntity) -> InSyncSlackUserDBEntity:
+    async def save(
+        self, insync_user: InSyncSlackUserDBEntity
+    ) -> InSyncSlackUserDBEntity:
         raise NotImplementedError
+
+
+class InSyncSlackUserRepository(InSyncSlackUserAbstractRepository, BaseRepository):
+    def __init__(self, connection: Connection) -> None:
+        self.conn = connection
+
+    async def save(
+        self, insync_user: InSyncSlackUserDBEntity
+    ) -> InSyncSlackUserDBEntity:
+        query = """
+            insert into insync_slack_user (
+                tenant_id, id, is_admin, is_app_user, is_bot, is_email_confirmed,
+                is_owner, is_primary_owner, is_restricted, is_ultra_restricted, name,
+                profile, real_name, team_id, tz, tz_label, tz_offset, updated
+            )
+            values (
+                :tenant_id, :id, :is_admin, :is_app_user, :is_bot, :is_email_confirmed,
+                :is_owner, :is_primary_owner, :is_restricted, :is_ultra_restricted,
+                :name, :profile, :real_name, :team_id, :tz, :tz_label, :tz_offset,
+                :updated
+            )
+            on conflict (tenant_id, id) do update set
+                is_admin = :is_admin,
+                is_app_user = :is_app_user,
+                is_bot = :is_bot,
+                is_email_confirmed = :is_email_confirmed,
+                is_owner = :is_owner,
+                is_primary_owner = :is_primary_owner,
+                is_restricted = :is_restricted,
+                is_ultra_restricted = :is_ultra_restricted,
+                name = :name,
+                profile = :profile,
+                real_name = :real_name,
+                team_id = :team_id,
+                tz = :tz,
+                tz_label = :tz_label,
+                tz_offset = :tz_offset,
+                updated = :updated,
+                updated_at = now()
+            returning tenant_id, id, is_admin, is_app_user, is_bot, is_email_confirmed,
+                is_owner, is_primary_owner, is_restricted, is_ultra_restricted, name,
+                profile, real_name, team_id, tz, tz_label, tz_offset, updated,
+                created_at, updated_at
+        """
+        profile = (
+            json.dumps(insync_user.profile)
+            if isinstance(insync_user.profile, dict)
+            else None
+        )
+        parameters = {
+            "tenant_id": insync_user.tenant_id,
+            "id": insync_user.id,
+            "is_admin": insync_user.is_admin,
+            "is_app_user": insync_user.is_app_user,
+            "is_bot": insync_user.is_bot,
+            "is_email_confirmed": insync_user.is_email_confirmed,
+            "is_owner": insync_user.is_owner,
+            "is_primary_owner": insync_user.is_primary_owner,
+            "is_restricted": insync_user.is_restricted,
+            "is_ultra_restricted": insync_user.is_ultra_restricted,
+            "name": insync_user.name,
+            "profile": profile,
+            "real_name": insync_user.real_name,
+            "team_id": insync_user.team_id,
+            "tz": insync_user.tz,
+            "tz_label": insync_user.tz_label,
+            "tz_offset": insync_user.tz_offset,
+            "updated": insync_user.updated,
+        }
+
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+        return InSyncSlackUserDBEntity(**result)

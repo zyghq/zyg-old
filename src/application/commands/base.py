@@ -21,7 +21,7 @@ class TenantSyncChannelCommand(BaseModel):
     types: List[str] | None = None
 
 
-class TenantSyncUserCommand(BaseModel):
+class SlackSyncUserCommand(BaseModel):
     tenant_id: str
 
 
