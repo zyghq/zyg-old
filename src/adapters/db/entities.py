@@ -15,6 +15,14 @@ class TenantDBEntity(DBEntity):
     slack_team_ref: str | None = None
 
 
+class UserDBEntity(DBEntity):
+    user_id: str | None = None  # primary key
+    tenant_id: str
+    slack_user_ref: str
+    name: str
+    role: str
+
+
 class SlackEventDBEntity(DBEntity):
     event_id: str | None = None  # primary key
     tenant_id: str

@@ -29,7 +29,7 @@ def slack_event_handler(self, context: Dict[str, Any], body: Dict[str, Any]):
         slack_event = SlackEvent.from_payload(
             tenant_id=tenant.tenant_id, event_id=event_id, payload=payload
         )
-        handler = lookup_event_handler(subscribed_event=subscribed_event)
+        handler = lookup_event_handler(subscribed_event)
         loop = asyncio.get_event_loop()
         result = loop.run_until_complete(
             handler(tenant=tenant, slack_event=slack_event)

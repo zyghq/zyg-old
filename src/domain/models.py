@@ -94,11 +94,13 @@ class User(AbstractEntity):
         self,
         tenant_id: str,
         user_id: str | None,
+        slack_user_ref: str,
         name: str | None,
         role: UserRole.MEMBER,
     ) -> None:
         self.tenant_id = tenant_id
         self.user_id = user_id
+        self.slack_user_ref = slack_user_ref
         self.name = name
         self.role = role
 
@@ -106,6 +108,11 @@ class User(AbstractEntity):
         if not isinstance(other, User):
             return False
         return (self.tenant_id == other.tenant_id) and (self.user_id == other.user_id)
+
+    def equals_by_slack_user_ref(self, other: object) -> bool:
+        if not isinstance(other, User):
+            return False
+        return self.slack_user_ref == other.slack_user_ref
 
     def __repr__(self) -> str:
         return f"""User(

@@ -21,19 +21,32 @@
 create table tenant(
   tenant_id varchar(255) not null,
   name varchar(512) not null,
-  slack_team_ref varchar(255) null,
+  slack_team_ref varchar(255) null, -- reference to Slack team(id).
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,
   constraint tenant_tenant_id_pkey primary key (tenant_id),
   constraint tenant_slack_team_ref_key unique (slack_team_ref)
 );
 
+-- represents the user table.
+create table user(
+  user_id varchar(255) not null,
+  tenant_id varchar(255) not null, -- reference to tenant.
+  slack_user_ref varchar(255) not null, -- reference to Slack user(id).
+  name varchar(255) not null,
+  created_at timestamp default current_timestamp,
+  updated_at timestamp default current_timestamp,
+  constraint user_user_id_pkey primary key (user_id),
+  constraint user_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
+  constraint user_tenant_id_slack_user_ref_key unique (tenant_id, slack_user_ref)
+)
+
 
 -- represents the slack event table.
 -- with reference to a tenant.
 create table slack_event(
   event_id varchar(255) not null,
-  tenant_id varchar(255) not null,
+  tenant_id varchar(255) not null, -- reference to tenant.
   slack_event_ref varchar(255) not null,
   inner_event_type varchar(255) not null,
   event jsonb,
@@ -108,9 +121,9 @@ create table linked_slack_channel(
 -- represents issue sequence table
 -- with reference to a tenant
 -- Note: Make sure the query can generate the next sequence number
-create table issue_seq (
+create table issue_seq(
   seq bigint default 1 not null,
-  tenant_id varchar(255) not null,
+  tenant_id varchar(255) not null, -- reference to tenant.
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,
   constraint issue_seq_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
@@ -119,9 +132,9 @@ create table issue_seq (
 
 -- represents the issue table
 -- with reference to a tenant.
-create table issue (
+create table issue(
   issue_id varchar(255) not null,
-  tenant_id varchar(255) not null,
+  tenant_id varchar(255) not null, -- reference to tenant.
   issue_number bigint not null,
   body text not null,
   status varchar(127) not null,
@@ -136,7 +149,9 @@ create table issue (
   constraint issue_tenant_id_issue_number_key unique (tenant_id, issue_number)
 );
 
-create table insync_slack_user (
+-- mapped as per raw user list item from Slack API reponse.
+-- with reference to a tenant.
+create table insync_slack_user(
   tenant_id varchar(255) not null, -- reference to tenant.
   id varchar(255) not null,
   is_admin boolean not null,

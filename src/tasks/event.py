@@ -115,7 +115,14 @@ class CreateIssueWithSlackTask:
         return response
 
 
+class NudgeUserForIssueInSlackTask:
+    pass
+
+
 async def slack_channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
+    """
+    func named after Slack API event type: `message.channels`
+    """
     logger.info("slack_channel_message_handler invoked...")
     logger.info(f"tenant: {tenant}")
     logger.info(f"slack_event: {slack_event}")
