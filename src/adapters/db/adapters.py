@@ -9,6 +9,7 @@ from src.domain.models import (
     SlackEvent,
     Tenant,
     TriageSlackChannel,
+    User,
 )
 
 from .entities import (
@@ -18,6 +19,7 @@ from .entities import (
     LinkedSlackChannelDBEntity,
     SlackEventDBEntity,
     TenantDBEntity,
+    UserDBEntity,
 )
 from .respositories import (
     InSyncChannelRepository,
@@ -26,6 +28,7 @@ from .respositories import (
     LinkedSlackChannelRepository,
     SlackEventRepository,
     TenantRepository,
+    UserRepository,
 )
 
 
@@ -417,4 +420,43 @@ class InSyncSlackUserDBAdapter:
                 db_entity
             )
             result = self._map_to_domain(insync_slack_user_entity)
+        return result
+
+
+class UserDBAdapter:
+    def __init__(self, engine: Engine = engine) -> None:
+        self.engine = engine
+
+    def _map_to_db_entity(self, user: User) -> UserDBEntity:
+        return UserDBEntity(
+            user_id=user.user_id,
+            tenant_id=user.tenant_id,
+            slack_user_ref=user.slack_user_ref,
+            name=user.name,
+            role=user.role,
+        )
+
+    def _map_to_domain(self, user_entity: UserDBEntity) -> User:
+        return User(
+            user_id=user_entity.user_id,
+            tenant_id=user_entity.tenant_id,
+            slack_user_ref=user_entity.slack_user_ref,
+            name=user_entity.name,
+            role=user_entity.role,
+        )
+
+    async def save(self, user: User) -> User:
+        db_entity = self._map_to_db_entity(user)
+        async with self.engine.begin() as conn:
+            user_entity = await UserRepository(conn).save(db_entity)
+            result = self._map_to_domain(user_entity)
+        return result
+
+    async def save_by_tenant_id_slack_user_ref(self, user: User) -> User:
+        db_entity = self._map_to_db_entity(user)
+        async with self.engine.begin() as conn:
+            user_entity = await UserRepository(conn).upsert_by_tenant_id_slack_user_ref(
+                db_entity
+            )
+            result = self._map_to_domain(user_entity)
         return result

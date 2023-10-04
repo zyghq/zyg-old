@@ -13,6 +13,7 @@ from src.application.commands import (
 from src.application.repr.api import (
     insync_slack_channel_repr,
     insync_slack_user_repr,
+    insync_slack_user_with_upsert,
     linked_slack_channel_repr,
 )
 from src.services.channel import LinkSlackChannelService
@@ -28,6 +29,7 @@ class TenantSyncChannelsRequestBody(BaseModel):
 
 class TenantSyncUsersRequestBody(BaseModel):
     tenant_id: str
+    upsert_user: bool = False
 
 
 class LinkChannelRequestBody(BaseModel):
@@ -58,9 +60,13 @@ async def sync_channels(body: TenantSyncChannelsRequestBody):
 async def sync_users(body: TenantSyncUsersRequestBody):
     command = SlackSyncUserCommand(
         tenant_id=body.tenant_id,
+        upsert_user=body.upsert_user,
     )
     sync_service = SlackUserSyncService()
     results = await sync_service.sync_now(command=command)
+    if command.upsert_user:
+        response = (insync_slack_user_with_upsert(r) for r in results)
+        return response
     response = (insync_slack_user_repr(r) for r in results)
     return response
 

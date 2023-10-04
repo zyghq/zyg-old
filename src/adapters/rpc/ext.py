@@ -183,7 +183,7 @@ class SlackWebAPIConnector:
         return results
 
     # TODO: @sanchitrk - update this later to take `command` as input
-    def get_users(self, limit):
+    def get_users(self, limit) -> List[InSyncSlackUser]:
         results = self._users_list(limit=limit)
         results = list(filter(lambda d: d["deleted"] is False, results))
         users = []

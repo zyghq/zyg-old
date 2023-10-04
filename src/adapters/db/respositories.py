@@ -13,6 +13,7 @@ from .entities import (
     LinkedSlackChannelDBEntity,
     SlackEventDBEntity,
     TenantDBEntity,
+    UserDBEntity,
 )
 from .exceptions import DBIntegrityException, DBNotFoundException
 
@@ -895,3 +896,121 @@ class InSyncSlackUserRepository(InSyncSlackUserAbstractRepository, BaseRepositor
             # also helps us to have a better control over the error handling.
             raise DBIntegrityException(e)
         return InSyncSlackUserDBEntity(**result)
+
+
+class AbstractUserRepository(abc.ABC):
+    @abc.abstractmethod
+    async def save(self, user: UserDBEntity) -> UserDBEntity:
+        raise NotImplementedError
+
+
+class UserRepository(AbstractUserRepository, BaseRepository):
+    def __init__(self, connection: Connection) -> None:
+        self.conn = connection
+
+    async def _upsert(self, user: UserDBEntity) -> UserDBEntity:
+        query = """
+            insert into zyguser (
+                user_id, tenant_id, slack_user_ref, name, role
+            )
+            values (
+                :user_id, :tenant_id, :slack_user_ref, :name, :role
+            )
+            on conflict (user_id) do update set
+                tenant_id = :tenant_id,
+                slack_user_ref = :slack_user_ref,
+                name = :name,
+                role = :role,
+                updated_at = now()
+            returning user_id, tenant_id, slack_user_ref, name, role,
+            created_at, updated_at
+        """
+        parameters = {
+            "user_id": user.user_id,
+            "tenant_id": user.tenant_id,
+            "slack_user_ref": user.slack_user_ref,
+            "name": user.name,
+            "role": user.role,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+        return UserDBEntity(**result)
+
+    async def _insert(self, user: UserDBEntity) -> UserDBEntity:
+        user_id = self.generate_id()
+        query = """
+            insert into zyguser (
+                user_id, tenant_id, slack_user_ref, name, role
+            )
+            values (
+                :user_id, :tenant_id, :slack_user_ref, :name, :role
+            )
+            returning user_id, tenant_id, slack_user_ref, name, role,
+            created_at, updated_at
+        """
+        parameters = {
+            "user_id": user_id,
+            "tenant_id": user.tenant_id,
+            "slack_user_ref": user.slack_user_ref,
+            "name": user.name,
+            "role": user.role,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            # We are raising `DBIntegrityException` here
+            # to maintain common exception handling for database related
+            # exceptions, this makes sure that we are not leaking
+            # database related exceptions to the downstream layers
+            #
+            # Having custom exceptions for database related exceptions
+            # also helps us to have a better control over the error handling.
+            raise DBIntegrityException(e)
+        return UserDBEntity(**result)
+
+    async def save(self, user: UserDBEntity) -> UserDBEntity:
+        if user.user_id is None:
+            return await self._insert(user)
+        return await self._upsert(user)
+
+    async def upsert_by_tenant_id_slack_user_ref(
+        self, user: UserDBEntity
+    ) -> UserDBEntity:
+        user_id = user.user_id if user.user_id is not None else self.generate_id()
+        query = """
+            insert into zyguser (
+                user_id, tenant_id, slack_user_ref, name, role
+            )
+            values (
+                :user_id, :tenant_id, :slack_user_ref, :name, :role
+            )
+            on conflict (tenant_id, slack_user_ref) do update set
+                name = :name,
+                updated_at = now()
+            returning user_id, tenant_id, slack_user_ref, name, role,
+            created_at, updated_at
+        """
+        parameters = {
+            "user_id": user_id,
+            "tenant_id": user.tenant_id,
+            "slack_user_ref": user.slack_user_ref,
+            "name": user.name,
+            "role": user.role,
+        }
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+        except IntegrityError as e:
+            raise DBIntegrityException(e)
+        return UserDBEntity(**result)

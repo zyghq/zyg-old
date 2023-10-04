@@ -29,11 +29,12 @@ create table tenant(
 );
 
 -- represents the user table.
-create table user(
+create table zyguser(
   user_id varchar(255) not null,
   tenant_id varchar(255) not null, -- reference to tenant.
   slack_user_ref varchar(255) not null, -- reference to Slack user(id).
   name varchar(255) not null,
+  role varchar(255) not null,
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,
   constraint user_user_id_pkey primary key (user_id),

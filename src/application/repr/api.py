@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import Dict, List
 
 from pydantic import BaseModel
 
@@ -9,6 +9,7 @@ from src.domain.models import (
     Issue,
     LinkedSlackChannel,
     SlackEvent,
+    User,
 )
 
 
@@ -48,9 +49,18 @@ class InSyncSlackChannelRepr(BaseModel):
 class InSyncSlackUserRepr(BaseModel):
     id: str
     name: str
-    is_bot: bool
     updated_at: datetime
     created_at: datetime
+
+
+class UserRepr(BaseModel):
+    user_id: str
+    name: str
+    role: str
+
+
+class InSyncSlackUserWithUpsertedUserRepr(InSyncSlackUserRepr):
+    user: UserRepr | None = None
 
 
 class TriageSlackChannelRepr(BaseModel):
@@ -117,10 +127,30 @@ def insync_slack_channel_repr(
 def insync_slack_user_repr(item: InSyncSlackUser) -> dict:
     return InSyncSlackUserRepr(
         id=item.id,
-        name=item.name,
-        is_bot=item.is_bot,
+        name=item.real_name,
         updated_at=item.updated_at,
         created_at=item.created_at,
+    )
+
+
+def insync_slack_user_with_upsert(item: Dict[str, User | InSyncSlackUser]) -> dict:
+    insync_user: InSyncSlackUser = item["insync_user"]
+    user: User | None = item["user"]
+    if user:
+        user_repr = UserRepr(
+            user_id=user.user_id,
+            name=user.name,
+            role=user.role,
+        )
+    else:
+        user_repr = None
+    return InSyncSlackUserWithUpsertedUserRepr(
+        id=insync_user.id,
+        name=insync_user.name,
+        is_bot=insync_user.is_bot,
+        updated_at=insync_user.updated_at,
+        created_at=insync_user.created_at,
+        user=user_repr,
     )
 
 

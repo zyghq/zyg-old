@@ -23,6 +23,7 @@ class TenantSyncChannelCommand(BaseModel):
 
 class SlackSyncUserCommand(BaseModel):
     tenant_id: str
+    upsert_user: bool = False
 
 
 class LinkSlackChannelCommand(BaseModel):

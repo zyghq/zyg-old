@@ -96,13 +96,23 @@ class User(AbstractEntity):
         user_id: str | None,
         slack_user_ref: str,
         name: str | None,
-        role: UserRole.MEMBER,
+        role: UserRole | None | str = UserRole.MEMBER,
     ) -> None:
         self.tenant_id = tenant_id
         self.user_id = user_id
         self.slack_user_ref = slack_user_ref
         self.name = name
-        self.role = role
+
+        if role is None:
+            role = UserRole.MEMBER
+
+        if isinstance(role, str):
+            role = UserRole(role)
+
+        # safety checks
+        assert isinstance(role, UserRole)
+
+        self._role = role
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, User):
@@ -119,8 +129,47 @@ class User(AbstractEntity):
             tenant_id={self.tenant_id},
             user_id={self.user_id},
             name={self.name},
-            role={self.role.value}
+            role={self._role.value}
         )"""
+
+    @property
+    def display_name(self) -> str:
+        names = self.name.split(" ")
+        " ".join([name.capitalize() for name in names])
+
+    @classmethod
+    def default_role(cls) -> UserRole:
+        return UserRole.MEMBER
+
+    @classmethod
+    def get_role_administrator(cls) -> UserRole:
+        return UserRole.ADMINISTRATOR
+
+    @classmethod
+    def get_role_owner(cls) -> UserRole:
+        return UserRole.OWNER
+
+    @property
+    def is_administrator(self) -> bool:
+        return self._role == UserRole.ADMINISTRATOR
+
+    @property
+    def is_owner(self) -> bool:
+        return self._role == UserRole.OWNER
+
+    @property
+    def is_member(self) -> bool:
+        return self._role == UserRole.MEMBER
+
+    @property
+    def role(self) -> str:
+        if self._role is None:
+            return UserRole.MEMBER.value
+        return self._role.value
+
+    @role.setter
+    def role(self, role: str) -> None:
+        self._role = UserRole(role)
 
 
 class BaseEvent:
@@ -494,6 +543,14 @@ class InSyncSlackUser(AbstractValueObject):
             updated=data.get("updated"),
         )
 
+    @property
+    def id_normalized(self) -> str:
+        return self.id.lower()
+
+    @property
+    def is_slackbot(self) -> bool:
+        return self.id_normalized == "uslackbot"
+
 
 @define(frozen=True)
 class TriageSlackChannel(AbstractValueObject):
@@ -613,6 +670,7 @@ class Issue(AbstractEntity):
         if isinstance(priority, int):
             priority = IssuePriority(priority)
 
+        # safety checks
         assert isinstance(status, IssueStatus)
         assert isinstance(priority, IssuePriority)
 
