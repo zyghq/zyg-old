@@ -7,15 +7,18 @@ from httpx import Response
 from src.application.commands import (
     CreateIssueCommand,
     GetLinkedSlackChannelByRefCommand,
+    GetUserByRefCommand,
 )
 from src.config import ZYG_BASE_URL
 from src.domain.models import TenantContext
 
 from .exceptions import (
     CreateIssueAPIException,
-    LinkedChannelRefAPIException,
-    LinkedChannelRefAPINotFoundException,
+    LinkedChannelNotFoundResponseException,
+    LinkedChannelAPIException,
+    UserNotFoundResponseException,
     WebAPIException,
+    UserAPIException,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,14 +94,14 @@ class ZygWebAPIConnector(WebAPIBaseConnector):
             return items[0]
         except httpx.HTTPError as exc:
             logger.error(f"HTTP Exception for {exc.request.url} - {exc}")
-            raise LinkedChannelRefAPIException(
+            raise LinkedChannelAPIException(
                 "Request failed to get linked channel by reference at HTTP level"
             ) from exc
-        except WebAPIException as e:
-            logger.error(f"Web API Exception for {e}")
-            raise LinkedChannelRefAPIException(
+        except WebAPIException as exc:
+            logger.error(f"Web API Exception for {exc}")
+            raise LinkedChannelAPIException(
                 "Request failed to get linked channel by reference"
-            ) from e
+            ) from exc
 
     async def get_linked_channel_by_ref(
         self, command: GetLinkedSlackChannelByRefCommand
@@ -109,7 +112,45 @@ class ZygWebAPIConnector(WebAPIBaseConnector):
         """
         item = await self.find_linked_channel_by_ref(command)
         if item is None:
-            raise LinkedChannelRefAPINotFoundException(
+            raise LinkedChannelNotFoundResponseException(
                 "No linked channel found for the reference"
             )
+        return item
+
+    async def find_user_by_slack_ref(self, command: GetUserByRefCommand) -> dict | None:
+        """
+        With find we dont raise an error we just return None if not found.
+        Unlike get we raise an error if not found.
+        """
+        try:
+            response = httpx.post(
+                f"{self.base_url}/tenants/users/:search/",
+                headers={
+                    "content-type": "application/json",
+                },
+                json={
+                    "slack_user_ref": command.slack_user_ref,
+                },
+            )
+            items = self.respond(response)
+            if len(items) == 0:
+                return None
+            return items[0]
+        except httpx.HTTPError as exc:
+            logger.error(f"HTTP Exception for {exc.request.url} - {exc}")
+            raise UserAPIException(
+                "Request failed to get user by reference at HTTP level"
+            ) from exc
+        except WebAPIException as e:
+            logger.error(f"Web API Exception for {e}")
+            raise UserAPIException("Request failed to get user by reference") from e
+
+    async def get_user_by_slack_ref(self, command: GetUserByRefCommand) -> dict:
+        """
+        With get we raise an error if not found.
+        Unlike find we just return None if not found.
+        """
+        item = await self.find_user_by_slack_ref(command)
+        if item is None:
+            raise UserNotFoundResponseException("No user found for the reference")
         return item

@@ -7,6 +7,7 @@ from pydantic import BaseModel, constr
 from src.application.commands import (
     LinkSlackChannelCommand,
     SearchLinkedSlackChannelCommand,
+    SearchUserCommand,
     SlackSyncUserCommand,
     TenantSyncChannelCommand,
 )
@@ -15,9 +16,11 @@ from src.application.repr.api import (
     insync_slack_user_repr,
     insync_slack_user_with_upsert,
     linked_slack_channel_repr,
+    user_repr,
 )
-from src.services.channel import LinkSlackChannelService
+from src.services.channel import SlackChannelService
 from src.services.tenant import SlackChannelSyncService, SlackUserSyncService
+from src.services.user import UserService
 
 router = APIRouter()
 
@@ -42,6 +45,11 @@ class SearchLinkedChannelRequestBody(BaseModel):
     linked_slack_channel_id: Optional[str] = None
     slack_channel_name: Optional[str] = None
     slack_channel_ref: Optional[str] = None
+
+
+class SearchUserRequestBody(BaseModel):
+    user_id: Optional[str] = None
+    slack_user_ref: Optional[str] = None
 
 
 @router.post("/channels/sync/")
@@ -79,7 +87,7 @@ async def link_channel(body: LinkChannelRequestBody):
         triage_slack_channel_ref=body.triage_slack_channel_ref,
     )
 
-    service = LinkSlackChannelService()
+    service = SlackChannelService()
     result = await service.link(command=command)
     linked_slack_channel = linked_slack_channel_repr(result)
     return linked_slack_channel
@@ -93,9 +101,23 @@ async def search_linked_channel(body: SearchLinkedChannelRequestBody):
         slack_channel_name=body.slack_channel_name,
         slack_channel_ref=body.slack_channel_ref,
     )
-    service = LinkSlackChannelService()
+    service = SlackChannelService()
     result = await service.search(command=command)
     if result is None:
         return JSONResponse(status_code=200, content=[])
     linked_slack_channel = linked_slack_channel_repr(result)
     return JSONResponse(status_code=200, content=[linked_slack_channel.model_dump()])
+
+
+@router.post("/users/:search/")
+async def search_user(body: SearchUserRequestBody):
+    command = SearchUserCommand(
+        tenant_id="z320czxkpt5u",
+        user_id=body.user_id,
+        slack_user_ref=body.slack_user_ref,
+    )
+    result = await UserService().search(command=command)
+    if result is None:
+        return JSONResponse(status_code=200, content=[])
+    user = user_repr(result)
+    return JSONResponse(status_code=200, content=[user.model_dump()])

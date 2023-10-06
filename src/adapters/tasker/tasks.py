@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from src.adapters.tasker.init import app
 from src.domain.models import SlackEvent, Tenant
-from src.tasks.event import lookup_event_handler
+from src.tasks.event import event_handler
 
 
 @app.task(bind=True, name="zyg.slack_event_handler")
@@ -29,11 +29,13 @@ def slack_event_handler(self, context: Dict[str, Any], body: Dict[str, Any]):
         slack_event = SlackEvent.from_payload(
             tenant_id=tenant.tenant_id, event_id=event_id, payload=payload
         )
-        handler = lookup_event_handler(subscribed_event)
+        
+        handler = event_handler(subscribed_event)
         loop = asyncio.get_event_loop()
         result = loop.run_until_complete(
             handler(tenant=tenant, slack_event=slack_event)
         )
+
         print(f"result: {result}")
     else:
         pass

@@ -178,7 +178,7 @@ class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
     async def find_by_slack_event_ref(self, slack_event_ref: str):
         query = """
             select event_id, tenant_id, slack_event_ref,
-                inner_event_type, event, event_ts, api_app_id,
+                inner_event_type, event_dispatched_ts, api_app_id,
                 token, payload, is_ack, created_at, updated_at
             from slack_event
             where slack_event_ref = :slack_event_ref
@@ -193,7 +193,7 @@ class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
     async def find_by_id(self, event_id: str):
         query = """
             select event_id, tenant_id, slack_event_ref,
-                inner_event_type, event, event_ts, api_app_id,
+                inner_event_type, event_dispatched_ts, api_app_id,
                 token, payload, is_ack, created_at, updated_at
             from slack_event
             where event_id = :event_id
@@ -209,27 +209,26 @@ class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
         query = """
             insert into slack_event (
                 event_id, tenant_id, slack_event_ref,
-                inner_event_type, event, event_ts, api_app_id,
+                inner_event_type, event_dispatched_ts, api_app_id,
                 token, payload, is_ack
             )
             values (
                 :event_id, :tenant_id, :slack_event_ref,
-                :inner_event_type, :event, :event_ts, :api_app_id,
+                :inner_event_type, :event_dispatched_ts, :api_app_id,
                 :token, :payload, :is_ack
             )
             on conflict (event_id) do update set
                 tenant_id = :tenant_id,
                 slack_event_ref = :slack_event_ref,
                 inner_event_type = :inner_event_type,
-                event = :event,
-                event_ts = :event_ts,
+                event_dispatched_ts = :event_dispatched_ts,
                 api_app_id = :api_app_id,
                 token = :token,
                 payload = :payload,
                 is_ack = :is_ack,
                 updated_at = now()
             returning event_id, tenant_id, slack_event_ref,
-                inner_event_type, event, event_ts, api_app_id,
+                inner_event_type, event_dispatched_ts, api_app_id,
                 token, payload, is_ack, created_at, updated_at
         """
         parameters = {
@@ -237,10 +236,7 @@ class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
             "tenant_id": slack_event.tenant_id,
             "slack_event_ref": slack_event.slack_event_ref,
             "inner_event_type": slack_event.inner_event_type,
-            "event": json.dumps(slack_event.event)
-            if isinstance(slack_event.event, dict)
-            else None,
-            "event_ts": slack_event.event_ts,
+            "event_dispatched_ts": slack_event.event_dispatched_ts,
             "api_app_id": slack_event.api_app_id,
             "token": slack_event.token,
             "payload": json.dumps(slack_event.payload)
@@ -267,16 +263,16 @@ class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
         query = """
             insert into slack_event (
                 event_id, tenant_id, slack_event_ref,
-                inner_event_type, event, event_ts, api_app_id,
+                inner_event_type, event_dispatched_ts, api_app_id,
                 token, payload, is_ack
             )
             values (
                 :event_id, :tenant_id, :slack_event_ref,
-                :inner_event_type, :event, :event_ts, :api_app_id,
+                :inner_event_type, :event_dispatched_ts, :api_app_id,
                 :token, :payload, :is_ack
             )
             returning event_id, tenant_id, slack_event_ref,
-                inner_event_type, event, event_ts, api_app_id,
+                inner_event_type, event_dispatched_ts, api_app_id,
                 token, payload, is_ack, created_at, updated_at
         """
         parameters = {
@@ -284,10 +280,7 @@ class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
             "tenant_id": slack_event.tenant_id,
             "slack_event_ref": slack_event.slack_event_ref,
             "inner_event_type": slack_event.inner_event_type,
-            "event": json.dumps(slack_event.event)
-            if isinstance(slack_event.event, dict)
-            else None,
-            "event_ts": slack_event.event_ts,
+            "event_dispatched_ts": slack_event.event_dispatched_ts,
             "api_app_id": slack_event.api_app_id,
             "token": slack_event.token,
             "payload": json.dumps(slack_event.payload)
@@ -1014,3 +1007,50 @@ class UserRepository(AbstractUserRepository, BaseRepository):
         except IntegrityError as e:
             raise DBIntegrityException(e)
         return UserDBEntity(**result)
+
+    async def find_by_user_id(self, user_id: str) -> UserDBEntity | None:
+        query = """
+            select user_id, tenant_id, slack_user_ref, name, role,
+            created_at, updated_at
+            from zyguser
+            where user_id = :user_id
+        """
+        parameters = {"user_id": user_id}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return UserDBEntity(**result)
+
+    async def find_by_tenant_id_slack_user_ref(
+        self, tenant_id: str, slack_user_ref: str
+    ) -> UserDBEntity | None:
+        query = """
+            select user_id, tenant_id, slack_user_ref, name, role,
+            created_at, updated_at
+            from zyguser
+            where tenant_id = :tenant_id and slack_user_ref = :slack_user_ref
+        """
+        parameters = {"tenant_id": tenant_id, "slack_user_ref": slack_user_ref}
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return UserDBEntity(**result)
+
+    async def get_by_id(self, user_id: str) -> UserDBEntity:
+        user = await self.find_by_user_id(user_id)
+        if user is None:
+            raise DBNotFoundException(f"user with id `{user_id}` not found")
+        return user
+
+    async def get_by_tenant_id_slack_user_ref(
+        self, tenant_id: str, slack_user_ref: str
+    ):
+        user = await self.find_by_tenant_id_slack_user_ref(tenant_id, slack_user_ref)
+        if user is None:
+            raise DBNotFoundException(
+                f"user with tenant_id `{tenant_id}` "
+                "and slack_user_ref `{slack_user_ref}` not found"
+            )
+        return user

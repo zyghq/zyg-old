@@ -28,8 +28,7 @@ class SlackEventDBEntity(DBEntity):
     tenant_id: str
     slack_event_ref: str
     inner_event_type: str | None = None
-    event: dict
-    event_ts: int
+    event_dispatched_ts: int
     api_app_id: str
     token: str
     payload: dict

@@ -12,7 +12,7 @@ class SlackEventCallBackCommand(BaseModel):
     slack_event_ref: constr(min_length=3, max_length=255, to_lower=True)
     slack_team_ref: constr(min_length=3, max_length=255, to_lower=True)
     event: dict
-    event_ts: int
+    event_dispatched_ts: int
     payload: dict
 
 
@@ -43,6 +43,16 @@ class SearchLinkedSlackChannelCommand(BaseModel):
         return v.lower() if v else v
 
 
+class SearchUserCommand(BaseModel):
+    tenant_id: str
+    user_id: Optional[str] = None
+    slack_user_ref: Optional[str] = None
+
+    @validator("slack_user_ref")
+    def to_lower(cls, v: str | None):
+        return v.lower() if v else v
+
+
 class CreateIssueCommand(BaseModel):
     tenant_id: str
     body: str
@@ -55,3 +65,8 @@ class CreateIssueCommand(BaseModel):
 class GetLinkedSlackChannelByRefCommand(BaseModel):
     tenant_id: str
     slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
+
+
+class GetUserByRefCommand(BaseModel):
+    tenant_id: str
+    slack_user_ref: constr(min_length=3, max_length=255, to_lower=True)

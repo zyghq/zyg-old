@@ -44,7 +44,7 @@ class SlackEventDBAdapter:
             slack_event_ref=slack_event.slack_event_ref,
             inner_event_type=slack_event.inner_event_type,
             event=event,
-            event_ts=slack_event.event_ts,
+            event_dispatched_ts=slack_event.event_dispatched_ts,
             api_app_id=slack_event.api_app_id,
             token=slack_event.token,
             payload=slack_event.payload,
@@ -458,5 +458,31 @@ class UserDBAdapter:
             user_entity = await UserRepository(conn).upsert_by_tenant_id_slack_user_ref(
                 db_entity
             )
+            result = self._map_to_domain(user_entity)
+        return result
+
+    async def get_by_id(self, user_id: str) -> User:
+        async with self.engine.begin() as conn:
+            user_entity = await UserRepository(conn).get_by_id(user_id)
+            result = self._map_to_domain(user_entity)
+        return result
+
+    async def find_by_id(self, user_id: str) -> User | None:
+        async with self.engine.begin() as conn:
+            user_entity = await UserRepository(conn).find_by_user_id(user_id)
+            if user_entity is None:
+                return None
+            result = self._map_to_domain(user_entity)
+        return result
+
+    async def find_by_tenant_id_slack_user_ref(
+        self, tenant_id: str, slack_user_ref: str
+    ) -> User | None:
+        async with self.engine.begin() as conn:
+            user_entity = await UserRepository(conn).find_by_tenant_id_slack_user_ref(
+                tenant_id, slack_user_ref
+            )
+            if user_entity is None:
+                return None
             result = self._map_to_domain(user_entity)
         return result

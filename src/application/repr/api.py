@@ -53,14 +53,14 @@ class InSyncSlackUserRepr(BaseModel):
     created_at: datetime
 
 
-class UserRepr(BaseModel):
+class UpsertUserRepr(BaseModel):
     user_id: str
     name: str
     role: str
 
 
 class InSyncSlackUserWithUpsertedUserRepr(InSyncSlackUserRepr):
-    user: UserRepr | None = None
+    user: UpsertUserRepr | None = None
 
 
 class TriageSlackChannelRepr(BaseModel):
@@ -84,6 +84,13 @@ class IssueRepr(BaseModel):
     priority: int
     tags: List[str] = []
     linked_slack_channel_id: str | None = None
+
+
+class UserRepr(BaseModel):
+    user_id: str
+    slack_user_ref: str
+    name: str
+    role: str
 
 
 def slack_callback_event_repr(
@@ -137,7 +144,7 @@ def insync_slack_user_with_upsert(item: Dict[str, User | InSyncSlackUser]) -> di
     insync_user: InSyncSlackUser = item["insync_user"]
     user: User | None = item["user"]
     if user:
-        user_repr = UserRepr(
+        user_repr = UpsertUserRepr(
             user_id=user.user_id,
             name=user.name,
             role=user.role,
@@ -178,4 +185,13 @@ def issue_repr(item: Issue) -> IssueRepr:
         priority=item.priority,
         tags=item.tags,
         linked_slack_channel_id=item.linked_slack_channel_id,
+    )
+
+
+def user_repr(item: User) -> UpsertUserRepr:
+    return UserRepr(
+        user_id=item.user_id,
+        slack_user_ref=item.slack_user_ref,
+        name=item.display_name,
+        role=item.role,
     )

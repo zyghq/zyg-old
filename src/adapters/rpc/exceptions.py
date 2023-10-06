@@ -14,9 +14,17 @@ class CreateIssueAPIException(Exception):
     pass
 
 
-class LinkedChannelRefAPIException(Exception):
+class LinkedChannelAPIException(Exception):
     pass
 
 
-class LinkedChannelRefAPINotFoundException(Exception):
+class LinkedChannelNotFoundResponseException(Exception):
+    pass
+
+
+class UserNotFoundResponseException(Exception):
+    pass
+
+
+class UserAPIException(Exception):
     pass

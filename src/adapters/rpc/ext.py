@@ -4,7 +4,10 @@ from typing import List
 from pydantic import BaseModel, ConfigDict
 from slack_sdk import WebClient
 
-from src.application.commands.slack import IssueChatPostMessageCommand
+from src.application.commands.slack import (
+    IssueChatPostMessageCommand,
+    NudgeChatPostMessageCommand,
+)
 from src.domain.models import InSyncSlackChannel, InSyncSlackUser, TenantContext
 
 from .exceptions import SlackAPIException, SlackAPIResponseException
@@ -195,3 +198,33 @@ class SlackWebAPIConnector:
             )
             users.append(insync_user)
         return users
+
+    def _chat_post_ephemeral(self, channel, user, text, blocks):
+        logger.info(f"invoked `chat_post_ephemeral` for args: {channel, user}")
+        try:
+            response = self._client.chat_postEphemeral(
+                channel=channel, user=user, text=text, blocks=blocks
+            )
+        except SlackAPIException as e:
+            logger.error(f"slack API error: {e}")
+
+        logger.info("slack got response!")
+        if response.get("ok"):
+            return response
+        else:
+            error = response.get("error", "unknown")
+            logger.error(
+                f"slack response error with slack error code: {error} ",
+                f"check Slack docs for more information for error: {error}",
+            )
+            raise SlackAPIResponseException(
+                f"slack response error with slack error code: {error}"
+            )
+
+    def nudge_for_issue(self, command: NudgeChatPostMessageCommand):
+        return self._chat_post_ephemeral(
+            channel=command.channel,
+            user=command.slack_user_ref,
+            text=command.text,
+            blocks=command.blocks,
+        )

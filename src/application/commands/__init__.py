@@ -1,12 +1,14 @@
 from .base import (
     CreateIssueCommand,
     GetLinkedSlackChannelByRefCommand,
+    GetUserByRefCommand,
     LinkSlackChannelCommand,
     SearchLinkedSlackChannelCommand,
+    SearchUserCommand,
     SlackEventCallBackCommand,
+    SlackSyncUserCommand,
     TenantProvisionCommand,
     TenantSyncChannelCommand,
-    SlackSyncUserCommand,
 )
 
 __all__ = [
@@ -18,4 +20,6 @@ __all__ = [
     "CreateIssueCommand",
     "GetLinkedSlackChannelByRefCommand",
     "SlackSyncUserCommand",
+    "GetUserByRefCommand",
+    "SearchUserCommand",
 ]

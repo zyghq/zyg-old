@@ -10,7 +10,7 @@ from src.application.commands import (
 from src.domain.models import LinkedSlackChannel, TriageSlackChannel
 
 
-class LinkSlackChannelService:
+class SlackChannelService:
     def __init__(self) -> None:
         self.tenant_db = TenantDBAdapter()
         self.insync_channel_db = InSyncChannelDBAdapter()
@@ -56,24 +56,22 @@ class LinkSlackChannelService:
 
         Searches based on the priority of the search fields
         """
-        linked_channel = None
+        channel = None
         tenant_id = command.tenant_id
         if command.linked_slack_channel_id:
-            linked_channel = await self.linked_slack_channel_db.find_by_id(
+            channel = await self.linked_slack_channel_db.find_by_id(
                 command.linked_slack_channel_id
             )
-            return linked_channel
+            return channel
         elif command.slack_channel_ref:
-            linked_channel = (
-                await self.linked_slack_channel_db.find_by_slack_channel_ref(
-                    command.slack_channel_ref
-                )
+            channel = await self.linked_slack_channel_db.find_by_slack_channel_ref(
+                command.slack_channel_ref
             )
-            return linked_channel
+            return channel
         else:
-            linked_channel = (
+            channel = (
                 await self.linked_slack_channel_db.find_by_tenant_id_slack_channel_name(
                     tenant_id=tenant_id, slack_channel_name=command.slack_channel_name
                 )
             )
-            return linked_channel
+            return channel

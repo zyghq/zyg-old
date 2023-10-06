@@ -67,7 +67,7 @@ class SlackEventCallBackService:
         tenant = await self.tenant_db.find_by_slack_team_ref(slack_team_ref)
         if not tenant:
             raise SlackTeamReferenceException(
-                f"tenant not found. `slack_team_ref`: {slack_team_ref} "
+                f"tenant not found for `slack_team_ref`: {slack_team_ref} "
                 + "may not be mapped to a tenant or is invalid."
             )
 
@@ -100,6 +100,7 @@ class SlackEventCallBackService:
             'slack event not yet captured: "%s" capturing and dispatching now...',
             slack_event,
         )
+        
         captured_event = await self._capture(slack_event)
         dispatch_id = await self._dispatch(tenant, captured_event)
         logger.info(
@@ -107,4 +108,5 @@ class SlackEventCallBackService:
             captured_event,
             dispatch_id,
         )
+        
         return captured_event
