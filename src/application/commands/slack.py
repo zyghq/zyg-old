@@ -14,3 +14,11 @@ class NudgeChatPostMessageCommand(BaseModel):
     slack_user_ref: constr(min_length=3, to_upper=True)
     text: str
     blocks: List[Dict[str, Any]] | None = None
+
+
+class GetUsersCommand(BaseModel):
+    limit: int
+
+
+class GetChannelsCommand(BaseModel):
+    types: str = "public_channel"

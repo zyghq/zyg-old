@@ -8,6 +8,8 @@ from slack_sdk.errors import SlackClientError
 from src.application.commands.slack import (
     IssueChatPostMessageCommand,
     NudgeChatPostMessageCommand,
+    GetUsersCommand,
+    GetChannelsCommand,
 )
 from src.domain.models import InSyncSlackChannel, InSyncSlackUser, TenantContext
 
@@ -187,11 +189,11 @@ class SlackWebAPI:
 # https://github.com/slackapi/python-slack-sdk/blob/ff073cf74994adc6022e8296e702012ef5b662b4/slack/web/slack_response.py#L24-L41
 class SlackWebAPIConnector(SlackWebAPI):
     def __init__(self, tenant_context: TenantContext, token: str) -> None:
-        self.tenant_context = tenant_context
+        self.tenant_context = tenant_context  # TODO: raad token later from here.
         super().__init__(token=token)
 
-    def get_channels(self, types: str = "public_channels") -> List[InSyncSlackChannel]:
-        result = self.conversation_list(types=types)
+    def get_channels(self, command: GetChannelsCommand) -> List[InSyncSlackChannel]:
+        result = self.conversation_list(types=command.types)
         channels = result.get("channels", [])
         items = []
         for channel in channels:
@@ -208,14 +210,13 @@ class SlackWebAPIConnector(SlackWebAPI):
             channel=command.channel, text=command.text, blocks=command.blocks
         )
 
-    # TODO: @sanchitrk - update this later to take `command` as input
-    def get_users(self, limit) -> List[InSyncSlackUser]:
-        result = self.users_list(limit=limit)
+    def get_users(self, command: GetUsersCommand) -> List[InSyncSlackUser]:
+        result = self.users_list(limit=command.limit)
         members = result.get("members", [])
         members = list(filter(lambda d: d["deleted"] is False, members))
         users = []
-        for result in result:
-            item = SlackUserItemResponse(**result)
+        for member in members:
+            item = SlackUserItemResponse(**member)
             item_dict = item.model_dump()
             insync_user = InSyncSlackUser.from_dict(
                 self.tenant_context.tenant_id, data=item_dict

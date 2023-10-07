@@ -13,6 +13,7 @@ from src.application.commands import (
     TenantProvisionCommand,
     TenantSyncChannelCommand,
 )
+from src.application.commands.slack import GetChannelsCommand, GetUsersCommand
 from src.application.exceptions import SlackTeamReferenceException
 
 # TODO: later this will be fetched from tenant context, and will be removed.
@@ -69,7 +70,9 @@ class SlackChannelSyncService:
             tenant_context=tenant_context,
             token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
         )
-        results = slack_api.get_channels(",".join([t for t in types]))
+        results = slack_api.get_channels(
+            GetChannelsCommand(types=",".join([t for t in types]))
+        )
         saved_results = []
         for result in results:
             saved_result = await self.insync_channel_db.save(result)
@@ -103,7 +106,7 @@ class SlackUserSyncService:
             tenant_context=tenant_context,
             token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
         )
-        results = slack_api.get_users(limit=100)
+        results = slack_api.get_users(GetUsersCommand(limit=1000))
         insync_users: List[InSyncSlackUser] = []
         for result in results:
             if result.is_bot or result.is_slackbot:
