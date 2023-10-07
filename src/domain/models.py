@@ -880,3 +880,28 @@ class Issue(AbstractEntity):
         r = r.lower().split("_")
         r = " ".join([w.capitalize() for w in r])
         return r
+
+
+@define(frozen=True)
+class SlackChannelMessageAPIValue(AbstractValueObject):
+    tenant_id: str
+    type: str
+    text: str = field(eq=False)
+    user: str
+    ts: str
+    team: str
+    blocks: List[dict] | None = field(eq=False, default=None)
+    reactions: List[dict] | None = field(eq=False, default=None)
+
+    @classmethod
+    def from_dict(cls, tenant_id: str, data: dict) -> "SlackChannelMessageAPIValue":
+        return cls(
+            tenant_id=tenant_id,
+            type=data.get("type"),
+            text=data.get("text"),
+            user=data.get("user"),
+            ts=data.get("ts"),
+            team=data.get("team"),
+            blocks=data.get("blocks"),
+            reactions=data.get("reactions"),
+        )

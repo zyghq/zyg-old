@@ -16,6 +16,7 @@ from src.application.commands import (
 from src.application.commands.slack import (
     IssueChatPostMessageCommand,
     NudgeChatPostMessageCommand,
+    GetSingleChannelMessage,
 )
 from src.application.repr.slack import (
     issue_message_blocks_repr,
@@ -224,11 +225,25 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
 
     if not slack_event.is_reaction_added:
         raise RuntimeError("slack event is not a reaction added event")
-    
+
     event = slack_event.event
 
-    print("******************* reaction added event hurray *******************")
-    print(event)
+    command = GetSingleChannelMessage(
+        channel=event.slack_channel_ref,
+        limit=1,
+        oldest=event.message_ts,
+        inclusive=True,
+    )
+
+    slack_api = SlackWebAPIConnector(
+        tenant_context=tenant.build_context(),
+        token=SLACK_BOT_OAUTH_TOKEN,
+    )
+
+    slack_message = slack_api.get_single_channel_message(command=command)
+
+    print("******************* slack message *******************")
+    print(slack_message)
     return None
 
 

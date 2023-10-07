@@ -6,12 +6,18 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackClientError
 
 from src.application.commands.slack import (
+    GetChannelsCommand,
+    GetSingleChannelMessage,
+    GetUsersCommand,
     IssueChatPostMessageCommand,
     NudgeChatPostMessageCommand,
-    GetUsersCommand,
-    GetChannelsCommand,
 )
-from src.domain.models import InSyncSlackChannel, InSyncSlackUser, TenantContext
+from src.domain.models import (
+    InSyncSlackChannel,
+    InSyncSlackUser,
+    SlackChannelMessageAPIValue,
+    TenantContext,
+)
 
 from .exceptions import SlackAPIException, SlackAPIResponseException
 
@@ -79,6 +85,17 @@ class SlackUserItemResponse(BaseModel):
     updated: int
     is_email_confirmed: bool
     who_can_share_contact_card: str
+
+
+class SlackChannelMessageItemResponse(BaseModel):
+    client_msg_id: str
+    type: str
+    text: str
+    user: str
+    ts: str
+    blocks: List[dict] | None = None
+    team: str
+    reactions: List[dict] | None = None
 
 
 class SlackWebAPI:
@@ -180,6 +197,41 @@ class SlackWebAPI:
             )
         return response
 
+    def conversation_history(
+        self,
+        channel: str,
+        inclusive: bool | None = None,
+        limit: int | None = None,
+        oldest: str | None = None,
+    ):
+        """
+        refer the Slack API docs for more information at:
+        https://api.slack.com/methods/conversations.history
+
+        """
+        logger.info(
+            "invoked `conversation_history` "
+            + f"for args: {channel, inclusive, limit, oldest}"
+        )
+        try:
+            response = self._client.conversations_history(
+                channel=channel, oldest=oldest, limit=limit, inclusive=inclusive
+            )
+        except SlackClientError as err:
+            logger.error(f"slack client error: {err}")
+            raise SlackAPIException("slack client error") from err
+
+        if not response.get("ok", False):
+            error = response.get("error", "unknown")
+            logger.error(
+                f"slack response error with slack error code: {error} ",
+                f"check Slack docs for more information for error: {error}",
+            )
+            raise SlackAPIResponseException(
+                f"slack response error with slack error code: {error}"
+            )
+        return response
+
 
 # TODO:
 # @sanchitrk - API wrapper is pretty basic at the moment, we need to
@@ -205,6 +257,7 @@ class SlackWebAPIConnector(SlackWebAPI):
             items.append(insync_channel)
         return items
 
+    # TODO: handle response from slack
     def post_issue_message(self, command: IssueChatPostMessageCommand):
         return self.chat_post_message(
             channel=command.channel, text=command.text, blocks=command.blocks
@@ -224,6 +277,7 @@ class SlackWebAPIConnector(SlackWebAPI):
             users.append(insync_user)
         return users
 
+    # TODO: handle response from slack
     def nudge_for_issue(self, command: NudgeChatPostMessageCommand):
         return self.chat_post_ephemeral(
             channel=command.channel,
@@ -231,3 +285,23 @@ class SlackWebAPIConnector(SlackWebAPI):
             text=command.text,
             blocks=command.blocks,
         )
+
+    def get_single_channel_message(
+        self, command: GetSingleChannelMessage
+    ) -> SlackChannelMessageAPIValue | None:
+        result = self.conversation_history(
+            channel=command.channel,
+            inclusive=command.inclusive,
+            limit=command.limit,
+            oldest=command.oldest,
+        )
+        messages = result.get("messages", [])
+        if len(messages) == 0:
+            return None
+        message = messages[0]
+        item = SlackChannelMessageItemResponse(**message)
+        item_dict = item.model_dump()
+        value = SlackChannelMessageAPIValue.from_dict(
+            tenant_id=self.tenant_context.tenant_id, data=item_dict
+        )
+        return value
