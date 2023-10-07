@@ -69,7 +69,7 @@ class SlackChannelSyncService:
             tenant_context=tenant_context,
             token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
         )
-        results = slack_api.get_conversation_list(",".join([t for t in types]))
+        results = slack_api.get_channels(",".join([t for t in types]))
         saved_results = []
         for result in results:
             saved_result = await self.insync_channel_db.save(result)

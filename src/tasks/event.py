@@ -214,8 +214,27 @@ async def channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
     return response
 
 
+async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
+    """
+    func named after Slack API event type: `reaction_added`
+    """
+    logger.info("handler for slack event: `reaction_added`")
+    logger.info(f"tenant: {tenant}")
+    logger.info(f"slack_event: {slack_event}")
+
+    if not slack_event.is_reaction_added:
+        raise RuntimeError("slack event is not a reaction added event")
+    
+    event = slack_event.event
+
+    print("******************* reaction added event hurray *******************")
+    print(event)
+    return None
+
+
 _SUBSCRIBED_EVENT_HANDLERS = {
     "message.channels": channel_message_handler,
+    "reaction_added": reaction_added_handler,
 }
 
 

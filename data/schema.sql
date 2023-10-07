@@ -62,13 +62,6 @@ create table slack_event(
   constraint slack_event_slack_event_ref_key unique (slack_event_ref) -- unique across Slack workspaces. As per docs.
 );
 
-
--- create table channel_message(
---   message_id varchar(255) not null,
---   event_id varchar(255) not null, -- reference to slack_event.
---   inner_event_type varchar(255) not null,
--- )
-
 -- mapped as per raw conversation item from Slack API reponse.
 -- with reference to a tenant.
 create table insync_slack_channel(

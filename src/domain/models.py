@@ -2,7 +2,7 @@ import abc
 import re
 from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import List, Optional, Union
 
 from attrs import define, field
 
@@ -269,12 +269,80 @@ class ChannelMessage(BaseEvent):
         )"""
 
 
+class MessageReactionAdded(BaseEvent):
+    subscribed_event = "reaction_added"
+
+    def __init__(
+        self,
+        tenant_id: str,
+        slack_event_ref: str,
+        inner_event_type: str,
+        reaction: str,
+        slack_user_ref: str,
+        slack_channel_ref: str,
+        message_ts: str,
+        message_user_ref: str,
+    ):
+        super().__init__(tenant_id, slack_event_ref, inner_event_type)
+        self.reaction = reaction  # emoji reaction
+        self.slack_user_ref = slack_user_ref  # ref to user who reacted
+        self.slack_channel_ref = slack_channel_ref  # ref to channel of reaction
+        self.message_ts = message_ts  # ts of message reacted to
+        self.message_user_ref = message_user_ref  # ref to user who sent the message
+
+    @classmethod
+    def from_event(
+        cls, tenant_id: str, slack_event_ref: str, event: dict
+    ) -> "MessageReactionAdded":
+        inner_event_type = event.get("type", "n/a")
+        item = event.get("item", None)
+        if not item:
+            raise ValueError("`item` is required")
+        slack_channel_ref = item.get("channel", None)
+        message_ts = item.get("ts", None)
+        return cls(
+            tenant_id=tenant_id,
+            slack_event_ref=slack_event_ref,
+            inner_event_type=inner_event_type,
+            reaction=event.get("reaction", None),
+            slack_user_ref=event.get("user", None),
+            slack_channel_ref=slack_channel_ref,
+            message_ts=message_ts,
+            message_user_ref=event.get("item_user", None),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "tenant_id": self.tenant_id,
+            "slack_event_ref": self.slack_event_ref,
+            "inner_event_type": self.inner_event_type,
+            "reaction": self.reaction,
+            "slack_user_ref": self.slack_user_ref,
+            "slack_channel_ref": self.slack_channel_ref,
+            "message_ts": self.message_ts,
+            "message_user_ref": self.message_user_ref,
+            "subscribed_event": self.subscribed_event,
+        }
+
+    def is_ticket(self) -> bool:
+        return self.reaction == "ticket"
+
+    def __repr__(self) -> str:
+        return f"""MessageReactionAdded(
+            reaction={self.reaction},
+            slack_user_ref={self.slack_user_ref},
+            slack_channel_ref={self.slack_channel_ref},
+            message_ts={self.message_ts},
+            message_user_ref={self.message_user_ref},
+        )"""
+
+
 class SlackEvent(AbstractEntity):
     """
     `subscribed_events` - list of events that we are subscribed to in Slack.
     """
 
-    subscribed_events = ("message.channels",)
+    subscribed_events = ("message.channels", "reaction_added")
 
     def __init__(
         self,
@@ -292,8 +360,9 @@ class SlackEvent(AbstractEntity):
         self.payload = payload  # slack event payload
 
         self.is_ack = is_ack
-
-        self.event: BaseEvent | ChannelMessage | None = None
+        self.event: Optional[
+            Union[BaseEvent, ChannelMessage, MessageReactionAdded]
+        ] = None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackEvent):
@@ -360,7 +429,7 @@ class SlackEvent(AbstractEntity):
         """
         event_type = event.get("type", None)
         if not event_type:
-            raise ValueError("event type is required")
+            raise ValueError("inner event type is required")
         if event_type == "message":
             # follow the path to `message.*`
             channel_type = event.get("channel_type", None)
@@ -369,6 +438,8 @@ class SlackEvent(AbstractEntity):
             if channel_type == "channel":
                 # follow the path `message.channels`
                 return "message.channels"
+        elif event_type == "reaction_added":
+            return "reaction_added"
         raise ValueError("event type is not supported or subscribed")
 
     def build_event(self, event: dict) -> None:
@@ -386,16 +457,13 @@ class SlackEvent(AbstractEntity):
             )
 
         if subscribed_event == "message.channels":
-            # channel = event.get("channel", None)
-            # inner_event_type = event.get("type", "n/a")
-            # return ChannelMessage(
-            #     tenant_id=self.tenant_id,
-            #     slack_event_ref=self.slack_event_ref,
-            #     slack_channel_ref=channel,
-            #     inner_event_type=inner_event_type,
-            #     event=event,
-            # )
             return ChannelMessage.from_event(
+                tenant_id=self.tenant_id,
+                slack_event_ref=self.slack_event_ref,
+                event=event,
+            )
+        if subscribed_event == "reaction_added":
+            return MessageReactionAdded.from_event(
                 tenant_id=self.tenant_id,
                 slack_event_ref=self.slack_event_ref,
                 event=event,
@@ -448,6 +516,10 @@ class SlackEvent(AbstractEntity):
     @property
     def is_channel_message(self) -> bool:
         return isinstance(self.event, ChannelMessage)
+
+    @property
+    def is_reaction_added(self) -> bool:
+        return isinstance(self.event, MessageReactionAdded)
 
 
 @define(frozen=True)

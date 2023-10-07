@@ -3,6 +3,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict
 from slack_sdk import WebClient
+from slack_sdk.errors import SlackClientError
 
 from src.application.commands.slack import (
     IssueChatPostMessageCommand,
@@ -15,7 +16,7 @@ from .exceptions import SlackAPIException, SlackAPIResponseException
 logger = logging.getLogger(__name__)
 
 
-class SlackConversationItemResponse(BaseModel):
+class SlackChannelItemResponse(BaseModel):
     """
     Mapped as per the response from Slack APIs for `conversations.list`
 
@@ -78,119 +79,142 @@ class SlackUserItemResponse(BaseModel):
     who_can_share_contact_card: str
 
 
+class SlackWebAPI:
+    def __init__(self, token: str) -> None:
+        self._client = WebClient(token=token)
+
+    def chat_post_message(self, channel, text, blocks):
+        """
+        refer the Slack API docs for more information at:
+        https://api.slack.com/methods/chat.postMessage
+        """
+        logger.info(f"invoked `chat_post_message` with args: {channel}")
+        try:
+            response = self._client.chat_postMessage(
+                channel=channel, text=text, blocks=blocks
+            )
+        except SlackClientError as err:
+            logger.error(f"slack client error: {err}")
+            raise SlackAPIException("slack client error") from err
+
+        if not response.get("ok", False):
+            error = response.get("error", "unknown")
+            logger.error(
+                f"slack response error with slack error code: {error} ",
+                f"check Slack docs for more information for error: {error}",
+            )
+            raise SlackAPIResponseException(
+                f"slack response error with slack error code: {error}"
+            )
+        return response
+
+    def users_list(self, limit=200):
+        """
+        refer the Slack API docs for more information at:
+        https://api.slack.com/methods/users.list
+
+        """
+        logger.info(f"invoked `users_list` with args: {limit}")
+        try:
+            response = self._client.users_list(limit=limit)
+        except SlackClientError as err:
+            logger.error(f"slack client error: {err}")
+            raise SlackAPIException("slack client error") from err
+
+        if not response.get("ok", False):
+            error = response.get("error", "unknown")
+            logger.error(
+                f"slack response error with slack error code: {error} ",
+                f"check Slack docs for more information for error: {error}",
+            )
+            raise SlackAPIResponseException(
+                f"slack response error with slack error code: {error}"
+            )
+        return response
+
+    def chat_post_ephemeral(self, channel, user, text, blocks):
+        logger.info(f"invoked `chat_post_ephemeral` for args: {channel, user}")
+        try:
+            response = self._client.chat_postEphemeral(
+                channel=channel, user=user, text=text, blocks=blocks
+            )
+        except SlackClientError as err:
+            logger.error(f"slack client error: {err}")
+            raise SlackAPIException("slack client error") from err
+
+        if not response.get("ok", False):
+            error = response.get("error", "unknown")
+            logger.error(
+                f"slack response error with slack error code: {error} ",
+                f"check Slack docs for more information for error: {error}",
+            )
+            raise SlackAPIResponseException(
+                f"slack response error with slack error code: {error}"
+            )
+        return response
+
+    def conversation_list(self, types: str = "public_channels"):
+        """
+        refer the Slack API docs for more information at:
+        https://api.slack.com/methods/conversations.list
+
+        :param types: comma separated list of types to include in the response
+        """
+        logger.info(f"invoked `conversation_list` for args: {types}")
+        try:
+            response = self._client.conversations_list(types=types)
+        except SlackClientError as err:
+            logger.error(f"slack client error: {err}")
+            raise SlackAPIException("slack client error") from err
+
+        if not response.get("ok", False):
+            error = response.get("error", "unknown")
+            logger.error(
+                f"slack response error with slack error code: {error} ",
+                f"check Slack docs for more information for error: {error}",
+            )
+            raise SlackAPIResponseException(
+                f"slack response error with slack error code: {error}"
+            )
+        return response
+
+
 # TODO:
 # @sanchitrk - API wrapper is pretty basic at the moment, we need to
 # handle more use cases like pagination, rate limiting, etc.
 #
 # XXX: adding just random doc link for pagination inspiration
 # https://github.com/slackapi/python-slack-sdk/blob/ff073cf74994adc6022e8296e702012ef5b662b4/slack/web/slack_response.py#L24-L41
-class SlackWebAPIConnector:
+class SlackWebAPIConnector(SlackWebAPI):
     def __init__(self, tenant_context: TenantContext, token: str) -> None:
         self.tenant_context = tenant_context
-        self.token = token
-        self._client = WebClient(token=token)
+        super().__init__(token=token)
 
-    # TODO: rename this as private
-    # create a public method which aligns with the business use case
-    def get_conversation_list(
-        self, types: str = "public_channels"
-    ) -> List[InSyncSlackChannel]:
-        """
-        refer the Slack API docs for more information at:
-        https://api.slack.com/methods/conversations.list
-
-        :param types: comma separated list of types to include in the response
-        :return: list of InSyncSlackChannel
-        """
-        logger.info(f"invoked `get_conversation_list` for args: {types}")
-        try:
-            response = self._client.conversations_list(types=types)
-        except SlackAPIException as e:
-            logger.error(f"slack API error: {e}")
-
-        logger.info("slack got response!")
-        results = []
-        if response.get("ok"):
-            for channel in response.get("channels", []):
-                item = SlackConversationItemResponse(**channel)
-                item_dict = item.model_dump()
-                insync_channel = InSyncSlackChannel.from_dict(
-                    self.tenant_context.tenant_id, data=item_dict
-                )
-                results.append(insync_channel)
-        else:
-            error = response.get("error", "unknown")
-            logger.error(
-                f"slack response error with slack error code: {error} ",
-                f"check Slack docs for more information for error: {error}",
+    def get_channels(self, types: str = "public_channels") -> List[InSyncSlackChannel]:
+        result = self.conversation_list(types=types)
+        channels = result.get("channels", [])
+        items = []
+        for channel in channels:
+            item = SlackChannelItemResponse(**channel)
+            item_dict = item.model_dump()
+            insync_channel = InSyncSlackChannel.from_dict(
+                self.tenant_context.tenant_id, data=item_dict
             )
-            raise SlackAPIResponseException(
-                f"slack response error with slack error code: {error}"
-            )
-        return results
-
-    def _chat_post_message(self, channel, text, blocks):
-        logger.info(f"invoked `chat_post_message` for args: {channel}")
-        try:
-            response = self._client.chat_postMessage(
-                channel=channel, text=text, blocks=blocks
-            )
-        except SlackAPIException as e:
-            logger.error(f"slack API error: {e}")
-
-        logger.info("slack got response!")
-        if response.get("ok"):
-            return response
-        else:
-            error = response.get("error", "unknown")
-            logger.error(
-                f"slack response error with slack error code: {error} ",
-                f"check Slack docs for more information for error: {error}",
-            )
-            raise SlackAPIResponseException(
-                f"slack response error with slack error code: {error}"
-            )
+            items.append(insync_channel)
+        return items
 
     def post_issue_message(self, command: IssueChatPostMessageCommand):
-        return self._chat_post_message(
+        return self.chat_post_message(
             channel=command.channel, text=command.text, blocks=command.blocks
         )
 
-    # TODO: @sanchitrk - for now keep it simple we'll tweak it later
-    # once we have better understanding of how to deal with pagination.
-    def _users_list(self, limit=200):
-        """
-        refer the Slack API docs for more information at:
-        https://api.slack.com/methods/users.list
-
-        """
-        try:
-            response = self._client.users_list(limit=limit)
-        except SlackAPIException as e:
-            logger.error(f"slack API error: {e}")
-
-        logger.info("slack got response!")
-        results = []
-        if response.get("ok"):
-            for user in response.get("members", []):
-                results.append(user)
-        else:
-            error = response.get("error", "unknown")
-            logger.error(
-                f"slack response error with slack error code: {error} ",
-                f"check Slack docs for more information for error: {error}",
-            )
-            raise SlackAPIResponseException(
-                f"slack response error with slack error code: {error}"
-            )
-        return results
-
     # TODO: @sanchitrk - update this later to take `command` as input
     def get_users(self, limit) -> List[InSyncSlackUser]:
-        results = self._users_list(limit=limit)
-        results = list(filter(lambda d: d["deleted"] is False, results))
+        result = self.users_list(limit=limit)
+        members = result.get("members", [])
+        members = list(filter(lambda d: d["deleted"] is False, members))
         users = []
-        for result in results:
+        for result in result:
             item = SlackUserItemResponse(**result)
             item_dict = item.model_dump()
             insync_user = InSyncSlackUser.from_dict(
@@ -199,30 +223,8 @@ class SlackWebAPIConnector:
             users.append(insync_user)
         return users
 
-    def _chat_post_ephemeral(self, channel, user, text, blocks):
-        logger.info(f"invoked `chat_post_ephemeral` for args: {channel, user}")
-        try:
-            response = self._client.chat_postEphemeral(
-                channel=channel, user=user, text=text, blocks=blocks
-            )
-        except SlackAPIException as e:
-            logger.error(f"slack API error: {e}")
-
-        logger.info("slack got response!")
-        if response.get("ok"):
-            return response
-        else:
-            error = response.get("error", "unknown")
-            logger.error(
-                f"slack response error with slack error code: {error} ",
-                f"check Slack docs for more information for error: {error}",
-            )
-            raise SlackAPIResponseException(
-                f"slack response error with slack error code: {error}"
-            )
-
     def nudge_for_issue(self, command: NudgeChatPostMessageCommand):
-        return self._chat_post_ephemeral(
+        return self.chat_post_ephemeral(
             channel=command.channel,
             user=command.slack_user_ref,
             text=command.text,
