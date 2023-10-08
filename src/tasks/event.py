@@ -4,13 +4,13 @@ from typing import Callable
 from src.adapters.rpc.api import ZygWebAPIConnector
 from src.adapters.rpc.exceptions import (
     CreateIssueAPIException,
-    LinkedChannelAPIException,
+    SlackChannelAPIException,
     UserAPIException,
 )
 from src.adapters.rpc.ext import SlackWebAPIConnector
 from src.application.commands import (
     CreateIssueCommand,
-    GetLinkedSlackChannelByRefCommand,
+    GetSlackChannelByRefCommand,
     GetUserByRefCommand,
 )
 from src.application.commands.slack import (
@@ -31,8 +31,8 @@ from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import (
     ChannelMessage,
     Issue,
-    SlackChannel,
     MessageReactionAdded,
+    SlackChannel,
     SlackEvent,
     Tenant,
     User,
@@ -239,7 +239,7 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
     event: MessageReactionAdded = slack_event.event
 
     if not event.is_reaction_ticket:
-        logger.info("reaction is not a ticket emoji will ignore")
+        logger.info("reaction is not a ticket emoji shall not create ticket")
         return None
 
     logger.info("reaction is a ticket emoji")
@@ -248,31 +248,56 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
         tenant_context=tenant.build_context(),
         token=SLACK_BOT_OAUTH_TOKEN,
     )
+    zyg_api = ZygWebAPIConnector(tenant_context=tenant.build_context())
 
+    logger.info("getting slack channel by ref...")
+    command = GetSlackChannelByRefCommand(
+        tenant_id=tenant.tenant_id,
+        slack_channel_ref=event.slack_channel_ref,
+    )
+    result = await zyg_api.find_slack_channel_by_ref(command)
+    if not result:
+        logger.warning("slack channel not found or is not linked for ticket issue")
+        return None
+
+    slack_channel = SlackChannel.from_dict(tenant.tenant_id, result)
+
+    logger.info("getting slack message for added reaction...")
     command = GetSingleChannelMessage(
         channel=event.slack_channel_ref,
         limit=1,
         oldest=event.message_ts,
         inclusive=True,
     )
-
     slack_message = slack_api.get_single_channel_message(command=command)
     if slack_message is None:
-        logger.warning("no slack message found will ignore")
+        logger.warning("no slack message found for the reaction added event")
         return None
 
+    # TODO: format the Slack message body/text for the issue body
+    print(slack_message)
+
+    logger.info("creating issue...")
+    command = CreateIssueCommand(
+        tenant_id=tenant.tenant_id,
+        slack_channel_id=slack_channel.slack_channel_id,
+        slack_message_ts=event.message_ts,
+        body=slack_message.text,
+        status=Issue.default_status(),
+        priority=Issue.default_priority(),
+        tags=None,
+    )
+    result = await zyg_api.create_issue(command=command)
+    issue = Issue.from_dict(tenant.tenant_id, result)
+
+    logger.info("reply to created issue...")
     command = ReplyPostMessageCommand(
         channel=event.slack_channel_ref,
         thread_ts=slack_message.ts,
         text=issue_opened_message_text_repr(event.slack_user_ref),
-        blocks=issue_opened_message_blocks_repr(event.slack_user_ref),
+        blocks=issue_opened_message_blocks_repr(event.slack_user_ref, issue),
     )
-
     response = slack_api.reply_to_message(command=command)
-
-    print("************ response after replying to message *************")
-    print(response)
-    print("************ response after replying to message *************")
     return response
 
 

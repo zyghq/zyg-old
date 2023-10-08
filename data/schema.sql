@@ -40,7 +40,7 @@ create table zyguser(
   constraint user_user_id_pkey primary key (user_id),
   constraint user_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
   constraint user_tenant_id_slack_user_ref_key unique (tenant_id, slack_user_ref)
-)
+);
 
 
 -- represents the slack event table.
@@ -135,17 +135,19 @@ create table issue(
   issue_id varchar(255) not null,
   tenant_id varchar(255) not null, -- reference to tenant.
   issue_number bigint not null,
+  slack_channel_id varchar(255) not null, -- reference to slack channel.
+  slack_message_ts varchar(255) not null, -- slack message for issue is created.
   body text not null,
   status varchar(127) not null,
   priority smallint not null,
   tags text[] null,
-  slack_channel_id varchar(255) null,
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,
   constraint issue_issue_id_pkey primary key (issue_id),
   constraint issue_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
   constraint issue_slack_channel_id_fkey foreign key (slack_channel_id) references slack_channel(slack_channel_id),
-  constraint issue_tenant_id_issue_number_key unique (tenant_id, issue_number)
+  constraint issue_tenant_id_issue_number_key unique (tenant_id, issue_number),
+  constraint issue_slack_channel_id_slack_message_ts_key unique (slack_channel_id, slack_message_ts)
 );
 
 -- mapped as per raw user list item from Slack API reponse.
@@ -174,4 +176,4 @@ create table insync_slack_user(
   updated_at timestamp default current_timestamp,
   constraint insync_slack_user_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
   constraint insync_slack_user_tenant_id_id_key unique (tenant_id, id)
-)
+);

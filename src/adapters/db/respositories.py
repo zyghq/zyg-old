@@ -487,9 +487,7 @@ class InSyncChannelRepository(AbstractInSyncChannelRepository, BaseRepository):
 
 class AbstractSlackChannelRepository(abc.ABC):
     @abc.abstractmethod
-    async def save(
-        self, linked_channel: SlackChannelDBEntity
-    ) -> SlackChannelDBEntity:
+    async def save(self, slack_channel: SlackChannelDBEntity) -> SlackChannelDBEntity:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -503,14 +501,12 @@ class AbstractSlackChannelRepository(abc.ABC):
         raise NotImplementedError
 
 
-class SlackChannelRepository(
-    AbstractSlackChannelRepository, BaseRepository
-):
+class SlackChannelRepository(AbstractSlackChannelRepository, BaseRepository):
     def __init__(self, connection: Connection) -> None:
         self.conn = connection
 
     async def _upsert(
-        self, linked_channel: SlackChannelDBEntity
+        self, slack_channel: SlackChannelDBEntity
     ) -> SlackChannelDBEntity:
         query = """
             insert into slack_channel (
@@ -535,12 +531,12 @@ class SlackChannelRepository(
                 created_at, updated_at
         """
         parameters = {
-            "tenant_id": linked_channel.tenant_id,
-            "slack_channel_id": linked_channel.slack_channel_id,
-            "slack_channel_ref": linked_channel.slack_channel_ref,
-            "slack_channel_name": linked_channel.slack_channel_name,
-            "triage_slack_channel_ref": linked_channel.triage_slack_channel_ref,
-            "triage_slack_channel_name": linked_channel.triage_slack_channel_name,
+            "tenant_id": slack_channel.tenant_id,
+            "slack_channel_id": slack_channel.slack_channel_id,
+            "slack_channel_ref": slack_channel.slack_channel_ref,
+            "slack_channel_name": slack_channel.slack_channel_name,
+            "triage_slack_channel_ref": slack_channel.triage_slack_channel_ref,
+            "triage_slack_channel_name": slack_channel.triage_slack_channel_name,
         }
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)
@@ -557,7 +553,7 @@ class SlackChannelRepository(
         return SlackChannelDBEntity(**result)
 
     async def _insert(
-        self, linked_channel: SlackChannelDBEntity
+        self, slack_channel: SlackChannelDBEntity
     ) -> SlackChannelDBEntity:
         slack_channel_id = self.generate_id()
         query = """
@@ -576,12 +572,12 @@ class SlackChannelRepository(
                 created_at, updated_at
         """
         parameters = {
-            "tenant_id": linked_channel.tenant_id,
+            "tenant_id": slack_channel.tenant_id,
             "slack_channel_id": slack_channel_id,
-            "slack_channel_ref": linked_channel.slack_channel_ref,
-            "slack_channel_name": linked_channel.slack_channel_name,
-            "triage_slack_channel_ref": linked_channel.triage_slack_channel_ref,
-            "triage_slack_channel_name": linked_channel.triage_slack_channel_name,
+            "slack_channel_ref": slack_channel.slack_channel_ref,
+            "slack_channel_name": slack_channel.slack_channel_name,
+            "triage_slack_channel_ref": slack_channel.triage_slack_channel_ref,
+            "triage_slack_channel_name": slack_channel.triage_slack_channel_name,
         }
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)
@@ -597,12 +593,10 @@ class SlackChannelRepository(
             raise DBIntegrityException(e)
         return SlackChannelDBEntity(**result)
 
-    async def save(
-        self, linked_channel: SlackChannelDBEntity
-    ) -> SlackChannelDBEntity:
-        if linked_channel.slack_channel_id is None:
-            return await self._insert(linked_channel)
-        return await self._upsert(linked_channel)
+    async def save(self, slack_channel: SlackChannelDBEntity) -> SlackChannelDBEntity:
+        if slack_channel.slack_channel_id is None:
+            return await self._insert(slack_channel)
+        return await self._upsert(slack_channel)
 
     async def find_by_slack_channel_id(
         self, slack_channel_id: str
@@ -626,14 +620,12 @@ class SlackChannelRepository(
     async def get_by_slack_channel_id(
         self, slack_channel_id: str
     ) -> SlackChannelDBEntity:
-        linked_channel = await self.find_by_slack_channel_id(
-            slack_channel_id
-        )
-        if linked_channel is None:
+        slack_channel = await self.find_by_slack_channel_id(slack_channel_id)
+        if slack_channel is None:
             raise DBNotFoundException(
-                f"linked channel with id `{slack_channel_id}` not found"
+                f"slack channel with id `{slack_channel_id}` not found"
             )
-        return linked_channel
+        return slack_channel
 
     async def find_by_slack_channel_ref(
         self, slack_channel_ref: str
@@ -657,12 +649,12 @@ class SlackChannelRepository(
     async def get_by_slack_channel_ref(
         self, slack_channel_ref: str
     ) -> SlackChannelDBEntity:
-        linked_channel = await self.find_by_slack_channel_ref(slack_channel_ref)
-        if linked_channel is None:
+        slack_channel = await self.find_by_slack_channel_ref(slack_channel_ref)
+        if slack_channel is None:
             raise DBNotFoundException(
-                f"linked channel with ref `{slack_channel_ref}` not found"
+                f"slack channel with ref `{slack_channel_ref}` not found"
             )
-        return linked_channel
+        return slack_channel
 
     async def find_by_tenant_id_slack_channel_name(
         self, tenant_id: str, slack_channel_name: str
@@ -712,31 +704,33 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
                 returning seq
             )
             insert into issue (
-                issue_id, tenant_id, body, status, priority, tags, issue_number,
-                slack_channel_id
+                issue_id, tenant_id, slack_channel_id, slack_message_ts, body,
+                status, priority, tags, issue_number
             ) values (
-                :issue_id, :tenant_id, :body, :status, :priority, :tags, (
+                :issue_id, :tenant_id, :slack_channel_id, :slack_message_ts, :body,
+                :status, :priority, :tags, (
                     select seq from sequencer
-                ), :slack_channel_id
+                )
             )
-            returning issue_id, tenant_id, body, status, priority, tags,
-            issue_number, slack_channel_id, created_at, updated_at;
+            returning issue_id, tenant_id, slack_channel_id, slack_message_ts, body,
+            status, priority, tags, issue_number,
+            created_at, updated_at;
         """
         parameters = {
             "issue_id": issue_id,
             "tenant_id": issue.tenant_id,
+            "slack_channel_id": issue.slack_channel_id,
+            "slack_message_ts": issue.slack_message_ts,
             "body": issue.body,
             "status": issue.status,
             "priority": issue.priority,
             "tags": issue.tags
             if isinstance(issue.tags, list) and len(issue.tags)
             else None,
-            "slack_channel_id": issue.slack_channel_id,
         }
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)
             result = rows.mappings().first()
-            return IssueDBEntity(**result)
         except IntegrityError as e:
             # We are raising `DBIntegrityException` here
             # to maintain common exception handling for database related
@@ -746,31 +740,35 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
             # Having custom exceptions for database related exceptions
             # also helps us to have a better control over the error handling.
             raise DBIntegrityException(e)
+        return IssueDBEntity(**result)
 
     async def _upsert(self, issue: IssueDBEntity) -> IssueDBEntity:
         query = """
             insert into issue (
-                issue_id, tenant_id, body, status, priority, tags, issue_number,
-                slack_channel_id
+                issue_id, tenant_id, slack_channel_id, slack_message_ts, body,
+                status, priority, tags, issue_number
             ) values (
-                :issue_id, :tenant_id, :body, :status, :priority, :tags, :issue_number,
-                :slack_channel_id
+                :issue_id, :tenant_id, :slack_channel_id, :slack_message_ts, :body,
+                :status, :priority, :tags, :issue_number
             )
             on conflict (issue_id) do update set
                 tenant_id = :tenant_id,
+                slack_channel_id = :slack_channel_id,
+                slack_message_ts = :slack_message_ts,
                 body = :body,
                 status = :status,
                 priority = :priority,
                 tags = :tags,
                 issue_number = :issue_number,
-                slack_channel_id = :slack_channel_id,
                 updated_at = now()
-            returning issue_id, tenant_id, body, status, priority, tags,
-            issue_number, created_at, updated_at
+            returning issue_id, tenant_id, slack_channel_id, slack_message_ts, body,
+            status, priority, tags, issue_number, created_at, updated_at
         """
         parameters = {
             "issue_id": issue.issue_id,
             "tenant_id": issue.tenant_id,
+            "slack_channel_id": issue.slack_channel_id,
+            "slack_message_ts": issue.slack_message_ts,
             "body": issue.body,
             "status": issue.status,
             "priority": issue.priority,
@@ -778,7 +776,6 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
             if isinstance(issue.tags, list) and len(issue.tags)
             else None,
             "issue_number": issue.issue_number,
-            "slack_channel_id": issue.slack_channel_id,
         }
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)

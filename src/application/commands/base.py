@@ -55,14 +55,15 @@ class SearchUserCommand(BaseModel):
 
 class CreateIssueCommand(BaseModel):
     tenant_id: str
+    slack_channel_id: str
+    slack_message_ts: str
     body: str
     status: str | None
     priority: int | None
-    tags: List[str] = []
-    slack_channel_id: str | None = None
+    tags: List[str] | None = None
 
 
-class GetLinkedSlackChannelByRefCommand(BaseModel):
+class GetSlackChannelByRefCommand(BaseModel):
     tenant_id: str
     slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
 

@@ -6,7 +6,7 @@ from httpx import Response
 
 from src.application.commands import (
     CreateIssueCommand,
-    GetLinkedSlackChannelByRefCommand,
+    GetSlackChannelByRefCommand,
     GetUserByRefCommand,
 )
 from src.config import ZYG_BASE_URL
@@ -14,11 +14,11 @@ from src.domain.models import TenantContext
 
 from .exceptions import (
     CreateIssueAPIException,
-    LinkedChannelNotFoundResponseException,
-    LinkedChannelAPIException,
+    SlackChannelAPIException,
+    SlackChannelNotFoundResponseException,
+    UserAPIException,
     UserNotFoundResponseException,
     WebAPIException,
-    UserAPIException,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,11 +54,12 @@ class ZygWebAPIConnector(WebAPIBaseConnector):
                 },
                 json={
                     "tenant_id": command.tenant_id,
+                    "slack_channel_id": command.slack_channel_id,
+                    "slack_message_ts": command.slack_message_ts,
                     "body": command.body,
                     "status": command.status,
                     "priority": command.priority,
                     "tags": command.tags,
-                    "slack_channel_id": command.slack_channel_id,
                 },
             )
             return self.respond(response)
@@ -71,8 +72,8 @@ class ZygWebAPIConnector(WebAPIBaseConnector):
             logger.error(f"Web API Exception for {e}")
             raise CreateIssueAPIException("Request failed to create issue") from e
 
-    async def find_linked_channel_by_ref(
-        self, command: GetLinkedSlackChannelByRefCommand
+    async def find_slack_channel_by_ref(
+        self, command: GetSlackChannelByRefCommand
     ) -> dict | None:
         """
         With find we dont raise an error we just return None if not found.
@@ -94,26 +95,26 @@ class ZygWebAPIConnector(WebAPIBaseConnector):
             return items[0]
         except httpx.HTTPError as exc:
             logger.error(f"HTTP Exception for {exc.request.url} - {exc}")
-            raise LinkedChannelAPIException(
-                "Request failed to get linked channel by reference at HTTP level"
+            raise SlackChannelAPIException(
+                "Request failed to get slack channel by reference at HTTP level"
             ) from exc
         except WebAPIException as exc:
             logger.error(f"Web API Exception for {exc}")
-            raise LinkedChannelAPIException(
-                "Request failed to get linked channel by reference"
+            raise SlackChannelAPIException(
+                "Request failed to get slack channel by reference"
             ) from exc
 
-    async def get_linked_channel_by_ref(
-        self, command: GetLinkedSlackChannelByRefCommand
+    async def get_slack_channel_by_ref(
+        self, command: GetSlackChannelByRefCommand
     ) -> dict:
         """
         With get we raise an error if not found.
         Unlike find we just return None if not found.
         """
-        item = await self.find_linked_channel_by_ref(command)
+        item = await self.find_slack_channel_by_ref(command)
         if item is None:
-            raise LinkedChannelNotFoundResponseException(
-                "No linked channel found for the reference"
+            raise SlackChannelNotFoundResponseException(
+                "No slack channel found for the reference"
             )
         return item
 

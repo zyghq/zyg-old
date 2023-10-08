@@ -116,12 +116,15 @@ class User(AbstractEntity):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, User):
             return False
-        return (self.tenant_id == other.tenant_id) and (self.user_id == other.user_id)
+        return self.user_id == other.user_id
 
     def equals_by_slack_user_ref(self, other: object) -> bool:
         if not isinstance(other, User):
             return False
-        return self.slack_user_ref == other.slack_user_ref
+        return (
+            self.tenant_id == other.tenant_id
+            and self.slack_user_ref == other.slack_user_ref
+        )
 
     @classmethod
     def from_dict(cls, data: dict) -> "User":
@@ -373,7 +376,10 @@ class SlackEvent(AbstractEntity):
     def equals_by_slack_event_ref(self, other: object) -> bool:
         if not isinstance(other, SlackEvent):
             return False
-        return self.slack_event_ref == other.slack_event_ref
+        return (
+            self.tenant_id == other.tenant_id
+            and self.slack_event_ref == other.slack_event_ref
+        )
 
     def __repr__(self) -> str:
         return f"""SlackEvent(
@@ -683,9 +689,13 @@ class SlackChannel(AbstractEntity):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackChannel):
             return False
+        return self.slack_channel_id == other.slack_channel_id
+
+    def equals_by_slack_channel_ref(self, other: object) -> bool:
+        if not isinstance(other, SlackChannel):
+            return False
         return (
             self.tenant_id == other.tenant_id
-            and self.slack_channel_id == other.slack_channel_id
             and self.slack_channel_ref == other.slack_channel_ref
         )
 
@@ -713,23 +723,24 @@ class SlackChannel(AbstractEntity):
         self.triage_channel = triage_channel
 
     @classmethod
-    def from_dict(cls, data: dict) -> "SlackChannel":
-        tenant_id = data.get("tenant_id")
+    def from_dict(cls, tenant_id: str, data: dict) -> "SlackChannel":
         channel = cls(
             tenant_id=tenant_id,
-            slack_channel_id=data.get("slack_channel_id"),
+            slack_channel_id=data.get("channel_id"),
             slack_channel_ref=data.get("slack_channel_ref"),
             slack_channel_name=data.get("slack_channel_name"),
         )
-
         triage_channel: dict | None = data.get("triage_channel", None)
-        if triage_channel:
-            triage_channel = TriageSlackChannel(
-                tenant_id=tenant_id,
-                slack_channel_ref=triage_channel.get("slack_channel_ref"),
-                slack_channel_name=triage_channel.get("slack_channel_name"),
-            )
-            channel.add_triage_channel(triage_channel)
+
+        if not triage_channel:
+            return channel
+
+        triage_channel = TriageSlackChannel(
+            tenant_id=tenant_id,
+            slack_channel_ref=triage_channel.get("slack_channel_ref"),
+            slack_channel_name=triage_channel.get("slack_channel_name"),
+        )
+        channel.add_triage_channel(triage_channel)
         return channel
 
 
@@ -755,15 +766,20 @@ class Issue(AbstractEntity):
         tenant_id: str,
         issue_id: str | None,
         issue_number: int | None,
+        slack_channel_id: str,
+        slack_message_ts: str,
         body: str,
         status: IssueStatus | None | str = IssueStatus.OPEN,
         priority: IssuePriority | None | int = IssuePriority.NO_PRIORITY,
     ) -> None:
         self.tenant_id = tenant_id
-        self.issue_id = issue_id
-        self.body = body
+        self.slack_channel_id = slack_channel_id
+        self.slack_message_ts = slack_message_ts
 
-        self.slack_channel_id: str | None = None
+        self.issue_id = issue_id
+        self.issue_number = issue_number
+
+        self.body = body
 
         if status is None:
             status = IssueStatus.OPEN
@@ -775,14 +791,11 @@ class Issue(AbstractEntity):
         if isinstance(priority, int):
             priority = IssuePriority(priority)
 
-        # safety checks
         assert isinstance(status, IssueStatus)
         assert isinstance(priority, IssuePriority)
 
         self._status = status
         self._priority = priority
-
-        self.issue_number = issue_number
 
         self._tags = set()
 
@@ -797,7 +810,17 @@ class Issue(AbstractEntity):
         if not isinstance(other, Issue):
             return False
         return (
-            self.tenant_id == self.tenant_id and self.issue_number == other.issue_number
+            self.tenant_id == other.tenant_id
+            and self.issue_number == other.issue_number
+        )
+
+    def equals_by_slack_message_ts(self, other: object) -> bool:
+        if not isinstance(other, Issue):
+            return False
+        return (
+            self.tenant_id == other.tenant_id
+            and self.slack_channel_id == other.slack_channel_id
+            and self.slack_message_ts == other.slack_message_ts
         )
 
     def __repr__(self) -> str:
@@ -805,6 +828,8 @@ class Issue(AbstractEntity):
             tenant_id={self.tenant_id},
             issue_id={self.issue_id},
             issue_number={self.issue_number},
+            slack_channel_id={self.slack_channel_id},
+            slack_message_ts={self.slack_message_ts},
             body={self.body[:32] + "..." if len(self.body) > 32 else self.body},
             status={self.status},
             priority={self.priority},
@@ -856,11 +881,13 @@ class Issue(AbstractEntity):
         return IssuePriority.NO_PRIORITY.value
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Issue":
+    def from_dict(cls, tenant_id: str, data: dict) -> "Issue":
         issue = cls(
-            tenant_id=data.get("tenant_id"),
-            issue_id=data.get("issue_id"),
-            issue_number=data.get("issue_number"),
+            tenant_id=tenant_id,
+            issue_id=data.get("issue_id", None),
+            issue_number=data.get("issue_number", None),
+            slack_channel_id=data.get("slack_channel_id"),
+            slack_message_ts=data.get("slack_message_ts"),
             body=data.get("body"),
             status=data.get("status"),
             priority=data.get("priority"),
@@ -875,12 +902,16 @@ class Issue(AbstractEntity):
         r = " ".join([w.capitalize() for w in r])
         return r
 
+    # @property
+    # def status_display_name(self) -> str:
+    #     r = self._status.name
+    #     r = r.lower().split("_")
+    #     r = " ".join([w.capitalize() for w in r])
+    #     return r
+
     @property
     def status_display_name(self) -> str:
-        r = self._status.name
-        r = r.lower().split("_")
-        r = " ".join([w.capitalize() for w in r])
-        return r
+        return self._status.value
 
 
 @define(frozen=True)

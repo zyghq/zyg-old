@@ -79,11 +79,16 @@ def issue_opened_message_text_repr(slack_user_ref: str):
     return f"""<@{slack_user_ref}> has opened an issue ticket."""
 
 
-def issue_opened_message_blocks_repr(slack_user_ref: str):
+def issue_opened_message_blocks_repr(slack_user_ref: str, issue: Issue):
     block = BlockBuilder()
     block.section(
         BlockBuilder.text(
             text=f"<@{slack_user_ref}> has opened an issue ticket.",
+        )
+    )
+    block.section(
+        BlockBuilder.text(
+            text=f":ticket: <https://example.com|*Issue #{issue.issue_number}*>",
         )
     )
     return block.blocks

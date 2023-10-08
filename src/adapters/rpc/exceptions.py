@@ -14,11 +14,11 @@ class CreateIssueAPIException(Exception):
     pass
 
 
-class LinkedChannelAPIException(Exception):
+class SlackChannelAPIException(Exception):
     pass
 
 
-class LinkedChannelNotFoundResponseException(Exception):
+class SlackChannelNotFoundResponseException(Exception):
     pass
 
 

@@ -41,7 +41,7 @@ class LinkChannelRequestBody(BaseModel):
     triage_slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
 
 
-class SearchLinkedChannelRequestBody(BaseModel):
+class SearchSlackChannelRequestBody(BaseModel):
     slack_channel_id: Optional[str] = None
     slack_channel_name: Optional[str] = None
     slack_channel_ref: Optional[str] = None
@@ -94,7 +94,7 @@ async def link_channel(body: LinkChannelRequestBody):
 
 
 @router.post("/channels/linked/:search/")
-async def search_linked_channel(body: SearchLinkedChannelRequestBody):
+async def search_slack_channel(body: SearchSlackChannelRequestBody):
     command = SearchSlackChannelCommand(
         tenant_id="z320czxkpt5u",
         slack_channel_id=body.slack_channel_id,

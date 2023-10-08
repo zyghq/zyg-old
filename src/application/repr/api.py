@@ -79,11 +79,12 @@ class IssueRepr(BaseModel):
     tenant_id: str
     issue_id: str
     issue_number: int
+    slack_channel_id: str
+    slack_message_ts: str
     body: str
     status: str
     priority: int
     tags: List[str] = []
-    slack_channel_id: str | None = None
 
 
 class UserRepr(BaseModel):
@@ -180,11 +181,12 @@ def issue_repr(item: Issue) -> IssueRepr:
         tenant_id=item.tenant_id,
         issue_id=item.issue_id,
         issue_number=item.issue_number,
+        slack_channel_id=item.slack_channel_id,
+        slack_message_ts=item.slack_message_ts,
         body=item.body,
         status=item.status,
         priority=item.priority,
         tags=item.tags,
-        slack_channel_id=item.slack_channel_id,
     )
 
 

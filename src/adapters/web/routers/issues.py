@@ -12,12 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class IssueCreateRequestBody(BaseModel):
-    tenant_id: str  # TODO: after auth we can read this from userauth token
+    tenant_id: str
+    slack_channel_id: str
+    slack_message_ts: str
     body: str
     status: str | None
     priority: int | None
-    tags: List[str] = []
-    slack_channel_id: str | None = None
+    tags: List[str] | None = None
 
 
 router = APIRouter()
@@ -27,12 +28,13 @@ router = APIRouter()
 async def create_issue(request_body: IssueCreateRequestBody):
     command = CreateIssueCommand(
         tenant_id=request_body.tenant_id,
+        slack_channel_id=request_body.slack_channel_id,
+        slack_message_ts=request_body.slack_message_ts,
         body=request_body.body,
         status=request_body.status,
         priority=request_body.priority,
         tags=request_body.tags,
-        slack_channel_id=request_body.slack_channel_id,
     )
     service = CreateIssueService()
-    issue = await service.create(command=command)
+    issue = await service.create(command)
     return issue_repr(issue)

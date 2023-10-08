@@ -80,11 +80,12 @@ class IssueDBEntity(DBEntity):
     tenant_id: str
     issue_id: str | None = None  # primary key
     issue_number: int | None = None
+    slack_channel_id: str
+    slack_message_ts: str
     body: str
     status: str
     priority: int
     tags: List[str] | None = []
-    slack_channel_id: str | None = None
 
 
 class InSyncSlackUserDBEntity(DBEntity):
