@@ -14,18 +14,29 @@ from src.application.commands import (
     GetUserByRefCommand,
 )
 from src.application.commands.slack import (
-    IssueChatPostMessageCommand,
-    NudgeChatPostMessageCommand,
+    ChatPostMessageCommand,
     GetSingleChannelMessage,
+    NudgePostMessageCommand,
+    ReplyPostMessageCommand,
 )
 from src.application.repr.slack import (
     issue_message_blocks_repr,
     issue_message_text_repr,
+    issue_opened_message_blocks_repr,
+    issue_opened_message_text_repr,
     nudge_issue_message_blocks_repr,
     nudge_issue_message_text_repr,
 )
 from src.config import SLACK_BOT_OAUTH_TOKEN
-from src.domain.models import Issue, LinkedSlackChannel, SlackEvent, Tenant, User
+from src.domain.models import (
+    ChannelMessage,
+    Issue,
+    LinkedSlackChannel,
+    MessageReactionAdded,
+    SlackEvent,
+    Tenant,
+    User,
+)
 from src.services.exceptions import UnSupportedSlackEventException
 
 logger = logging.getLogger(__name__)
@@ -123,10 +134,6 @@ logger = logging.getLogger(__name__)
 #         return response
 
 
-async def _nudge_user_for_issue():
-    pass
-
-
 # async def slack_channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
 #     """
 #     func named after Slack API event type: `message.channels`
@@ -155,13 +162,16 @@ async def channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
     logger.info(f"slack_event: {slack_event}")
 
     if not slack_event.is_channel_message:
-        raise RuntimeError("slack event is not a channel message event")
+        raise RuntimeError(
+            "slack event is not a channel message event "
+            + "this handler only supports channel message event"
+        )
 
-    event = slack_event.event
+    event: ChannelMessage = slack_event.event
+
     slack_user_ref = event.slack_user_ref
-
     if not slack_user_ref:
-        raise TypeError("slack_user_ref cannot be None for channel message event")
+        raise ValueError("`slack_user_ref` is required for channel message event")
 
     zyg_api = ZygWebAPIConnector(tenant_context=tenant.build_context())
 
@@ -174,7 +184,7 @@ async def channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
         )
         if response is None:
             logger.warning(f"no user found for slack_user_ref: {slack_user_ref}")
-            return None
+            return None  # TODO: raise an error instead of returning None
 
         data = {
             "tenant_id": tenant.tenant_id,
@@ -201,14 +211,14 @@ async def channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
         token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
     )
 
-    nudge_for_issue_command = NudgeChatPostMessageCommand(
+    command = NudgePostMessageCommand(
         channel=event.slack_channel_ref,
         slack_user_ref=user.slack_user_ref,
         text=nudge_issue_message_text_repr(user.display_name),
         blocks=nudge_issue_message_blocks_repr(user.display_name),
     )
 
-    response = slack_api.nudge_for_issue(nudge_for_issue_command)
+    response = slack_api.nudge_for_issue(command)
 
     print(f"response: {response}")
 
@@ -226,7 +236,18 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
     if not slack_event.is_reaction_added:
         raise RuntimeError("slack event is not a reaction added event")
 
-    event = slack_event.event
+    event: MessageReactionAdded = slack_event.event
+
+    if not event.is_reaction_ticket:
+        logger.info("reaction is not a ticket emoji will ignore")
+        return None
+
+    logger.info("reaction is a ticket emoji")
+
+    slack_api = SlackWebAPIConnector(
+        tenant_context=tenant.build_context(),
+        token=SLACK_BOT_OAUTH_TOKEN,
+    )
 
     command = GetSingleChannelMessage(
         channel=event.slack_channel_ref,
@@ -235,16 +256,24 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
         inclusive=True,
     )
 
-    slack_api = SlackWebAPIConnector(
-        tenant_context=tenant.build_context(),
-        token=SLACK_BOT_OAUTH_TOKEN,
+    slack_message = slack_api.get_single_channel_message(command=command)
+    if slack_message is None:
+        logger.warning("no slack message found will ignore")
+        return None
+
+    command = ReplyPostMessageCommand(
+        channel=event.slack_channel_ref,
+        thread_ts=slack_message.ts,
+        text=issue_opened_message_text_repr(event.slack_user_ref),
+        blocks=issue_opened_message_blocks_repr(event.slack_user_ref),
     )
 
-    slack_message = slack_api.get_single_channel_message(command=command)
+    response = slack_api.reply_to_message(command=command)
 
-    print("******************* slack message *******************")
-    print(slack_message)
-    return None
+    print("************ response after replying to message *************")
+    print(response)
+    print("************ response after replying to message *************")
+    return response
 
 
 _SUBSCRIBED_EVENT_HANDLERS = {

@@ -47,6 +47,13 @@ def issue_message_text_repr(issue: Issue):
     return f"{issue.body[:512]}..."
 
 
+def nudge_issue_message_text_repr(name: str):
+    return f"""Hi 👋 {name},
+    Do you want to open a ticket with the support team?
+    In the future, you can react to your support query with a :ticket: emoji
+    to immediately open a issue ticket."""
+
+
 def nudge_issue_message_blocks_repr(name: str):
     block = BlockBuilder()
     block.section(
@@ -68,8 +75,15 @@ def nudge_issue_message_blocks_repr(name: str):
     return block.blocks
 
 
-def nudge_issue_message_text_repr(name: str):
-    return f"""Hi 👋 {name},
-    Do you want to open a ticket with the support team?
-    In the future, you can react to your support query with a :ticket: emoji
-    to immediately open a issue ticket."""
+def issue_opened_message_text_repr(slack_user_ref: str):
+    return f"""<@{slack_user_ref}> has opened an issue ticket."""
+
+
+def issue_opened_message_blocks_repr(slack_user_ref: str):
+    block = BlockBuilder()
+    block.section(
+        BlockBuilder.text(
+            text=f"<@{slack_user_ref}> has opened an issue ticket.",
+        )
+    )
+    return block.blocks

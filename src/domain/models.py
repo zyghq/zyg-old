@@ -324,7 +324,8 @@ class MessageReactionAdded(BaseEvent):
             "subscribed_event": self.subscribed_event,
         }
 
-    def is_ticket(self) -> bool:
+    @property
+    def is_reaction_ticket(self) -> bool:
         return self.reaction == "ticket"
 
     def __repr__(self) -> str:

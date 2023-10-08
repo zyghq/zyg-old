@@ -1,16 +1,17 @@
 import logging
-from typing import List
+from typing import Dict, List
 
 from pydantic import BaseModel, ConfigDict
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackClientError
 
 from src.application.commands.slack import (
+    ChatPostMessageCommand,
     GetChannelsCommand,
     GetSingleChannelMessage,
     GetUsersCommand,
-    IssueChatPostMessageCommand,
-    NudgeChatPostMessageCommand,
+    NudgePostMessageCommand,
+    ReplyPostMessageCommand,
 )
 from src.domain.models import (
     InSyncSlackChannel,
@@ -65,6 +66,7 @@ class SlackChannelItemResponse(BaseModel):
 
 class SlackUserItemResponse(BaseModel):
     model_config = ConfigDict(str_to_lower=True)
+
     id: str
     team_id: str
     name: str
@@ -88,6 +90,8 @@ class SlackUserItemResponse(BaseModel):
 
 
 class SlackChannelMessageItemResponse(BaseModel):
+    model_config: ConfigDict = ConfigDict(str_to_lower=True)
+
     client_msg_id: str
     type: str
     text: str
@@ -102,7 +106,13 @@ class SlackWebAPI:
     def __init__(self, token: str) -> None:
         self._client = WebClient(token=token)
 
-    def chat_post_message(self, channel, text, blocks):
+    def chat_post_message(
+        self,
+        channel: str,
+        text: str,
+        blocks: List[Dict] | None = None,
+        thread_ts: str | None = None,
+    ):
         """
         refer the Slack API docs for more information at:
         https://api.slack.com/methods/chat.postMessage
@@ -110,7 +120,7 @@ class SlackWebAPI:
         logger.info(f"invoked `chat_post_message` with args: {channel}")
         try:
             response = self._client.chat_postMessage(
-                channel=channel, text=text, blocks=blocks
+                channel=channel, text=text, blocks=blocks, thread_ts=thread_ts
             )
         except SlackClientError as err:
             logger.error(f"slack client error: {err}")
@@ -258,7 +268,7 @@ class SlackWebAPIConnector(SlackWebAPI):
         return items
 
     # TODO: handle response from slack
-    def post_issue_message(self, command: IssueChatPostMessageCommand):
+    def post_issue_message(self, command: ChatPostMessageCommand):
         return self.chat_post_message(
             channel=command.channel, text=command.text, blocks=command.blocks
         )
@@ -278,7 +288,7 @@ class SlackWebAPIConnector(SlackWebAPI):
         return users
 
     # TODO: handle response from slack
-    def nudge_for_issue(self, command: NudgeChatPostMessageCommand):
+    def nudge_for_issue(self, command: NudgePostMessageCommand):
         return self.chat_post_ephemeral(
             channel=command.channel,
             user=command.slack_user_ref,
@@ -305,3 +315,12 @@ class SlackWebAPIConnector(SlackWebAPI):
             tenant_id=self.tenant_context.tenant_id, data=item_dict
         )
         return value
+
+    # TODO: handle the response from slack
+    def reply_to_message(self, command: ReplyPostMessageCommand) -> None:
+        return self.chat_post_message(
+            channel=command.channel,
+            text=command.text,
+            blocks=command.blocks,
+            thread_ts=command.thread_ts,
+        )
