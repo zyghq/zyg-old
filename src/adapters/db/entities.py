@@ -67,9 +67,9 @@ class InSyncSlackChannelDBEntity(DBEntity):
     updated: int
 
 
-class LinkedSlackChannelDBEntity(DBEntity):
+class SlackChannelDBEntity(DBEntity):
     tenant_id: str
-    linked_slack_channel_id: str | None = None  # primary key
+    slack_channel_id: str | None = None  # primary key
     slack_channel_ref: str
     slack_channel_name: str | None = None
     triage_slack_channel_ref: str
@@ -84,7 +84,7 @@ class IssueDBEntity(DBEntity):
     status: str
     priority: int
     tags: List[str] | None = []
-    linked_slack_channel_id: str | None = None
+    slack_channel_id: str | None = None
 
 
 class InSyncSlackUserDBEntity(DBEntity):

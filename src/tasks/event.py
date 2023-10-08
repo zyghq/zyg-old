@@ -31,7 +31,7 @@ from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import (
     ChannelMessage,
     Issue,
-    LinkedSlackChannel,
+    SlackChannel,
     MessageReactionAdded,
     SlackEvent,
     Tenant,
@@ -79,7 +79,7 @@ logger = logging.getLogger(__name__)
 #                 return None
 #             data = {
 #                 "tenant_id": tenant_context.tenant_id,
-#                 "linked_slack_channel_id": response["channel_id"],
+#                 "slack_channel_id": response["channel_id"],
 #                 "slack_channel_ref": response["channel_ref"],
 #                 "slack_channel_name": response["channel_name"],
 #                 "triage_channel": {
@@ -99,7 +99,7 @@ logger = logging.getLogger(__name__)
 #             status=Issue.default_status(),
 #             priority=Issue.default_priority(),
 #             tags=[],
-#             linked_slack_channel_id=slack_channel.linked_slack_channel_id,
+#             slack_channel_id=slack_channel.slack_channel_id,
 #         )
 
 #         try:
@@ -113,7 +113,7 @@ logger = logging.getLogger(__name__)
 #         triage_channel = slack_channel.triage_channel
 #         if triage_channel is None:
 #             logger.warning(
-#                 "triage_channel not setup for linked_slack_channel cannot post message"
+#                 "triage_channel not setup for slack_channel cannot post message"
 #             )
 #             logger.warning(
 #                 "shall we set up a default triage channel for cases like this...?"

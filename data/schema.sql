@@ -103,18 +103,18 @@ create table insync_slack_channel(
 -- represents the linked Slack channel table
 -- with reference to a tenant.
 -- TODO: add name column
-create table linked_slack_channel(
+create table slack_channel(
   tenant_id varchar(255) not null, -- reference to tenant.
-  linked_slack_channel_id varchar(255) not null,
+  slack_channel_id varchar(255) not null,
   slack_channel_ref varchar(255) not null, -- reference to Slack channel(id).
   slack_channel_name varchar(255) null, -- reference to Slack channel(name).
   triage_slack_channel_ref varchar(255) not null, -- reference to Slack channel(id).
   triage_slack_channel_name varchar(255) null, -- reference to Slack channel(name).
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,
-  constraint linked_slack_channel_id_pkey primary key (linked_slack_channel_id),
-  constraint linked_slack_channel_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
-  constraint linked_slack_channel_tenant_id_slack_channel_ref_key unique (tenant_id, slack_channel_ref)
+  constraint slack_channel_id_pkey primary key (slack_channel_id),
+  constraint slack_channel_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
+  constraint slack_channel_tenant_id_slack_channel_ref_key unique (tenant_id, slack_channel_ref)
 );
 
 -- represents issue sequence table
@@ -139,12 +139,12 @@ create table issue(
   status varchar(127) not null,
   priority smallint not null,
   tags text[] null,
-  linked_slack_channel_id varchar(255) null,
+  slack_channel_id varchar(255) null,
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,
   constraint issue_issue_id_pkey primary key (issue_id),
   constraint issue_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
-  constraint issue_linked_slack_channel_id_fkey foreign key (linked_slack_channel_id) references linked_slack_channel(linked_slack_channel_id),
+  constraint issue_slack_channel_id_fkey foreign key (slack_channel_id) references slack_channel(slack_channel_id),
   constraint issue_tenant_id_issue_number_key unique (tenant_id, issue_number)
 );
 

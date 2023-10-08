@@ -2,7 +2,7 @@ import logging
 
 from src.adapters.db.adapters import (
     IssueDBAdapter,
-    LinkedSlackChannelDBAdapter,
+    SlackChannelDBAdapter,
     TenantDBAdapter,
 )
 from src.application.commands import CreateIssueCommand
@@ -15,17 +15,17 @@ class CreateIssueService:
     def __init__(self) -> None:
         self.tenant_db = TenantDBAdapter()
         self.issue_db = IssueDBAdapter()
-        self.linked_slack_channel_db = LinkedSlackChannelDBAdapter()
+        self.slack_channel_db = SlackChannelDBAdapter()
 
     async def create(self, command: CreateIssueCommand) -> Issue:
         tenant = await self.tenant_db.get_by_id(command.tenant_id)
-        linked_slack_channel_id = None
+        slack_channel_id = None
 
-        if command.linked_slack_channel_id:
-            slack_channel = await self.linked_slack_channel_db.get_by_id(
-                command.linked_slack_channel_id
+        if command.slack_channel_id:
+            slack_channel = await self.slack_channel_db.get_by_id(
+                command.slack_channel_id
             )
-            linked_slack_channel_id = slack_channel.linked_slack_channel_id
+            slack_channel_id = slack_channel.slack_channel_id
         issue = Issue(
             tenant_id=tenant.tenant_id,
             issue_id=None,
@@ -36,6 +36,6 @@ class CreateIssueService:
         )
 
         issue.tags = [t for t in command.tags]
-        issue.linked_slack_channel_id = linked_slack_channel_id
+        issue.slack_channel_id = slack_channel_id
         issue = await self.issue_db.save(issue)
         return issue

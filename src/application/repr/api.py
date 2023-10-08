@@ -7,7 +7,7 @@ from src.domain.models import (
     InSyncSlackChannel,
     InSyncSlackUser,
     Issue,
-    LinkedSlackChannel,
+    SlackChannel,
     SlackEvent,
     User,
 )
@@ -64,14 +64,14 @@ class InSyncSlackUserWithUpsertedUserRepr(InSyncSlackUserRepr):
 
 
 class TriageSlackChannelRepr(BaseModel):
-    channel_ref: str
-    channel_name: str
+    slack_channel_ref: str
+    slack_channel_name: str
 
 
-class LinkedSlackChannelRepr(BaseModel):
+class SlackChannelRepr(BaseModel):
     channel_id: str
-    channel_ref: str
-    channel_name: str
+    slack_channel_ref: str
+    slack_channel_name: str
     triage_channel: TriageSlackChannelRepr
 
 
@@ -83,7 +83,7 @@ class IssueRepr(BaseModel):
     status: str
     priority: int
     tags: List[str] = []
-    linked_slack_channel_id: str | None = None
+    slack_channel_id: str | None = None
 
 
 class UserRepr(BaseModel):
@@ -161,16 +161,16 @@ def insync_slack_user_with_upsert(item: Dict[str, User | InSyncSlackUser]) -> di
     )
 
 
-def linked_slack_channel_repr(item: LinkedSlackChannel) -> LinkedSlackChannelRepr:
+def slack_channel_repr(item: SlackChannel) -> SlackChannelRepr:
     triage_channel = item.triage_channel
     triage_slack_channel = TriageSlackChannelRepr(
-        channel_ref=triage_channel.slack_channel_ref,
-        channel_name=triage_channel.slack_channel_name,
+        slack_channel_ref=triage_channel.slack_channel_ref,
+        slack_channel_name=triage_channel.slack_channel_name,
     )
-    return LinkedSlackChannelRepr(
-        channel_id=item.linked_slack_channel_id,
-        channel_ref=item.slack_channel_ref,
-        channel_name=item.slack_channel_name,
+    return SlackChannelRepr(
+        channel_id=item.slack_channel_id,
+        slack_channel_ref=item.slack_channel_ref,
+        slack_channel_name=item.slack_channel_name,
         triage_channel=triage_slack_channel,
     )
 
@@ -184,7 +184,7 @@ def issue_repr(item: Issue) -> IssueRepr:
         status=item.status,
         priority=item.priority,
         tags=item.tags,
-        linked_slack_channel_id=item.linked_slack_channel_id,
+        slack_channel_id=item.slack_channel_id,
     )
 
 

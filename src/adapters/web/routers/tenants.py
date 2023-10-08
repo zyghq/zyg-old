@@ -6,7 +6,7 @@ from pydantic import BaseModel, constr
 
 from src.application.commands import (
     LinkSlackChannelCommand,
-    SearchLinkedSlackChannelCommand,
+    SearchSlackChannelCommand,
     SearchUserCommand,
     SlackSyncUserCommand,
     TenantSyncChannelCommand,
@@ -15,7 +15,7 @@ from src.application.repr.api import (
     insync_slack_channel_repr,
     insync_slack_user_repr,
     insync_slack_user_with_upsert,
-    linked_slack_channel_repr,
+    slack_channel_repr,
     user_repr,
 )
 from src.services.channel import SlackChannelService
@@ -42,7 +42,7 @@ class LinkChannelRequestBody(BaseModel):
 
 
 class SearchLinkedChannelRequestBody(BaseModel):
-    linked_slack_channel_id: Optional[str] = None
+    slack_channel_id: Optional[str] = None
     slack_channel_name: Optional[str] = None
     slack_channel_ref: Optional[str] = None
 
@@ -89,15 +89,15 @@ async def link_channel(body: LinkChannelRequestBody):
 
     service = SlackChannelService()
     result = await service.link(command=command)
-    linked_slack_channel = linked_slack_channel_repr(result)
-    return linked_slack_channel
+    slack_channel = slack_channel_repr(result)
+    return slack_channel
 
 
 @router.post("/channels/linked/:search/")
 async def search_linked_channel(body: SearchLinkedChannelRequestBody):
-    command = SearchLinkedSlackChannelCommand(
+    command = SearchSlackChannelCommand(
         tenant_id="z320czxkpt5u",
-        linked_slack_channel_id=body.linked_slack_channel_id,
+        slack_channel_id=body.slack_channel_id,
         slack_channel_name=body.slack_channel_name,
         slack_channel_ref=body.slack_channel_ref,
     )
@@ -105,8 +105,8 @@ async def search_linked_channel(body: SearchLinkedChannelRequestBody):
     result = await service.search(command=command)
     if result is None:
         return JSONResponse(status_code=200, content=[])
-    linked_slack_channel = linked_slack_channel_repr(result)
-    return JSONResponse(status_code=200, content=[linked_slack_channel.model_dump()])
+    slack_channel = slack_channel_repr(result)
+    return JSONResponse(status_code=200, content=[slack_channel.model_dump()])
 
 
 @router.post("/users/:search/")

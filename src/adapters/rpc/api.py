@@ -58,7 +58,7 @@ class ZygWebAPIConnector(WebAPIBaseConnector):
                     "status": command.status,
                     "priority": command.priority,
                     "tags": command.tags,
-                    "linked_slack_channel_id": command.linked_slack_channel_id,
+                    "slack_channel_id": command.slack_channel_id,
                 },
             )
             return self.respond(response)

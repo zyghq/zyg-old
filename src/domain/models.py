@@ -664,16 +664,16 @@ class TriageSlackChannel(AbstractValueObject):
     slack_channel_name: str
 
 
-class LinkedSlackChannel(AbstractEntity):
+class SlackChannel(AbstractEntity):
     def __init__(
         self,
         tenant_id: str,
-        linked_slack_channel_id: str | None,
+        slack_channel_id: str | None,
         slack_channel_ref: str,
         slack_channel_name: str,
     ) -> None:
         self.tenant_id = tenant_id
-        self.linked_slack_channel_id = linked_slack_channel_id
+        self.slack_channel_id = slack_channel_id
         self.slack_channel_ref = slack_channel_ref
         self.slack_channel_name = slack_channel_name
 
@@ -681,18 +681,18 @@ class LinkedSlackChannel(AbstractEntity):
         self.triage_channel: TriageSlackChannel | None = None
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, LinkedSlackChannel):
+        if not isinstance(other, SlackChannel):
             return False
         return (
             self.tenant_id == other.tenant_id
-            and self.linked_slack_channel_id == other.linked_slack_channel_id
+            and self.slack_channel_id == other.slack_channel_id
             and self.slack_channel_ref == other.slack_channel_ref
         )
 
     def __repr__(self) -> str:
-        return f"""LinkedSlackChannel(
+        return f"""SlackChannel(
             tenant_id={self.tenant_id},
-            linked_slack_channel_id={self.linked_slack_channel_id},
+            slack_channel_id={self.slack_channel_id},
             slack_channel_ref={self.slack_channel_ref},
             slack_channel_name={self.slack_channel_name}
         )"""
@@ -713,11 +713,11 @@ class LinkedSlackChannel(AbstractEntity):
         self.triage_channel = triage_channel
 
     @classmethod
-    def from_dict(cls, data: dict) -> "LinkedSlackChannel":
+    def from_dict(cls, data: dict) -> "SlackChannel":
         tenant_id = data.get("tenant_id")
         channel = cls(
             tenant_id=tenant_id,
-            linked_slack_channel_id=data.get("linked_slack_channel_id"),
+            slack_channel_id=data.get("slack_channel_id"),
             slack_channel_ref=data.get("slack_channel_ref"),
             slack_channel_name=data.get("slack_channel_name"),
         )
@@ -763,7 +763,7 @@ class Issue(AbstractEntity):
         self.issue_id = issue_id
         self.body = body
 
-        self.linked_slack_channel_id: str | None = None
+        self.slack_channel_id: str | None = None
 
         if status is None:
             status = IssueStatus.OPEN

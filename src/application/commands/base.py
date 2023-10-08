@@ -32,9 +32,9 @@ class LinkSlackChannelCommand(BaseModel):
     triage_slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
 
 
-class SearchLinkedSlackChannelCommand(BaseModel):
+class SearchSlackChannelCommand(BaseModel):
     tenant_id: str
-    linked_slack_channel_id: Optional[str] = None
+    slack_channel_id: Optional[str] = None
     slack_channel_name: Optional[str] = None
     slack_channel_ref: Optional[str] = None
 
@@ -59,7 +59,7 @@ class CreateIssueCommand(BaseModel):
     status: str | None
     priority: int | None
     tags: List[str] = []
-    linked_slack_channel_id: str | None = None
+    slack_channel_id: str | None = None
 
 
 class GetLinkedSlackChannelByRefCommand(BaseModel):
