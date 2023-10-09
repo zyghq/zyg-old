@@ -1,30 +1,34 @@
-class SlackAPIResponseException(Exception):
-    pass
-
-
 class SlackAPIException(Exception):
     pass
 
 
-class WebAPIException(Exception):
+class SlackAPIResponseException(SlackAPIException):
     pass
 
 
-class CreateIssueAPIException(Exception):
+class CreateIssueAPIError(Exception):
     pass
 
 
-class SlackChannelAPIException(Exception):
+class UserNotFoundAPIError(Exception):
     pass
 
 
-class SlackChannelNotFoundResponseException(Exception):
+class FindIssueAPIError(Exception):
     pass
 
 
-class UserNotFoundResponseException(Exception):
+class FindSlackChannelAPIError(Exception):
     pass
 
 
-class UserAPIException(Exception):
+class SlackChannelNotFoundAPIError(Exception):
+    pass
+
+
+class FindUserAPIError(Exception):
+    pass
+
+
+class IssueNotFoundAPIError(Exception):
     pass

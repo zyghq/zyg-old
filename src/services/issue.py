@@ -5,7 +5,7 @@ from src.adapters.db.adapters import (
     SlackChannelDBAdapter,
     TenantDBAdapter,
 )
-from src.application.commands import CreateIssueCommand
+from src.application.commands import CreateIssueCommand, SearchIssueCommand
 from src.domain.models import Issue
 
 logger = logging.getLogger(__name__)
@@ -35,3 +35,15 @@ class CreateIssueService:
         issue.tags = command.tags
         issue = await self.issue_db.save(issue)
         return issue
+
+    async def search(self, command: SearchIssueCommand) -> Issue | None:
+        if command.issue_id:
+            return await self.issue_db.find_by_id(command.issue_id)
+        elif command.issue_number:
+            return await self.issue_db.find_by_number(command.issue_number)
+        elif command.slack_channel_id and command.slack_message_ts:
+            return await self.issue_db.find_by_slack_channel_id_message_ts(
+                command.slack_channel_id, command.slack_message_ts
+            )
+        else:
+            return None

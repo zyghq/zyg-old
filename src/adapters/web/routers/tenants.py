@@ -102,7 +102,7 @@ async def search_slack_channel(body: SearchSlackChannelRequestBody):
         slack_channel_ref=body.slack_channel_ref,
     )
     service = SlackChannelService()
-    result = await service.search(command=command)
+    result = await service.search(command)
     if result is None:
         return JSONResponse(status_code=200, content=[])
     slack_channel = slack_channel_repr(result)

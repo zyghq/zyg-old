@@ -63,11 +63,9 @@ class CreateIssueCommand(BaseModel):
     tags: List[str] | None = None
 
 
-class GetSlackChannelByRefCommand(BaseModel):
+class SearchIssueCommand(BaseModel):
     tenant_id: str
-    slack_channel_ref: constr(min_length=3, max_length=255, to_lower=True)
-
-
-class GetUserByRefCommand(BaseModel):
-    tenant_id: str
-    slack_user_ref: constr(min_length=3, max_length=255, to_lower=True)
+    issue_id: Optional[str] = None
+    issue_number: Optional[int] = None
+    slack_channel_id: Optional[str] = None
+    slack_message_ts: Optional[str] = None

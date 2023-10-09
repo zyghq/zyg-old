@@ -350,6 +350,24 @@ class IssueDBAdapter:
             result = self._map_to_domain(issue_entity)
         return result
 
+    async def find_by_id(self, issue_id: str) -> Issue | None:
+        raise NotImplementedError
+
+    async def find_by_number(self, issue_number: str) -> Issue | None:
+        raise NotImplementedError
+
+    async def find_by_slack_channel_id_message_ts(
+        self, slack_channel_id: str, slack_message_ts: str
+    ) -> Issue | None:
+        async with self.engine.begin() as conn:
+            issue_entity = await IssueRepository(
+                conn
+            ).find_by_slack_channel_id_message_ts(slack_channel_id, slack_message_ts)
+            if issue_entity is None:
+                return None
+            result = self._map_to_domain(issue_entity)
+        return result
+
 
 class InSyncSlackUserDBAdapter:
     def __init__(self, engine: Engine = engine) -> None:

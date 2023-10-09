@@ -120,7 +120,16 @@ class SlackWebAPI:
         logger.info(f"invoked `chat_post_message` with args: {channel}")
         try:
             response = self._client.chat_postMessage(
-                channel=channel, text=text, blocks=blocks, thread_ts=thread_ts
+                channel=channel,
+                text=text,
+                blocks=blocks,
+                thread_ts=thread_ts,
+                metadata={
+                    "event_type": "test_metadata_event",
+                    "event_payload": {
+                        "random_data": "adding random data for testing..."
+                    },
+                },
             )
         except SlackClientError as err:
             logger.error(f"slack client error: {err}")

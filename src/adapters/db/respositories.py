@@ -796,6 +796,27 @@ class IssueRepository(AbstractIssueRepository, BaseRepository):
             return await self._insert(issue)
         return await self._upsert(issue)
 
+    async def find_by_slack_channel_id_message_ts(
+        self, slack_channel_id: str, slack_message_ts: str
+    ):
+        query = """
+            select issue_id, tenant_id, slack_channel_id, slack_message_ts, body,
+            status, priority, tags, issue_number, created_at, updated_at
+            from issue
+            where
+            slack_channel_id = :slack_channel_id
+            and slack_message_ts = :slack_message_ts
+        """
+        parameters = {
+            "slack_channel_id": slack_channel_id,
+            "slack_message_ts": slack_message_ts,
+        }
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return IssueDBEntity(**result)
+
 
 class InSyncSlackUserAbstractRepository(abc.ABC):
     @abc.abstractmethod
