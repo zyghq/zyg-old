@@ -1,7 +1,8 @@
 import abc
+import re
 from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import List, Optional, Union
 
 from attrs import define, field
 
@@ -93,26 +94,99 @@ class User(AbstractEntity):
         self,
         tenant_id: str,
         user_id: str | None,
+        slack_user_ref: str,
         name: str | None,
-        role: UserRole.MEMBER,
+        role: UserRole | None | str = UserRole.MEMBER,
     ) -> None:
         self.tenant_id = tenant_id
         self.user_id = user_id
-        self.name = name
-        self.role = role
+        self.slack_user_ref = slack_user_ref
+
+        self.name = self._to_lower(name)
+
+        if role is None:
+            role = UserRole.MEMBER
+        if isinstance(role, str):
+            role = UserRole(role)
+
+        assert isinstance(role, UserRole)
+
+        self._role = role
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, User):
             return False
-        return (self.tenant_id == other.tenant_id) and (self.user_id == other.user_id)
+        return self.user_id == other.user_id
+
+    def equals_by_slack_user_ref(self, other: object) -> bool:
+        if not isinstance(other, User):
+            return False
+        return (
+            self.tenant_id == other.tenant_id
+            and self.slack_user_ref == other.slack_user_ref
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "User":
+        return cls(
+            tenant_id=data.get("tenant_id"),
+            user_id=data.get("user_id"),
+            slack_user_ref=data.get("slack_user_ref"),
+            name=data.get("name"),
+            role=data.get("role"),
+        )
 
     def __repr__(self) -> str:
         return f"""User(
             tenant_id={self.tenant_id},
             user_id={self.user_id},
             name={self.name},
-            role={self.role.value}
+            role={self._role.value}
         )"""
+
+    @property
+    def display_name(self) -> str | None:
+        if self.name is None:
+            return None
+        names = self.name.split(" ")
+        return " ".join([name.capitalize() for name in names])
+
+    def _to_lower(self, v: str | None):
+        return v.lower() if v else v
+
+    @classmethod
+    def default_role(cls) -> UserRole:
+        return UserRole.MEMBER
+
+    @classmethod
+    def get_role_administrator(cls) -> UserRole:
+        return UserRole.ADMINISTRATOR
+
+    @classmethod
+    def get_role_owner(cls) -> UserRole:
+        return UserRole.OWNER
+
+    @property
+    def is_administrator(self) -> bool:
+        return self._role == UserRole.ADMINISTRATOR
+
+    @property
+    def is_owner(self) -> bool:
+        return self._role == UserRole.OWNER
+
+    @property
+    def is_member(self) -> bool:
+        return self._role == UserRole.MEMBER
+
+    @property
+    def role(self) -> str:
+        if self._role is None:
+            return UserRole.MEMBER.value
+        return self._role.value
+
+    @role.setter
+    def role(self, role: str) -> None:
+        self._role = UserRole(role)
 
 
 class BaseEvent:
@@ -130,86 +204,169 @@ class BaseEvent:
         raise NotImplementedError
 
 
-class EventChannelMessage(BaseEvent):
+class ChannelMessage(BaseEvent):
     subscribed_event = "message.channels"
 
     def __init__(
         self,
         tenant_id: str,
         slack_event_ref: str,
-        slack_channel_ref: str,
         inner_event_type: str,
-        event: dict,
+        slack_channel_ref: str,
+        slack_user_ref: str,
+        ts: str,
+        text: str,
+        blocks: List[dict] | None = None,
     ) -> None:
         super().__init__(tenant_id, slack_event_ref, inner_event_type)
         self.slack_channel_ref = slack_channel_ref
+        self.slack_user_ref = slack_user_ref
+        self.ts = ts
+        self.text = text
+        self.blocks = blocks
 
-        self.message = self._parse(event=event)
+        assert self.slack_channel_ref is not None
+        assert self.slack_user_ref is not None
+        assert self.ts is not None
+        assert self.text is not None
 
-    def _parse(self, event: dict) -> dict:
-        # XXX(@sanchitrk): update this based on testing.
-        parsed_event = {}
-        ts = event.get("ts", None)
-        body = event.get("text", None)
-        slack_user_ref = event.get("user", None)
-        client_msg_id = event.get("client_msg_id", None)
-
-        assert ts is not None
-        assert body is not None
-        assert slack_user_ref is not None
-        assert client_msg_id is not None
-
-        parsed_event["ts"] = ts
-        parsed_event["body"] = body
-        parsed_event["slack_user_ref"] = slack_user_ref
-        parsed_event["client_msg_id"] = client_msg_id
-        return parsed_event
+    @classmethod
+    def from_event(
+        cls, tenant_id: str, slack_event_ref: str, event: dict
+    ) -> "ChannelMessage":
+        channel = event.get("channel", None)
+        inner_event_type = event.get("type", "n/a")
+        return cls(
+            tenant_id=tenant_id,
+            slack_event_ref=slack_event_ref,
+            inner_event_type=inner_event_type,
+            slack_channel_ref=channel,
+            slack_user_ref=event.get("user", None),
+            ts=event.get("ts", None),
+            text=event.get("text", None),
+            blocks=event.get("blocks", None),
+        )
 
     def to_dict(self) -> dict:
         return {
             "tenant_id": self.tenant_id,
             "slack_event_ref": self.slack_event_ref,
-            "slack_channel_ref": self.slack_channel_ref,
             "inner_event_type": self.inner_event_type,
-            "message": self.message,
+            "slack_channel_ref": self.slack_channel_ref,
+            "slack_user_ref": self.slack_user_ref,
+            "ts": self.ts,
+            "text": self.text,
+            "blocks": self.blocks,
             "subscribed_event": self.subscribed_event,
         }
 
     def __repr__(self) -> str:
-        return f"""EventChannelMessage(
+        return f"""ChannelMessage(
             tenant_id={self.tenant_id},
             slack_event_ref={self.slack_event_ref},
-            slack_channel_ref={self.slack_channel_ref},
             inner_event_type={self.inner_event_type},
-            subscribed_event={self.subscribed_event},
+            slack_channel_ref={self.slack_channel_ref},
+            slack_user_ref={self.slack_user_ref},
+            ts={self.ts},
+            text={self.text[:32] + "..." if len(self.text) > 32 else self.text},
+        )"""
+
+
+class MessageReactionAdded(BaseEvent):
+    subscribed_event = "reaction_added"
+
+    def __init__(
+        self,
+        tenant_id: str,
+        slack_event_ref: str,
+        inner_event_type: str,
+        reaction: str,
+        slack_user_ref: str,
+        slack_channel_ref: str,
+        message_ts: str,
+        message_user_ref: str,
+    ):
+        super().__init__(tenant_id, slack_event_ref, inner_event_type)
+        self.reaction = reaction  # emoji reaction
+        self.slack_user_ref = slack_user_ref  # ref to user who reacted
+        self.slack_channel_ref = slack_channel_ref  # ref to channel of reaction
+        self.message_ts = message_ts  # ts of message reacted to
+        self.message_user_ref = message_user_ref  # ref to user who sent the message
+
+    @classmethod
+    def from_event(
+        cls, tenant_id: str, slack_event_ref: str, event: dict
+    ) -> "MessageReactionAdded":
+        inner_event_type = event.get("type", "n/a")
+        item = event.get("item", None)
+        if not item:
+            raise ValueError("`item` is required")
+        slack_channel_ref = item.get("channel", None)
+        message_ts = item.get("ts", None)
+        return cls(
+            tenant_id=tenant_id,
+            slack_event_ref=slack_event_ref,
+            inner_event_type=inner_event_type,
+            reaction=event.get("reaction", None),
+            slack_user_ref=event.get("user", None),
+            slack_channel_ref=slack_channel_ref,
+            message_ts=message_ts,
+            message_user_ref=event.get("item_user", None),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "tenant_id": self.tenant_id,
+            "slack_event_ref": self.slack_event_ref,
+            "inner_event_type": self.inner_event_type,
+            "reaction": self.reaction,
+            "slack_user_ref": self.slack_user_ref,
+            "slack_channel_ref": self.slack_channel_ref,
+            "message_ts": self.message_ts,
+            "message_user_ref": self.message_user_ref,
+            "subscribed_event": self.subscribed_event,
+        }
+
+    @property
+    def is_reaction_ticket(self) -> bool:
+        return self.reaction == "ticket"
+
+    def __repr__(self) -> str:
+        return f"""MessageReactionAdded(
+            reaction={self.reaction},
+            slack_user_ref={self.slack_user_ref},
+            slack_channel_ref={self.slack_channel_ref},
+            message_ts={self.message_ts},
+            message_user_ref={self.message_user_ref},
         )"""
 
 
 class SlackEvent(AbstractEntity):
     """
-    `subscribed_events` - are list of events that we are subscribed to in Slack.
+    `subscribed_events` - list of events that we are subscribed to in Slack.
     """
 
-    subscribed_events = ("message.channels",)
+    subscribed_events = ("message.channels", "reaction_added")
 
     def __init__(
         self,
         tenant_id: str,
         event_id: str | None,
         slack_event_ref: str,
-        event_ts: int,
+        event_dispatched_ts: int,
         payload: dict,
         is_ack: bool = False,
     ) -> None:
         self.tenant_id = tenant_id
         self.event_id = event_id
         self.slack_event_ref = slack_event_ref
-        self.event_ts = event_ts
+        self.event_dispatched_ts = event_dispatched_ts
         self.payload = payload  # slack event payload
 
         self.is_ack = is_ack
-
-        self.event: BaseEvent | EventChannelMessage | None = None
+        self.event: Optional[
+            Union[BaseEvent, ChannelMessage, MessageReactionAdded]
+        ] = None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackEvent):
@@ -219,13 +376,16 @@ class SlackEvent(AbstractEntity):
     def equals_by_slack_event_ref(self, other: object) -> bool:
         if not isinstance(other, SlackEvent):
             return False
-        return self.slack_event_ref == other.slack_event_ref
+        return (
+            self.tenant_id == other.tenant_id
+            and self.slack_event_ref == other.slack_event_ref
+        )
 
     def __repr__(self) -> str:
         return f"""SlackEvent(
             tenant_id={self.tenant_id},
             event_id={self.event_id},
-            event_ts={self.event_ts},
+            event_dispatched_ts={self.event_dispatched_ts},
             slack_event_ref={self.slack_event_ref}
         )"""
 
@@ -243,25 +403,25 @@ class SlackEvent(AbstractEntity):
             raise ValueError(
                 "slack event reference (from slack `event_id`) is required"
             )
-        event_ts = payload.get("event_time", None)
-        if not event_ts:
+        event_dispatched_ts = payload.get("event_time", None)
+        if not event_dispatched_ts:
             raise ValueError(
                 "slack event time stamp (from slack `event_time`) is required"
             )
 
-        payload_event = payload.get("event", None)
-        if not payload_event:
+        inner_event = payload.get("event", None)
+        if not inner_event:
             raise ValueError("slack inner event cannot be empty")
 
         slack_event = cls(
             tenant_id=tenant_id,
             event_id=event_id,
             slack_event_ref=slack_event_ref,
-            event_ts=event_ts,
+            event_dispatched_ts=event_dispatched_ts,
             payload=payload,
         )
 
-        event = slack_event.build_event(event=payload_event)
+        event = slack_event.build_event(inner_event)
         slack_event.event = event
         return slack_event
 
@@ -276,7 +436,7 @@ class SlackEvent(AbstractEntity):
         """
         event_type = event.get("type", None)
         if not event_type:
-            raise ValueError("event type is required")
+            raise ValueError("inner event type is required")
         if event_type == "message":
             # follow the path to `message.*`
             channel_type = event.get("channel_type", None)
@@ -285,6 +445,8 @@ class SlackEvent(AbstractEntity):
             if channel_type == "channel":
                 # follow the path `message.channels`
                 return "message.channels"
+        elif event_type == "reaction_added":
+            return "reaction_added"
         raise ValueError("event type is not supported or subscribed")
 
     def build_event(self, event: dict) -> None:
@@ -293,22 +455,24 @@ class SlackEvent(AbstractEntity):
         and make sure it is in subscribed events - we dont want to end up
         with an event that we are not subscribed to.
 
-        Then we build the event based on the subscribed event.
+        Then we build the event instance based on the subscribed event.
         """
-        subscribed_event = self._parse_to_subscribed_event(event=event)
+        subscribed_event = self._parse_to_subscribed_event(event)
         if subscribed_event not in self.subscribed_events:
             raise ValueError(
                 "subscribed event not added to subscribed events may be forgotten?"
             )
 
         if subscribed_event == "message.channels":
-            channel = event.get("channel", None)
-            inner_event_type = event.get("type", "n/a")
-            return EventChannelMessage(
+            return ChannelMessage.from_event(
                 tenant_id=self.tenant_id,
                 slack_event_ref=self.slack_event_ref,
-                slack_channel_ref=channel,
-                inner_event_type=inner_event_type,
+                event=event,
+            )
+        if subscribed_event == "reaction_added":
+            return MessageReactionAdded.from_event(
+                tenant_id=self.tenant_id,
+                slack_event_ref=self.slack_event_ref,
                 event=event,
             )
         raise ValueError("cannot build event for unknown event type")
@@ -349,7 +513,7 @@ class SlackEvent(AbstractEntity):
             "slack_event_ref": self.slack_event_ref,
             "inner_event_type": self.inner_event_type,
             "event": event,
-            "event_ts": self.event_ts,
+            "event_dispatched_ts": self.event_dispatched_ts,
             "api_app_id": self.api_app_id,
             "token": self.token,
             "payload": self.payload,
@@ -358,11 +522,15 @@ class SlackEvent(AbstractEntity):
 
     @property
     def is_channel_message(self) -> bool:
-        return isinstance(self.event, EventChannelMessage)
+        return isinstance(self.event, ChannelMessage)
+
+    @property
+    def is_reaction_added(self) -> bool:
+        return isinstance(self.event, MessageReactionAdded)
 
 
 @define(frozen=True)
-class InSyncSlackChannelItem(AbstractValueObject):
+class InSyncSlackChannel(AbstractValueObject):
     """
     Represents a Slack conversation item, after succesful API call.
     We call it Slack Channel for our understandings.
@@ -400,11 +568,11 @@ class InSyncSlackChannelItem(AbstractValueObject):
     unlinked: int = field(eq=False)
     updated: int = field(eq=False)
 
-    updated_at: datetime | None = None
-    created_at: datetime | None = None
+    updated_at: datetime | None = field(eq=False, default=None)
+    created_at: datetime | None = field(eq=False, default=None)
 
     @classmethod
-    def from_dict(cls, tenant_id, data: dict) -> "InSyncSlackChannelItem":
+    def from_dict(cls, tenant_id, data: dict) -> "InSyncSlackChannel":
         return cls(
             tenant_id=tenant_id,
             context_team_id=data.get("context_team_id"),
@@ -439,22 +607,79 @@ class InSyncSlackChannelItem(AbstractValueObject):
 
 
 @define(frozen=True)
+class InSyncSlackUser(AbstractValueObject):
+    tenant_id: str
+    id: str
+    is_admin: bool
+    is_app_user: bool
+    is_bot: bool
+    is_email_confirmed: bool
+    is_owner: bool
+    is_primary_owner: bool
+    is_restricted: bool
+    is_ultra_restricted: bool
+    name: str = field(eq=False)
+    profile: dict = field(eq=False)
+    real_name: str = field(eq=False)
+    team_id: str
+    tz: str = field(eq=False)
+    tz_label: str = field(eq=False)
+    tz_offset: int = field(eq=False)
+    updated: int = field(eq=False)
+    is_stranger: bool | None = field(eq=False, default=None)
+
+    updated_at: datetime | None = field(eq=False, default=None)
+    created_at: datetime | None = field(eq=False, default=None)
+
+    @classmethod
+    def from_dict(cls, tenant_id, data: dict) -> "InSyncSlackUser":
+        return cls(
+            tenant_id=tenant_id,
+            id=data.get("id"),
+            is_admin=data.get("is_admin"),
+            is_app_user=data.get("is_app_user"),
+            is_bot=data.get("is_bot"),
+            is_email_confirmed=data.get("is_email_confirmed"),
+            is_owner=data.get("is_owner"),
+            is_primary_owner=data.get("is_primary_owner"),
+            is_restricted=data.get("is_restricted"),
+            is_ultra_restricted=data.get("is_ultra_restricted"),
+            name=data.get("name"),
+            profile=data.get("profile"),
+            real_name=data.get("real_name"),
+            team_id=data.get("team_id"),
+            tz=data.get("tz"),
+            tz_label=data.get("tz_label"),
+            tz_offset=data.get("tz_offset"),
+            updated=data.get("updated"),
+        )
+
+    @property
+    def id_normalized(self) -> str:
+        return self.id.lower()
+
+    @property
+    def is_slackbot(self) -> bool:
+        return self.id_normalized == "uslackbot"
+
+
+@define(frozen=True)
 class TriageSlackChannel(AbstractValueObject):
     tenant_id: str
     slack_channel_ref: str
     slack_channel_name: str
 
 
-class LinkedSlackChannel(AbstractEntity):
+class SlackChannel(AbstractEntity):
     def __init__(
         self,
         tenant_id: str,
-        linked_slack_channel_id: str | None,
+        slack_channel_id: str | None,
         slack_channel_ref: str,
         slack_channel_name: str,
     ) -> None:
         self.tenant_id = tenant_id
-        self.linked_slack_channel_id = linked_slack_channel_id
+        self.slack_channel_id = slack_channel_id
         self.slack_channel_ref = slack_channel_ref
         self.slack_channel_name = slack_channel_name
 
@@ -462,18 +687,22 @@ class LinkedSlackChannel(AbstractEntity):
         self.triage_channel: TriageSlackChannel | None = None
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, LinkedSlackChannel):
+        if not isinstance(other, SlackChannel):
+            return False
+        return self.slack_channel_id == other.slack_channel_id
+
+    def equals_by_slack_channel_ref(self, other: object) -> bool:
+        if not isinstance(other, SlackChannel):
             return False
         return (
             self.tenant_id == other.tenant_id
-            and self.linked_slack_channel_id == other.linked_slack_channel_id
             and self.slack_channel_ref == other.slack_channel_ref
         )
 
     def __repr__(self) -> str:
-        return f"""LinkedSlackChannel(
+        return f"""SlackChannel(
             tenant_id={self.tenant_id},
-            linked_slack_channel_id={self.linked_slack_channel_id},
+            slack_channel_id={self.slack_channel_id},
             slack_channel_ref={self.slack_channel_ref},
             slack_channel_name={self.slack_channel_name}
         )"""
@@ -481,7 +710,7 @@ class LinkedSlackChannel(AbstractEntity):
     def add_triage_channel(self, triage_channel: TriageSlackChannel) -> None:
         """
         Checks if it is of the same tenant and linked slack channel ref
-        is not same as triage's slack channel ref.
+        is not same as triage's slack channel ref. - dont want to end up in a cycle.
         """
         if self.tenant_id != triage_channel.tenant_id:
             raise TenantValueError(
@@ -492,6 +721,27 @@ class LinkedSlackChannel(AbstractEntity):
                 "cannot add triage channel for the same linked slack channel"
             )
         self.triage_channel = triage_channel
+
+    @classmethod
+    def from_dict(cls, tenant_id: str, data: dict) -> "SlackChannel":
+        channel = cls(
+            tenant_id=tenant_id,
+            slack_channel_id=data.get("channel_id"),
+            slack_channel_ref=data.get("slack_channel_ref"),
+            slack_channel_name=data.get("slack_channel_name"),
+        )
+        triage_channel: dict | None = data.get("triage_channel", None)
+
+        if not triage_channel:
+            return channel
+
+        triage_channel = TriageSlackChannel(
+            tenant_id=tenant_id,
+            slack_channel_ref=triage_channel.get("slack_channel_ref"),
+            slack_channel_name=triage_channel.get("slack_channel_name"),
+        )
+        channel.add_triage_channel(triage_channel)
+        return channel
 
 
 class IssueStatus(Enum):
@@ -516,12 +766,19 @@ class Issue(AbstractEntity):
         tenant_id: str,
         issue_id: str | None,
         issue_number: int | None,
+        slack_channel_id: str,
+        slack_message_ts: str,
         body: str,
         status: IssueStatus | None | str = IssueStatus.OPEN,
         priority: IssuePriority | None | int = IssuePriority.NO_PRIORITY,
     ) -> None:
         self.tenant_id = tenant_id
+        self.slack_channel_id = slack_channel_id
+        self.slack_message_ts = slack_message_ts
+
         self.issue_id = issue_id
+        self.issue_number = issue_number
+
         self.body = body
 
         if status is None:
@@ -540,8 +797,6 @@ class Issue(AbstractEntity):
         self._status = status
         self._priority = priority
 
-        self.issue_number = issue_number
-
         self._tags = set()
 
     def __eq__(self, other: object) -> bool:
@@ -555,7 +810,17 @@ class Issue(AbstractEntity):
         if not isinstance(other, Issue):
             return False
         return (
-            self.tenant_id == self.tenant_id and self.issue_number == other.issue_number
+            self.tenant_id == other.tenant_id
+            and self.issue_number == other.issue_number
+        )
+
+    def equals_by_slack_message_ts(self, other: object) -> bool:
+        if not isinstance(other, Issue):
+            return False
+        return (
+            self.tenant_id == other.tenant_id
+            and self.slack_channel_id == other.slack_channel_id
+            and self.slack_message_ts == other.slack_message_ts
         )
 
     def __repr__(self) -> str:
@@ -563,6 +828,8 @@ class Issue(AbstractEntity):
             tenant_id={self.tenant_id},
             issue_id={self.issue_id},
             issue_number={self.issue_number},
+            slack_channel_id={self.slack_channel_id},
+            slack_message_ts={self.slack_message_ts},
             body={self.body[:32] + "..." if len(self.body) > 32 else self.body},
             status={self.status},
             priority={self.priority},
@@ -583,7 +850,7 @@ class Issue(AbstractEntity):
         if tags is None:
             self._tags = set()
             return
-        self._tags = set([str(t).lower() for t in tags])
+        self._tags = set([re.sub(r"\s+", "_", str(t).lower()) for t in tags])
 
     @property
     def status(self) -> str:
@@ -614,11 +881,13 @@ class Issue(AbstractEntity):
         return IssuePriority.NO_PRIORITY.value
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Issue":
+    def from_dict(cls, tenant_id: str, data: dict) -> "Issue":
         issue = cls(
-            tenant_id=data.get("tenant_id"),
-            issue_id=data.get("issue_id"),
-            issue_number=data.get("issue_number"),
+            tenant_id=tenant_id,
+            issue_id=data.get("issue_id", None),
+            issue_number=data.get("issue_number", None),
+            slack_channel_id=data.get("slack_channel_id"),
+            slack_message_ts=data.get("slack_message_ts"),
             body=data.get("body"),
             status=data.get("status"),
             priority=data.get("priority"),
@@ -633,9 +902,38 @@ class Issue(AbstractEntity):
         r = " ".join([w.capitalize() for w in r])
         return r
 
+    # @property
+    # def status_display_name(self) -> str:
+    #     r = self._status.name
+    #     r = r.lower().split("_")
+    #     r = " ".join([w.capitalize() for w in r])
+    #     return r
+
     @property
     def status_display_name(self) -> str:
-        r = self._status.name
-        r = r.lower().split("_")
-        r = " ".join([w.capitalize() for w in r])
-        return r
+        return self._status.value
+
+
+@define(frozen=True)
+class SlackChannelMessageAPIValue(AbstractValueObject):
+    tenant_id: str
+    type: str
+    text: str = field(eq=False)
+    user: str
+    ts: str
+    team: str
+    blocks: List[dict] | None = field(eq=False, default=None)
+    reactions: List[dict] | None = field(eq=False, default=None)
+
+    @classmethod
+    def from_dict(cls, tenant_id: str, data: dict) -> "SlackChannelMessageAPIValue":
+        return cls(
+            tenant_id=tenant_id,
+            type=data.get("type"),
+            text=data.get("text"),
+            user=data.get("user"),
+            ts=data.get("ts"),
+            team=data.get("team"),
+            blocks=data.get("blocks"),
+            reactions=data.get("reactions"),
+        )

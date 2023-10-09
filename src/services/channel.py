@@ -1,22 +1,22 @@
 from src.adapters.db.adapters import (
     InSyncChannelDBAdapter,
-    LinkedSlackChannelDBAdapter,
+    SlackChannelDBAdapter,
     TenantDBAdapter,
 )
 from src.application.commands import (
     LinkSlackChannelCommand,
-    SearchLinkedSlackChannelCommand,
+    SearchSlackChannelCommand,
 )
-from src.domain.models import LinkedSlackChannel, TriageSlackChannel
+from src.domain.models import SlackChannel, TriageSlackChannel
 
 
-class LinkSlackChannelService:
+class SlackChannelService:
     def __init__(self) -> None:
         self.tenant_db = TenantDBAdapter()
         self.insync_channel_db = InSyncChannelDBAdapter()
-        self.linked_slack_channel_db = LinkedSlackChannelDBAdapter()
+        self.slack_channel_db = SlackChannelDBAdapter()
 
-    async def link(self, command: LinkSlackChannelCommand) -> LinkedSlackChannel:
+    async def link(self, command: LinkSlackChannelCommand) -> SlackChannel:
         tenant = await self.tenant_db.get_by_id(command.tenant_id)
 
         insync_slack_channel = (
@@ -24,9 +24,9 @@ class LinkSlackChannelService:
                 tenant_id=command.tenant_id, slack_channel_ref=command.slack_channel_ref
             )
         )
-        linked_slack_channel = LinkedSlackChannel(
+        slack_channel = SlackChannel(
             tenant_id=tenant.tenant_id,
-            linked_slack_channel_id=None,
+            slack_channel_id=None,
             slack_channel_ref=insync_slack_channel.id,
             slack_channel_name=insync_slack_channel.name,
         )
@@ -43,37 +43,35 @@ class LinkSlackChannelService:
             slack_channel_name=insync_slack_channel_for_triage.name,
         )
 
-        linked_slack_channel.add_triage_channel(triage_slack_channel)
-        linked_slack_channel = await self.linked_slack_channel_db.save(
-            linked_slack_channel
+        slack_channel.add_triage_channel(triage_slack_channel)
+        slack_channel = await self.slack_channel_db.save(
+            slack_channel
         )
-        return linked_slack_channel
+        return slack_channel
 
     async def search(
-        self, command: SearchLinkedSlackChannelCommand
-    ) -> LinkedSlackChannel | None:
+        self, command: SearchSlackChannelCommand
+    ) -> SlackChannel | None:
         """
 
         Searches based on the priority of the search fields
         """
-        linked_channel = None
+        channel = None
         tenant_id = command.tenant_id
-        if command.linked_slack_channel_id:
-            linked_channel = await self.linked_slack_channel_db.find_by_id(
-                command.linked_slack_channel_id
+        if command.slack_channel_id:
+            channel = await self.slack_channel_db.find_by_id(
+                command.slack_channel_id
             )
-            return linked_channel
+            return channel
         elif command.slack_channel_ref:
-            linked_channel = (
-                await self.linked_slack_channel_db.find_by_slack_channel_ref(
-                    command.slack_channel_ref
-                )
+            channel = await self.slack_channel_db.find_by_slack_channel_ref(
+                command.slack_channel_ref
             )
-            return linked_channel
+            return channel
         else:
-            linked_channel = (
-                await self.linked_slack_channel_db.find_by_tenant_id_slack_channel_name(
+            channel = (
+                await self.slack_channel_db.find_by_tenant_id_slack_channel_name(
                     tenant_id=tenant_id, slack_channel_name=command.slack_channel_name
                 )
             )
-            return linked_channel
+            return channel

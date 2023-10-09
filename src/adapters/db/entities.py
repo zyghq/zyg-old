@@ -15,13 +15,20 @@ class TenantDBEntity(DBEntity):
     slack_team_ref: str | None = None
 
 
+class UserDBEntity(DBEntity):
+    user_id: str | None = None  # primary key
+    tenant_id: str
+    slack_user_ref: str
+    name: str
+    role: str
+
+
 class SlackEventDBEntity(DBEntity):
     event_id: str | None = None  # primary key
     tenant_id: str
     slack_event_ref: str
     inner_event_type: str | None = None
-    event: dict
-    event_ts: int
+    event_dispatched_ts: int
     api_app_id: str
     token: str
     payload: dict
@@ -60,9 +67,9 @@ class InSyncSlackChannelDBEntity(DBEntity):
     updated: int
 
 
-class LinkedSlackChannelDBEntity(DBEntity):
+class SlackChannelDBEntity(DBEntity):
     tenant_id: str
-    linked_slack_channel_id: str | None = None  # primary key
+    slack_channel_id: str | None = None  # primary key
     slack_channel_ref: str
     slack_channel_name: str | None = None
     triage_slack_channel_ref: str
@@ -73,7 +80,31 @@ class IssueDBEntity(DBEntity):
     tenant_id: str
     issue_id: str | None = None  # primary key
     issue_number: int | None = None
+    slack_channel_id: str
+    slack_message_ts: str
     body: str
     status: str
     priority: int
     tags: List[str] | None = []
+
+
+class InSyncSlackUserDBEntity(DBEntity):
+    tenant_id: str
+    id: str
+    is_admin: bool
+    is_app_user: bool
+    is_bot: bool
+    is_email_confirmed: bool
+    is_owner: bool
+    is_primary_owner: bool
+    is_restricted: bool
+    is_stranger: bool | None = None
+    is_ultra_restricted: bool
+    name: str
+    profile: dict
+    real_name: str
+    team_id: str
+    tz: str
+    tz_label: str
+    tz_offset: int
+    updated: int

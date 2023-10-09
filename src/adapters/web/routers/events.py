@@ -44,6 +44,8 @@ def is_slack_callback_valid(token: str, api_app_id: str):
     return token == SLACK_VERIFICATION_TOKEN and api_app_id == SLACK_APP_ID
 
 
+import json
+
 @router.post("/-/slack/callback/")
 async def slack_event(request: Request) -> Any:
     logger.info("received event from Slack API")
@@ -52,6 +54,10 @@ async def slack_event(request: Request) -> Any:
     # as these events are received from Slack API and we dont have
     # control over the request data model.
     body = await request.json()
+
+    print("**************** body ****************")
+    print(json.dumps(body, indent=2))
+    print("**************** body ****************")
 
     token = body.get("token", None)
     if token is None or token != SLACK_VERIFICATION_TOKEN:
@@ -118,7 +124,7 @@ async def slack_event(request: Request) -> Any:
                 },
             )
         try:
-            slack_callback_body = SlackEventCallBackRequestBody(**body)
+            slack_callback = SlackEventCallBackRequestBody(**body)
         except ValidationError as e:
             logger.info("notify admin: event callback is not valid!")
             logger.warning(e)
@@ -137,11 +143,11 @@ async def slack_event(request: Request) -> Any:
 
         try:
             command = SlackEventCallBackCommand(
-                slack_event_ref=slack_callback_body.event_id,
-                slack_team_ref=slack_callback_body.team_id,
-                event=slack_callback_body.event,
-                event_ts=slack_callback_body.event_time,
-                payload=slack_callback_body.model_dump(),
+                slack_event_ref=slack_callback.event_id,
+                slack_team_ref=slack_callback.team_id,
+                event=slack_callback.event,
+                event_dispatched_ts=slack_callback.event_time,
+                payload=slack_callback.model_dump(),
             )
             slack_event = await SlackEventCallBackService().dispatch(command)
         except Exception as e:
@@ -162,6 +168,7 @@ async def slack_event(request: Request) -> Any:
 
         event_repr = slack_callback_event_repr(slack_event)
         return JSONResponse(status_code=202, content=event_repr.model_dump())
+        # return JSONResponse(status_code=202, content=[])
 
     # callback type that is not supported by us, assuming we receive from
     # Slack API, we ignore it by sending back 200 OK.

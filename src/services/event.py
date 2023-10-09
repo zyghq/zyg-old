@@ -43,7 +43,7 @@ class SlackEventCallBackService:
 
     async def dispatch(self, command: SlackEventCallBackCommand) -> SlackEvent:
         """
-        dispatches and captures a slack event to messagebus for async event handling.
+        dispatches and captures a slack event for async event handling.
 
         We check if the event has already been captured by comparing the
         `slack_event_ref`
@@ -67,8 +67,8 @@ class SlackEventCallBackService:
         tenant = await self.tenant_db.find_by_slack_team_ref(slack_team_ref)
         if not tenant:
             raise SlackTeamReferenceException(
-                f"tenant not found. `slack_team_ref`: {slack_team_ref} "
-                + "is not mapped to a tenant or is invalid."
+                f"tenant not found for `slack_team_ref`: {slack_team_ref} "
+                + "may not be mapped to a tenant or is invalid."
             )
 
         slack_event = SlackEvent.from_payload(
@@ -86,7 +86,7 @@ class SlackEventCallBackService:
             )
             if not captured_event.is_ack:
                 logger.warning(
-                    "slack event not acknowledged yet. dispatching again.",
+                    "slack event is not acknowledged yet. Will dispatch again.",
                 )
                 dispatch_id = await self._dispatch(tenant, captured_event)
                 logger.info(
@@ -100,6 +100,7 @@ class SlackEventCallBackService:
             'slack event not yet captured: "%s" capturing and dispatching now...',
             slack_event,
         )
+        
         captured_event = await self._capture(slack_event)
         dispatch_id = await self._dispatch(tenant, captured_event)
         logger.info(
@@ -107,4 +108,5 @@ class SlackEventCallBackService:
             captured_event,
             dispatch_id,
         )
+        
         return captured_event

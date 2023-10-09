@@ -1,13 +1,15 @@
 from datetime import datetime
-from typing import List
+from typing import Dict, List
 
 from pydantic import BaseModel
 
 from src.domain.models import (
-    InSyncSlackChannelItem,
+    InSyncSlackChannel,
+    InSyncSlackUser,
     Issue,
-    LinkedSlackChannel,
+    SlackChannel,
     SlackEvent,
+    User,
 )
 
 
@@ -22,7 +24,7 @@ class SlackCallBackEventRepr(BaseModel):
     is_ack: bool
 
 
-class InSyncSlackChannelItemRepr(BaseModel):
+class InSyncSlackChannelRepr(BaseModel):
     id: str
     name: str
     created: int
@@ -44,29 +46,52 @@ class InSyncSlackChannelItemRepr(BaseModel):
     created_at: datetime
 
 
+class InSyncSlackUserRepr(BaseModel):
+    id: str
+    name: str
+    updated_at: datetime
+    created_at: datetime
+
+
+class UpsertUserRepr(BaseModel):
+    user_id: str
+    name: str
+    role: str
+
+
+class InSyncSlackUserWithUpsertedUserRepr(InSyncSlackUserRepr):
+    user: UpsertUserRepr | None = None
+
+
+class TriageSlackChannelRepr(BaseModel):
+    slack_channel_ref: str
+    slack_channel_name: str
+
+
 class SlackChannelRepr(BaseModel):
-    channel_ref: str
-    channel_name: str
-
-
-class TriageSlackChannelRepr(SlackChannelRepr):
-    pass
-
-
-class LinkedSlackChannelRepr(BaseModel):
-    linked_slack_channel_id: str
-    slack_channel: SlackChannelRepr
-    triage_slack_channel: TriageSlackChannelRepr
+    channel_id: str
+    slack_channel_ref: str
+    slack_channel_name: str
+    triage_channel: TriageSlackChannelRepr
 
 
 class IssueRepr(BaseModel):
     tenant_id: str
     issue_id: str
     issue_number: int
+    slack_channel_id: str
+    slack_message_ts: str
     body: str
     status: str
     priority: int
     tags: List[str] = []
+
+
+class UserRepr(BaseModel):
+    user_id: str
+    slack_user_ref: str
+    name: str
+    role: str
 
 
 def slack_callback_event_repr(
@@ -78,13 +103,13 @@ def slack_callback_event_repr(
     )
 
 
-def insync_slack_channel_item_repr(
-    item: InSyncSlackChannelItem,
-) -> InSyncSlackChannelItemRepr:
+def insync_slack_channel_repr(
+    item: InSyncSlackChannel,
+) -> InSyncSlackChannelRepr:
     topic = {
         "value": item.topic.get("value", ""),
     }
-    return InSyncSlackChannelItemRepr(
+    return InSyncSlackChannelRepr(
         id=item.id,
         name=item.name,
         created=item.created,
@@ -107,30 +132,68 @@ def insync_slack_channel_item_repr(
     )
 
 
-def linked_slack_channel_repr(item: LinkedSlackChannel):
-    slack_channel = SlackChannelRepr(
-        channel_ref=item.slack_channel_ref,
-        channel_name=item.slack_channel_name,
+def insync_slack_user_repr(item: InSyncSlackUser) -> dict:
+    return InSyncSlackUserRepr(
+        id=item.id,
+        name=item.real_name,
+        updated_at=item.updated_at,
+        created_at=item.created_at,
     )
+
+
+def insync_slack_user_with_upsert(item: Dict[str, User | InSyncSlackUser]) -> dict:
+    insync_user: InSyncSlackUser = item["insync_user"]
+    user: User | None = item["user"]
+    if user:
+        user_repr = UpsertUserRepr(
+            user_id=user.user_id,
+            name=user.name,
+            role=user.role,
+        )
+    else:
+        user_repr = None
+    return InSyncSlackUserWithUpsertedUserRepr(
+        id=insync_user.id,
+        name=insync_user.name,
+        is_bot=insync_user.is_bot,
+        updated_at=insync_user.updated_at,
+        created_at=insync_user.created_at,
+        user=user_repr,
+    )
+
+
+def slack_channel_repr(item: SlackChannel) -> SlackChannelRepr:
     triage_channel = item.triage_channel
     triage_slack_channel = TriageSlackChannelRepr(
-        channel_ref=triage_channel.slack_channel_ref,
-        channel_name=triage_channel.slack_channel_name,
+        slack_channel_ref=triage_channel.slack_channel_ref,
+        slack_channel_name=triage_channel.slack_channel_name,
     )
-    return LinkedSlackChannelRepr(
-        linked_slack_channel_id=item.linked_slack_channel_id,
-        slack_channel=slack_channel,
-        triage_slack_channel=triage_slack_channel,
+    return SlackChannelRepr(
+        channel_id=item.slack_channel_id,
+        slack_channel_ref=item.slack_channel_ref,
+        slack_channel_name=item.slack_channel_name,
+        triage_channel=triage_slack_channel,
     )
 
 
-def issue_repr(item: Issue):
+def issue_repr(item: Issue) -> IssueRepr:
     return IssueRepr(
         tenant_id=item.tenant_id,
         issue_id=item.issue_id,
         issue_number=item.issue_number,
+        slack_channel_id=item.slack_channel_id,
+        slack_message_ts=item.slack_message_ts,
         body=item.body,
         status=item.status,
         priority=item.priority,
         tags=item.tags,
+    )
+
+
+def user_repr(item: User) -> UpsertUserRepr:
+    return UserRepr(
+        user_id=item.user_id,
+        slack_user_ref=item.slack_user_ref,
+        name=item.display_name,
+        role=item.role,
     )
