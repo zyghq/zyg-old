@@ -79,14 +79,6 @@ async def channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
         logger.error(f"error: {e}")
         return None
 
-    # print("*********** DATA REQUIRED FOR SENDING THE NUDGE **************")
-    # print(f"user: {user}")
-    # print("**************")
-    # print(f"tenant: {tenant}")
-    # print("**************")
-    # print(f"slack_event: {slack_event}")
-    # print("*********** DATA REQUIRED FOR SENDING THE NUDGE **************")
-
     slack_api = SlackWebAPIConnector(
         tenant_context=tenant.build_context(),
         token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
@@ -98,8 +90,11 @@ async def channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
         text=nudge_issue_message_text_repr(user.display_name),
         blocks=nudge_issue_message_blocks_repr(user.display_name),
     )
-
-    response = slack_api.nudge_for_issue(command)
+    metadata = {
+        "event_type": "issue_nudge",
+        "event_payload": {"is_ignored": True},
+    }
+    response = slack_api.nudge_for_issue(command, metadata=metadata)
 
     print(f"response: {response}")
 
@@ -162,7 +157,7 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
         inclusive=True,
     )
 
-    slack_message = slack_api.get_single_channel_message(command)
+    slack_message = slack_api.find_single_channel_message(command)
     if slack_message is None:
         logger.warning("no slack message found for the reaction added")
         return None
@@ -187,7 +182,17 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
         text=issue_opened_message_text_repr(event.slack_user_ref),
         blocks=issue_opened_message_blocks_repr(event.slack_user_ref, issue),
     )
-    response = slack_api.reply_to_message(command)
+    metadata = {
+        "event_type": "issue_created",
+        "event_payload": {
+            "is_ignored": True,
+            "issue_id": issue.issue_id,
+            "issue_number": issue.issue_number,
+            "issue_status": issue.status,
+            "issue_priority": issue.priority,
+        },
+    }
+    response = slack_api.reply_to_message(command, metadata=metadata)
     return response
 
 
