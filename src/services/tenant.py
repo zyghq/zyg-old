@@ -11,7 +11,7 @@ from src.adapters.rpc.ext import SlackWebAPIConnector
 from src.application.commands import (
     SlackSyncUserCommand,
     TenantProvisionCommand,
-    TenantSyncChannelCommand,
+    SyncChannelCommand,
 )
 from src.application.commands.slack import GetChannelsCommand, GetUsersCommand
 from src.application.exceptions import SlackTeamReferenceException
@@ -54,7 +54,7 @@ class SlackChannelSyncService:
         self.tenant_db = TenantDBAdapter()
         self.insync_channel_db = InSyncChannelDBAdapter()
 
-    async def sync_now(self, command: TenantSyncChannelCommand):
+    async def sync_now(self, command: SyncChannelCommand):
         """
         sync channels with synchronous approach
         """

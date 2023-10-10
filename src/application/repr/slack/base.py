@@ -1,5 +1,9 @@
 import json
 
+# TODO: non required once we have integrated the datetime attributes from Issue model.
+from datetime import datetime
+
+import pytz
 from jinja2 import Template
 
 from src.domain.models import Issue
@@ -76,10 +80,18 @@ def nudge_issue_message_blocks_repr(name: str):
 
 
 def issue_opened_message_text_repr(slack_user_ref: str):
-    return f"""<@{slack_user_ref}> has opened an issue ticket."""
+    # TODO:  get the timezone info from the Tenant or the User.
+    tz = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(tz)
+    formatted = now.strftime("%d %b %Y at %I:%M %p")
+    return f"""<@{slack_user_ref}> has opened an issue ticket On {formatted}"""
 
 
 def issue_opened_message_blocks_repr(slack_user_ref: str, issue: Issue):
+    # TODO:  get the timezone info from the Tenant or the User.
+    tz = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(tz)
+    formatted = now.strftime("%d %b %Y at %I:%M %p")
     block = BlockBuilder()
     block.section(
         BlockBuilder.text(
@@ -88,7 +100,7 @@ def issue_opened_message_blocks_repr(slack_user_ref: str, issue: Issue):
     )
     block.section(
         BlockBuilder.text(
-            text=f":ticket: <https://example.com|*Issue #{issue.issue_number}*>",
+            text=f":ticket: *Issue #{issue.issue_number}* | _{formatted}_",
         )
     )
     return block.blocks

@@ -9,7 +9,7 @@ from src.application.commands import (
     SearchSlackChannelCommand,
     SearchUserCommand,
     SlackSyncUserCommand,
-    TenantSyncChannelCommand,
+    SyncChannelCommand,
 )
 from src.application.repr.api import (
     insync_slack_channel_repr,
@@ -25,12 +25,12 @@ from src.services.user import UserService
 router = APIRouter()
 
 
-class TenantSyncChannelsRequestBody(BaseModel):
+class SyncChannelsRequestBody(BaseModel):
     tenant_id: str
     types: List[str]
 
 
-class TenantSyncUsersRequestBody(BaseModel):
+class SyncUsersRequestBody(BaseModel):
     tenant_id: str
     upsert_user: bool = False
 
@@ -53,8 +53,8 @@ class SearchUserRequestBody(BaseModel):
 
 
 @router.post("/channels/sync/")
-async def sync_channels(body: TenantSyncChannelsRequestBody):
-    command = TenantSyncChannelCommand(
+async def sync_channels(body: SyncChannelsRequestBody):
+    command = SyncChannelCommand(
         tenant_id=body.tenant_id,
         types=body.types,
     )
@@ -65,7 +65,7 @@ async def sync_channels(body: TenantSyncChannelsRequestBody):
 
 
 @router.post("/users/sync/")
-async def sync_users(body: TenantSyncUsersRequestBody):
+async def sync_users(body: SyncUsersRequestBody):
     command = SlackSyncUserCommand(
         tenant_id=body.tenant_id,
         upsert_user=body.upsert_user,

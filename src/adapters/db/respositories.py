@@ -41,6 +41,10 @@ class AbstractTenantRepository(abc.ABC):
     ) -> TenantDBEntity | None:
         raise NotImplementedError
 
+    @abc.abstractmethod
+    async def get_by_id(self, tenant_id: str) -> TenantDBEntity:
+        raise NotImplementedError
+
 
 class TenantRepository(AbstractTenantRepository, BaseRepository):
     def __init__(self, connection: Connection) -> None:
@@ -159,15 +163,17 @@ class TenantRepository(AbstractTenantRepository, BaseRepository):
 
 class AbstractSlackEventRepository(abc.ABC):
     @abc.abstractmethod
-    async def save(self, slack_event: SlackEventDBEntity):
+    async def save(self, slack_event: SlackEventDBEntity) -> SlackEventDBEntity:
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def find_by_id(self, event_id: str):
+    async def find_by_id(self, event_id: str) -> SlackEventDBEntity | None:
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def find_by_slack_event_ref(self, slack_event_ref: str):
+    async def find_by_slack_event_ref(
+        self, slack_event_ref: str
+    ) -> SlackEventDBEntity | None:
         raise NotImplementedError
 
 
@@ -175,7 +181,9 @@ class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
     def __init__(self, connection: Connection) -> None:
         self.conn = connection
 
-    async def find_by_slack_event_ref(self, slack_event_ref: str):
+    async def find_by_slack_event_ref(
+        self, slack_event_ref: str
+    ) -> SlackEventDBEntity | None:
         query = """
             select event_id, tenant_id, slack_event_ref,
                 inner_event_type, event_dispatched_ts, api_app_id,
@@ -190,7 +198,7 @@ class SlackEventRepository(AbstractSlackEventRepository, BaseRepository):
             return None
         return SlackEventDBEntity(**result)
 
-    async def find_by_id(self, event_id: str):
+    async def find_by_id(self, event_id: str) -> SlackEventDBEntity | None:
         query = """
             select event_id, tenant_id, slack_event_ref,
                 inner_event_type, event_dispatched_ts, api_app_id,
@@ -497,7 +505,23 @@ class AbstractSlackChannelRepository(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def get_by_slack_channel_id(slack_channel_id: str):
+    async def get_by_slack_channel_id(slack_channel_id: str) -> SlackChannelDBEntity:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def find_by_slack_channel_ref(
+        self, slack_channel_ref: str
+    ) -> SlackChannelDBEntity | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_by_slack_channel_ref(slack_channel_ref: str) -> SlackChannelDBEntity:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def find_by_tenant_id_slack_channel_name(
+        self, tenant_id: str, slack_channel_name: str
+    ) -> SlackChannelDBEntity | None:
         raise NotImplementedError
 
 
@@ -658,7 +682,7 @@ class SlackChannelRepository(AbstractSlackChannelRepository, BaseRepository):
 
     async def find_by_tenant_id_slack_channel_name(
         self, tenant_id: str, slack_channel_name: str
-    ) -> SlackChannelDBEntity:
+    ) -> SlackChannelDBEntity | None:
         query = """
             select tenant_id, slack_channel_id, slack_channel_ref,
                 slack_channel_name, triage_slack_channel_ref, triage_slack_channel_name,
@@ -914,6 +938,32 @@ class AbstractUserRepository(abc.ABC):
     async def save(self, user: UserDBEntity) -> UserDBEntity:
         raise NotImplementedError
 
+    @abc.abstractmethod
+    async def upsert_by_tenant_id_slack_user_ref(
+        self, user: UserDBEntity
+    ) -> UserDBEntity:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def find_by_user_id(self, user_id: str) -> UserDBEntity | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def find_by_tenant_id_slack_user_ref(
+        self, tenant_id: str, slack_user_ref: str
+    ) -> UserDBEntity | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_by_id(self, user_id: str) -> UserDBEntity:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_by_tenant_id_slack_user_ref(
+        self, tenant_id: str, slack_user_ref: str
+    ) -> UserDBEntity:
+        raise NotImplementedError
+
 
 class UserRepository(AbstractUserRepository, BaseRepository):
     def __init__(self, connection: Connection) -> None:
@@ -1064,7 +1114,7 @@ class UserRepository(AbstractUserRepository, BaseRepository):
 
     async def get_by_tenant_id_slack_user_ref(
         self, tenant_id: str, slack_user_ref: str
-    ):
+    ) -> UserDBEntity:
         user = await self.find_by_tenant_id_slack_user_ref(tenant_id, slack_user_ref)
         if user is None:
             raise DBNotFoundException(

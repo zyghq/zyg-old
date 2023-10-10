@@ -7,13 +7,13 @@ from .base import (
     SlackEventCallBackCommand,
     SlackSyncUserCommand,
     TenantProvisionCommand,
-    TenantSyncChannelCommand,
+    SyncChannelCommand,
 )
 
 __all__ = [
     "TenantProvisionCommand",
     "SlackEventCallBackCommand",
-    "TenantSyncChannelCommand",
+    "SyncChannelCommand",
     "LinkSlackChannelCommand",
     "SearchSlackChannelCommand",
     "CreateIssueCommand",
