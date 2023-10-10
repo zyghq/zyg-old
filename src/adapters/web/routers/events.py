@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, List
 
@@ -44,8 +45,6 @@ def is_slack_callback_valid(token: str, api_app_id: str):
     return token == SLACK_VERIFICATION_TOKEN and api_app_id == SLACK_APP_ID
 
 
-import json
-
 @router.post("/-/slack/callback/")
 async def slack_event(request: Request) -> Any:
     logger.info("received event from Slack API")
@@ -53,7 +52,7 @@ async def slack_event(request: Request) -> Any:
     # because this gives us more flexibility to handle the request body
     # as these events are received from Slack API and we dont have
     # control over the request data model.
-    body = await request.json()
+    body: dict = await request.json()
 
     print("**************** body ****************")
     print(json.dumps(body, indent=2))
@@ -123,8 +122,36 @@ async def slack_event(request: Request) -> Any:
                     ]
                 },
             )
+
+        service = SlackEventCallBackService()
+
         try:
-            slack_callback = SlackEventCallBackRequestBody(**body)
+            if service.is_ignored(body):
+                logger.info("Slack event set to be ignored will terminate here.")
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "detail": "ignored",
+                    },
+                )
+        except Exception as e:
+            logger.error("notify admin: error while checking if event is ignored.")
+            logger.error(e)
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "errors": [
+                        {
+                            "status": 503,
+                            "title": "Service Unavailable",
+                            "detail": "error while checking if event is ignored.",
+                        }
+                    ]
+                },
+            )
+
+        try:
+            slack_event_cb = SlackEventCallBackRequestBody(**body)
         except ValidationError as e:
             logger.info("notify admin: event callback is not valid!")
             logger.warning(e)
@@ -143,13 +170,13 @@ async def slack_event(request: Request) -> Any:
 
         try:
             command = SlackEventCallBackCommand(
-                slack_event_ref=slack_callback.event_id,
-                slack_team_ref=slack_callback.team_id,
-                event=slack_callback.event,
-                event_dispatched_ts=slack_callback.event_time,
-                payload=slack_callback.model_dump(),
+                slack_event_ref=slack_event_cb.event_id,
+                slack_team_ref=slack_event_cb.team_id,
+                event=slack_event_cb.event,
+                event_dispatched_ts=slack_event_cb.event_time,
+                payload=slack_event_cb.model_dump(),
             )
-            slack_event = await SlackEventCallBackService().dispatch(command)
+            slack_event = await service.dispatch(command)
         except Exception as e:
             logger.error("notify admin: error while capturing or dispatching event.")
             logger.error(e)
@@ -167,8 +194,7 @@ async def slack_event(request: Request) -> Any:
             )
 
         event_repr = slack_callback_event_repr(slack_event)
-        return JSONResponse(status_code=202, content=event_repr.model_dump())
-        # return JSONResponse(status_code=202, content=[])
+        return JSONResponse(status_code=200, content=event_repr.model_dump())
 
     # callback type that is not supported by us, assuming we receive from
     # Slack API, we ignore it by sending back 200 OK.

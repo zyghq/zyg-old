@@ -16,6 +16,23 @@ class SlackEventCallBackService:
         self.tenant_db = TenantDBAdapter()
         self.slack_event_db = SlackEventDBAdapter()
 
+    @staticmethod
+    def is_ignored(event: dict) -> bool:
+        inner_event: dict | None = event.get("event", None)
+        if not inner_event:
+            return False
+
+        metadata: dict | None = inner_event.get("metadata", None)
+        if not metadata:
+            return False
+
+        event_payload: dict | None = metadata.get("event_payload", None)
+        if not event_payload:
+            return False
+        is_ignored: bool | None = event_payload.get("is_ignored", None)
+
+        return is_ignored
+
     async def _capture(self, slack_event: SlackEvent) -> SlackEvent:
         slack_event = await self.slack_event_db.save(slack_event)
         logger.info('captured slack event: "%s"', slack_event)
@@ -100,7 +117,7 @@ class SlackEventCallBackService:
             'slack event not yet captured: "%s" capturing and dispatching now...',
             slack_event,
         )
-        
+
         captured_event = await self._capture(slack_event)
         dispatch_id = await self._dispatch(tenant, captured_event)
         logger.info(
@@ -108,5 +125,5 @@ class SlackEventCallBackService:
             captured_event,
             dispatch_id,
         )
-        
+
         return captured_event

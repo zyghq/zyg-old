@@ -112,6 +112,7 @@ class SlackWebAPI:
         text: str,
         blocks: List[Dict] | None = None,
         thread_ts: str | None = None,
+        metadata: dict | None = None,
     ):
         """
         refer the Slack API docs for more information at:
@@ -124,12 +125,7 @@ class SlackWebAPI:
                 text=text,
                 blocks=blocks,
                 thread_ts=thread_ts,
-                metadata={
-                    "event_type": "test_metadata_event",
-                    "event_payload": {
-                        "random_data": "adding random data for testing..."
-                    },
-                },
+                metadata=metadata,
             )
         except SlackClientError as err:
             logger.error(f"slack client error: {err}")
@@ -170,11 +166,11 @@ class SlackWebAPI:
             )
         return response
 
-    def chat_post_ephemeral(self, channel, user, text, blocks):
+    def chat_post_ephemeral(self, channel, user, text, blocks, metadata=None):
         logger.info(f"invoked `chat_post_ephemeral` for args: {channel, user}")
         try:
             response = self._client.chat_postEphemeral(
-                channel=channel, user=user, text=text, blocks=blocks
+                channel=channel, user=user, text=text, blocks=blocks, metadata=metadata
             )
         except SlackClientError as err:
             logger.error(f"slack client error: {err}")
@@ -253,12 +249,19 @@ class SlackWebAPI:
 
 
 # TODO:
-# @sanchitrk - API wrapper is pretty basic at the moment, we need to
-# handle more use cases like pagination, rate limiting, etc.
+# @sanchitrk - handle more use cases like pagination, rate limiting, etc.
+# @sanchitrk - handle response from slack API check if it was sent and
+# return a appropriate message
 #
 # XXX: adding just random doc link for pagination inspiration
 # https://github.com/slackapi/python-slack-sdk/blob/ff073cf74994adc6022e8296e702012ef5b662b4/slack/web/slack_response.py#L24-L41
 class SlackWebAPIConnector(SlackWebAPI):
+    """
+    Docs for attaching metadata to messages:
+    - https://api.slack.com/reference/metadata
+    - https://api.slack.com/events/message
+    """
+
     def __init__(self, tenant_context: TenantContext, token: str) -> None:
         self.tenant_context = tenant_context  # TODO: raad token later from here.
         super().__init__(token=token)
@@ -297,15 +300,16 @@ class SlackWebAPIConnector(SlackWebAPI):
         return users
 
     # TODO: handle response from slack
-    def nudge_for_issue(self, command: NudgePostMessageCommand):
+    def nudge_for_issue(self, command: NudgePostMessageCommand, metadata=None):
         return self.chat_post_ephemeral(
             channel=command.channel,
             user=command.slack_user_ref,
             text=command.text,
             blocks=command.blocks,
+            metadata=metadata,
         )
 
-    def get_single_channel_message(
+    def find_single_channel_message(
         self, command: GetSingleChannelMessage
     ) -> SlackChannelMessageAPIValue | None:
         result = self.conversation_history(
@@ -326,10 +330,11 @@ class SlackWebAPIConnector(SlackWebAPI):
         return value
 
     # TODO: handle the response from slack
-    def reply_to_message(self, command: ReplyPostMessageCommand) -> None:
+    def reply_to_message(self, command: ReplyPostMessageCommand, metadata=None) -> None:
         return self.chat_post_message(
             channel=command.channel,
             text=command.text,
             blocks=command.blocks,
             thread_ts=command.thread_ts,
+            metadata=metadata,
         )
