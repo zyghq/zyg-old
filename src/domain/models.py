@@ -347,6 +347,7 @@ class SlackEvent(AbstractEntity):
     """
 
     subscribed_events = ("message.channels", "reaction_added")
+    muted_metadata_event_types = ("issue_opened",)
 
     def __init__(
         self,
@@ -519,6 +520,15 @@ class SlackEvent(AbstractEntity):
             "payload": self.payload,
             "is_ack": self.is_ack,
         }
+
+    @classmethod
+    def is_metadata_event_muted(cls, metadata_event_type: str) -> bool:
+        """
+        returns True if the event is muted.
+        """
+        if metadata_event_type in cls.muted_metadata_event_types:
+            return True
+        return False
 
     @property
     def is_channel_message(self) -> bool:

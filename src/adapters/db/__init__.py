@@ -7,7 +7,6 @@ engine: Engine = create_async_engine(
     POSTGRES_URI,
     future=True,
     echo=True,
-    max_overflow=1,  # TODO(@sanchitrk) remove after testing.
 )
 
 

@@ -124,10 +124,9 @@ async def slack_event(request: Request) -> Any:
             )
 
         service = SlackEventCallBackService()
-
         try:
-            if service.is_ignored(body):
-                logger.info("Slack event set to be ignored will terminate here.")
+            if service.is_muted(body):
+                logger.info("Slack event set to be muted will terminate here.")
                 return JSONResponse(
                     status_code=200,
                     content={
@@ -135,7 +134,9 @@ async def slack_event(request: Request) -> Any:
                     },
                 )
         except Exception as e:
-            logger.error("notify admin: error while checking if event is ignored.")
+            logger.error(
+                "notify admin: error while checking if event is muted in metadata"
+            )
             logger.error(e)
             return JSONResponse(
                 status_code=503,
@@ -144,7 +145,7 @@ async def slack_event(request: Request) -> Any:
                         {
                             "status": 503,
                             "title": "Service Unavailable",
-                            "detail": "error while checking if event is ignored.",
+                            "detail": "error while checking if event is muted",
                         }
                     ]
                 },

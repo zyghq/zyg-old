@@ -17,7 +17,7 @@ class SlackEventCallBackService:
         self.slack_event_db = SlackEventDBAdapter()
 
     @staticmethod
-    def is_ignored(event: dict) -> bool:
+    def is_muted(event: dict) -> bool:
         inner_event: dict | None = event.get("event", None)
         if not inner_event:
             return False
@@ -26,12 +26,10 @@ class SlackEventCallBackService:
         if not metadata:
             return False
 
-        event_payload: dict | None = metadata.get("event_payload", None)
-        if not event_payload:
+        metadata_event_type = metadata.get("event_type", None)
+        if not metadata_event_type:
             return False
-        is_ignored: bool | None = event_payload.get("is_ignored", None)
-
-        return is_ignored
+        return SlackEvent.is_metadata_event_muted(metadata_event_type)
 
     async def _capture(self, slack_event: SlackEvent) -> SlackEvent:
         slack_event = await self.slack_event_db.save(slack_event)

@@ -183,11 +183,12 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
         blocks=issue_opened_message_blocks_repr(event.slack_user_ref, issue),
     )
     metadata = {
-        "event_type": "issue_created",
+        "event_type": "issue_opened",
         "event_payload": {
-            "is_ignored": True,
             "issue_id": issue.issue_id,
             "issue_number": issue.issue_number,
+            "slack_channel_id": issue.slack_channel_id,
+            "slack_message_ts": issue.slack_message_ts,
             "issue_status": issue.status,
             "issue_priority": issue.priority,
         },

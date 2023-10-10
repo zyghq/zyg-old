@@ -25,6 +25,9 @@ class BlockBuilder:
     def divider(self):
         self._blocks.append({"type": "divider"})
 
+    def actions(self, elements: list):
+        self._blocks.append({"type": "actions", "elements": elements})
+
     @staticmethod
     def text(text: str, type: str = "mrkdwn", emoji: bool = True):
         return {"type": type, "text": text}
@@ -103,4 +106,13 @@ def issue_opened_message_blocks_repr(slack_user_ref: str, issue: Issue):
             text=f":ticket: *Issue #{issue.issue_number}* | _{formatted}_",
         )
     )
+    elements = [
+        {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "Close Issue", "emoji": True},
+            "value": "click_close_issue",
+            "action_id": "action_close_issue",
+        }
+    ]
+    block.actions(elements=elements)
     return block.blocks
