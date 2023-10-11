@@ -32,7 +32,7 @@ class AbstractTenantRepository(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def save(self, tenant: TenantDBEntity) -> TenantDBEntity:
+    async def get_by_id(self, tenant_id: str) -> TenantDBEntity:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -42,7 +42,11 @@ class AbstractTenantRepository(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def get_by_id(self, tenant_id: str) -> TenantDBEntity:
+    async def get_by_slack_team_ref(self, slack_team_ref: str) -> TenantDBEntity:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def save(self, tenant: TenantDBEntity) -> TenantDBEntity:
         raise NotImplementedError
 
 
@@ -64,6 +68,14 @@ class TenantRepository(AbstractTenantRepository, BaseRepository):
         if result is None:
             return None
         return TenantDBEntity(**result)
+
+    async def get_by_slack_team_ref(self, slack_team_ref: str) -> TenantDBEntity:
+        tenant = await self.find_by_slack_team_ref(slack_team_ref)
+        if tenant is None:
+            raise DBNotFoundException(
+                f"tenant with slack_team_ref `{slack_team_ref}` not found"
+            )
+        return tenant
 
     async def find_by_id(self, tenant_id: str) -> TenantDBEntity | None:
         query = """

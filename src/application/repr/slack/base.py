@@ -54,14 +54,14 @@ def issue_message_text_repr(issue: Issue):
     return f"{issue.body[:512]}..."
 
 
-def nudge_issue_message_text_repr(name: str):
+def nudge_issue_text_repr(name: str):
     return f"""Hi 👋 {name},
     Do you want to open a ticket with the support team?
     In the future, you can react to your support query with a :ticket: emoji
     to immediately open a issue ticket."""
 
 
-def nudge_issue_message_blocks_repr(name: str):
+def nudge_issue_blocks_repr(name: str):
     block = BlockBuilder()
     block.section(
         BlockBuilder.text(
@@ -82,7 +82,7 @@ def nudge_issue_message_blocks_repr(name: str):
     return block.blocks
 
 
-def issue_opened_message_text_repr(slack_user_ref: str):
+def issue_opened_reply_text_repr(slack_user_ref: str):
     # TODO:  get the timezone info from the Tenant or the User.
     tz = pytz.timezone("Asia/Kolkata")
     now = datetime.now(tz)
@@ -90,7 +90,7 @@ def issue_opened_message_text_repr(slack_user_ref: str):
     return f"""<@{slack_user_ref}> has opened an issue ticket On {formatted}"""
 
 
-def issue_opened_message_blocks_repr(slack_user_ref: str, issue: Issue):
+def issue_opened_reply_blocks_repr(slack_user_ref: str, issue_number: int):
     # TODO:  get the timezone info from the Tenant or the User.
     tz = pytz.timezone("Asia/Kolkata")
     now = datetime.now(tz)
@@ -103,7 +103,7 @@ def issue_opened_message_blocks_repr(slack_user_ref: str, issue: Issue):
     )
     block.section(
         BlockBuilder.text(
-            text=f":ticket: *Issue #{issue.issue_number}* | _{formatted}_",
+            text=f":ticket: *Issue #{issue_number}* | _{formatted}_",
         )
     )
     elements = [
@@ -112,6 +112,42 @@ def issue_opened_message_blocks_repr(slack_user_ref: str, issue: Issue):
             "text": {"type": "plain_text", "text": "Close Issue", "emoji": True},
             "value": "click_close_issue",
             "action_id": "action_close_issue",
+        }
+    ]
+    block.actions(elements=elements)
+    return block.blocks
+
+
+def issue_closed_reply_text_repr(slack_user_ref: str):
+    # TODO:  get the timezone info from the Tenant or the User.
+    tz = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(tz)
+    formatted = now.strftime("%d %b %Y at %I:%M %p")
+    return f"""<@{slack_user_ref}> has closed the issue On {formatted}"""
+
+
+def issue_closed_reply_blocks_repr(slack_user_ref: str, issue_number: int):
+    # TODO:  get the timezone info from the Tenant or the User.
+    tz = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(tz)
+    formatted = now.strftime("%d %b %Y at %I:%M %p")
+    block = BlockBuilder()
+    block.section(
+        BlockBuilder.text(
+            text=f"<@{slack_user_ref}> has closed the issue.",
+        )
+    )
+    block.section(
+        BlockBuilder.text(
+            text=f":ticket: *Issue #{issue_number}* | _{formatted}_",
+        )
+    )
+    elements = [
+        {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "Reopen Issue", "emoji": True},
+            "value": "click_reopen_issue",
+            "action_id": "action_reopen_issue",
         }
     ]
     block.actions(elements=elements)

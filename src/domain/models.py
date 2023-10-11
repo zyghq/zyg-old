@@ -2,7 +2,7 @@ import abc
 import re
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 
 from attrs import define, field
 
@@ -347,7 +347,10 @@ class SlackEvent(AbstractEntity):
     """
 
     subscribed_events = ("message.channels", "reaction_added")
-    muted_metadata_event_types = ("issue_opened",)
+    muted_metadata_event_types = (
+        "issue_opened",
+        "issue_closed",  # TODO: temp disabled.
+    )
 
     def __init__(
         self,
@@ -912,13 +915,6 @@ class Issue(AbstractEntity):
         r = " ".join([w.capitalize() for w in r])
         return r
 
-    # @property
-    # def status_display_name(self) -> str:
-    #     r = self._status.name
-    #     r = r.lower().split("_")
-    #     r = " ".join([w.capitalize() for w in r])
-    #     return r
-
     @property
     def status_display_name(self) -> str:
         return self._status.value
@@ -947,3 +943,55 @@ class SlackChannelMessageAPIValue(AbstractValueObject):
             blocks=data.get("blocks"),
             reactions=data.get("reactions"),
         )
+
+
+# TODO: improve Interaction data model, perhaps add metadata attribute that we add.
+class Interaction(AbstractValueObject):
+    def __init__(
+        self, team: dict, channel: dict, user: dict, message: dict, actions: List[Dict]
+    ) -> None:
+        self.team = team
+        self.channel = channel
+        self.user = user
+        self.message = message
+        self.actions = actions
+
+    @property
+    def slack_team_ref(self) -> str:
+        team_id: str = self.team.get("id", None)
+        if team_id is None:
+            raise ValueError("team `id` is required")
+        return team_id.lower()
+
+    @property
+    def slack_channel_ref(self) -> str:
+        channel_id: str = self.channel.get("id", None)
+        if channel_id is None:
+            raise ValueError("channel `id` is required")
+        return channel_id.lower()
+
+    @property
+    def slack_message_ts(self) -> str:
+        message_ts: str = self.message.get("ts", None)
+        if message_ts is None:
+            raise ValueError("message `ts` is required")
+        return message_ts
+
+    @property
+    def message_metadata(self) -> dict | None:
+        return self.message.get("metadata", None)
+
+    @property
+    def slack_user_ref(self) -> str:
+        user_id: str = self.user.get("id", None)
+        if user_id is None:
+            raise ValueError("user `id` is required")
+        return user_id.lower()
+
+    @property
+    def slack_user_ref_denormalized(self) -> str:
+        user_id = self.user.get("id", None)
+        if user_id is None:
+            raise ValueError("user `id` is required")
+        return user_id
+

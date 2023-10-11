@@ -124,6 +124,14 @@ class TenantDBAdapter:
                 result = self._map_to_domain(tenant_entity)
         return result
 
+    async def get_by_slack_team_ref(self, slack_team_ref: str) -> Tenant:
+        async with self.engine.begin() as conn:
+            tenant_entity = await TenantRepository(conn).get_by_slack_team_ref(
+                slack_team_ref
+            )
+            result = self._map_to_domain(tenant_entity)
+        return result
+
     async def get_by_id(self, tenant_id: str) -> Tenant:
         async with self.engine.begin() as conn:
             tenant_entity = await TenantRepository(conn).get_by_id(tenant_id)

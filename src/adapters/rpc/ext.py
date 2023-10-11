@@ -8,10 +8,11 @@ from slack_sdk.errors import SlackClientError
 from src.application.commands.slack import (
     ChatPostMessageCommand,
     GetChannelsCommand,
-    GetSingleChannelMessage,
+    GetSingleChannelMessageCommand,
     GetUsersCommand,
     NudgePostMessageCommand,
     ReplyPostMessageCommand,
+    UpdateMessageCommand,
 )
 from src.domain.models import (
     InSyncSlackChannel,
@@ -19,6 +20,8 @@ from src.domain.models import (
     SlackChannelMessageAPIValue,
     TenantContext,
 )
+
+from src.config import SLACK_BOT_OAUTH_TOKEN
 
 from .exceptions import SlackAPIException, SlackAPIResponseException
 
@@ -166,7 +169,14 @@ class SlackWebAPI:
             )
         return response
 
-    def chat_post_ephemeral(self, channel, user, text, blocks, metadata=None):
+    def chat_post_ephemeral(
+        self,
+        channel: str,
+        user: str,
+        text: str,
+        blocks: List[Dict] | None = None,
+        metadata=None,
+    ):
         logger.info(f"invoked `chat_post_ephemeral` for args: {channel, user}")
         try:
             response = self._client.chat_postEphemeral(
@@ -247,6 +257,38 @@ class SlackWebAPI:
             )
         return response
 
+    def chat_update(
+        self,
+        channel: str,
+        ts: str,
+        text: str,
+        blocks: List[Dict],
+        metadata: dict | None = None,
+    ):
+        """
+        refer the Slack API docs for more information at:
+        https://api.slack.com/methods/chat.update
+        """
+        logger.info("invoked `chat_update` " + f"for args: {channel, ts}")
+        try:
+            response = self._client.chat_update(
+                channel=channel, text=text, blocks=blocks, ts=ts, metadata=metadata
+            )
+        except SlackClientError as err:
+            logger.error(f"slack client error: {err}")
+            raise SlackAPIException("slack client error") from err
+
+        if not response.get("ok", False):
+            error = response.get("error", "unknown")
+            logger.error(
+                f"slack response error with slack error code: {error} ",
+                f"check Slack docs for more information for error: {error}",
+            )
+            raise SlackAPIResponseException(
+                f"slack response error with slack error code: {error}"
+            )
+        return response
+
 
 # TODO:
 # @sanchitrk - handle more use cases like pagination, rate limiting, etc.
@@ -262,7 +304,9 @@ class SlackWebAPIConnector(SlackWebAPI):
     - https://api.slack.com/events/message
     """
 
-    def __init__(self, tenant_context: TenantContext, token: str) -> None:
+    def __init__(
+        self, tenant_context: TenantContext, token: str = SLACK_BOT_OAUTH_TOKEN
+    ) -> None:
         self.tenant_context = tenant_context  # TODO: raad token later from here.
         super().__init__(token=token)
 
@@ -279,12 +323,6 @@ class SlackWebAPIConnector(SlackWebAPI):
             items.append(insync_channel)
         return items
 
-    # TODO: handle response from slack
-    def post_issue_message(self, command: ChatPostMessageCommand):
-        return self.chat_post_message(
-            channel=command.channel, text=command.text, blocks=command.blocks
-        )
-
     def get_users(self, command: GetUsersCommand) -> List[InSyncSlackUser]:
         result = self.users_list(limit=command.limit)
         members = result.get("members", [])
@@ -300,6 +338,12 @@ class SlackWebAPIConnector(SlackWebAPI):
         return users
 
     # TODO: handle response from slack
+    def post_issue_message(self, command: ChatPostMessageCommand):
+        return self.chat_post_message(
+            channel=command.channel, text=command.text, blocks=command.blocks
+        )
+
+    # TODO: handle response from slack
     def nudge_for_issue(self, command: NudgePostMessageCommand, metadata=None):
         return self.chat_post_ephemeral(
             channel=command.channel,
@@ -310,7 +354,7 @@ class SlackWebAPIConnector(SlackWebAPI):
         )
 
     def find_single_channel_message(
-        self, command: GetSingleChannelMessage
+        self, command: GetSingleChannelMessageCommand
     ) -> SlackChannelMessageAPIValue | None:
         result = self.conversation_history(
             channel=command.channel,
@@ -336,5 +380,18 @@ class SlackWebAPIConnector(SlackWebAPI):
             text=command.text,
             blocks=command.blocks,
             thread_ts=command.thread_ts,
+            metadata=metadata,
+        )
+
+    # TODO: handle the response from slack
+    def update_message(self, command: UpdateMessageCommand, metadata=None):
+        print("command....... ")
+        print(command)
+        print("....... command")
+        return self.chat_update(
+            channel=command.channel,
+            ts=command.ts,
+            text=command.text,
+            blocks=command.blocks,
             metadata=metadata,
         )

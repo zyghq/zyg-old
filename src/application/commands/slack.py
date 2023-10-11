@@ -25,8 +25,15 @@ class GetChannelsCommand(BaseModel):
     types: str = "public_channel"
 
 
-class GetSingleChannelMessage(BaseModel):
+class GetSingleChannelMessageCommand(BaseModel):
     channel: constr(min_length=3, to_upper=True)
     limit: int = 1
     oldest: str
     inclusive: bool | None = True
+
+
+class UpdateMessageCommand(BaseModel):
+    channel: constr(min_length=3, to_upper=True)
+    ts: str
+    text: str
+    blocks: List[Dict[str, Any]] | None = None

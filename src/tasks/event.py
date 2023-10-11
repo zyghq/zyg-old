@@ -12,17 +12,17 @@ from src.application.commands.api import (
 )
 from src.application.commands.slack import (
     ChatPostMessageCommand,
-    GetSingleChannelMessage,
+    GetSingleChannelMessageCommand,
     NudgePostMessageCommand,
     ReplyPostMessageCommand,
 )
 from src.application.repr.slack import (
     issue_message_blocks_repr,
     issue_message_text_repr,
-    issue_opened_message_blocks_repr,
-    issue_opened_message_text_repr,
-    nudge_issue_message_blocks_repr,
-    nudge_issue_message_text_repr,
+    issue_opened_reply_blocks_repr,
+    issue_opened_reply_text_repr,
+    nudge_issue_blocks_repr,
+    nudge_issue_text_repr,
 )
 from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import (
@@ -87,8 +87,8 @@ async def channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
     command = NudgePostMessageCommand(
         channel=event.slack_channel_ref,
         slack_user_ref=user.slack_user_ref,
-        text=nudge_issue_message_text_repr(user.display_name),
-        blocks=nudge_issue_message_blocks_repr(user.display_name),
+        text=nudge_issue_text_repr(user.display_name),
+        blocks=nudge_issue_blocks_repr(user.display_name),
     )
     metadata = {
         "event_type": "issue_nudge",
@@ -150,7 +150,7 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
 
     logger.info("issue not yet created for the slack message...")
     logger.info("getting slack message for added reaction...")
-    command = GetSingleChannelMessage(
+    command = GetSingleChannelMessageCommand(
         channel=event.slack_channel_ref,
         limit=1,
         oldest=event.message_ts,
@@ -179,8 +179,10 @@ async def reaction_added_handler(tenant: Tenant, slack_event: SlackEvent):
     command = ReplyPostMessageCommand(
         channel=event.slack_channel_ref,
         thread_ts=slack_message.ts,
-        text=issue_opened_message_text_repr(event.slack_user_ref),
-        blocks=issue_opened_message_blocks_repr(event.slack_user_ref, issue),
+        text=issue_opened_reply_text_repr(event.slack_user_ref),
+        blocks=issue_opened_reply_blocks_repr(
+            event.slack_user_ref, issue_number=issue.issue_number
+        ),
     )
     metadata = {
         "event_type": "issue_opened",
