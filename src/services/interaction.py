@@ -1,7 +1,7 @@
 from typing import Callable, Dict, List
 
 from src.adapters.db.adapters import IssueDBAdapter, TenantDBAdapter
-from src.adapters.rpc.ext import SlackWebAPIConnector
+from src.adapters.rpc.ext.slack import SlackWebAPIConnector
 from src.application.commands.slack import UpdateMessageCommand
 from src.application.repr.slack import (
     issue_closed_reply_blocks_repr,

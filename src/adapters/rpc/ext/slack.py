@@ -1,0 +1,232 @@
+import logging
+from typing import List
+
+from pydantic import BaseModel, ConfigDict
+
+from src.application.commands.slack import (
+    ChatPostMessageCommand,
+    GetChannelsCommand,
+    GetSingleChannelMessageCommand,
+    GetUsersCommand,
+    NudgePostMessageCommand,
+    ReplyPostMessageCommand,
+    UpdateMessageCommand,
+)
+from src.config import SLACK_BOT_OAUTH_TOKEN
+from src.domain.models import (
+    InSyncSlackChannel,
+    InSyncSlackUser,
+    SlackChannelMessageAPIValue,
+    TenantContext,
+)
+
+from .base import SlackWebAPI
+
+logger = logging.getLogger(__name__)
+
+
+class SlackChannelItemResponse(BaseModel):
+    """
+    Mapped as per the response from Slack APIs for `conversations.list`
+
+    subject to change as per the Slack API response
+    """
+
+    model_config: ConfigDict = ConfigDict(str_to_lower=True)
+
+    context_team_id: str
+    created: int
+    creator: str
+    id: str
+    is_archived: bool
+    is_channel: bool
+    is_ext_shared: bool
+    is_general: bool
+    is_group: bool
+    is_im: bool
+    is_member: bool
+    is_mpim: bool
+    is_org_shared: bool
+    is_pending_ext_shared: bool
+    is_private: bool
+    is_shared: bool
+    name: str
+    name_normalized: str
+    num_members: int
+    parent_conversation: str | None = None
+    pending_connected_team_ids: List[str] = []
+    pending_shared: List[str] = []
+    previous_names: List[str] = []
+    purpose: dict | None = None
+    shared_team_ids: List[str] = []
+    topic: dict | None = None
+    unlinked: int | None = None
+    updated: int
+
+
+class SlackUserItemResponse(BaseModel):
+    model_config = ConfigDict(str_to_lower=True)
+
+    id: str
+    team_id: str
+    name: str
+    deleted: bool
+    color: str
+    real_name: str
+    tz: str
+    tz_label: str
+    tz_offset: int
+    profile: dict
+    is_admin: bool
+    is_owner: bool
+    is_primary_owner: bool
+    is_restricted: bool
+    is_ultra_restricted: bool
+    is_bot: bool
+    is_app_user: bool
+    updated: int
+    is_email_confirmed: bool
+    who_can_share_contact_card: str
+
+
+class SlackChannelMessageItemResponse(BaseModel):
+    model_config: ConfigDict = ConfigDict(str_to_lower=True)
+
+    client_msg_id: str
+    type: str
+    text: str
+    user: str
+    ts: str
+    blocks: List[dict] | None = None
+    team: str
+    reactions: List[dict] | None = None
+
+
+# TODO:
+# @sanchitrk - handle more use cases like pagination, rate limiting, etc.
+# @sanchitrk - handle response from slack API check if it was sent and
+# return a appropriate message
+#
+# XXX: adding just random doc link for pagination inspiration
+# https://github.com/slackapi/python-slack-sdk/blob/ff073cf74994adc6022e8296e702012ef5b662b4/slack/web/slack_response.py#L24-L41
+class SlackWebAPIConnector(SlackWebAPI):
+    """
+    Docs for attaching metadata to messages:
+    - https://api.slack.com/reference/metadata
+    - https://api.slack.com/events/message
+    """
+
+    def __init__(
+        self, tenant_context: TenantContext, token: str = SLACK_BOT_OAUTH_TOKEN
+    ) -> None:
+        self.tenant_context = tenant_context  # TODO: raad token later from here.
+        super().__init__(token=token)
+
+    def get_channels(self, command: GetChannelsCommand) -> List[InSyncSlackChannel]:
+        result = self.conversation_list(types=command.types)
+        channels = result.get("channels", [])
+        items = []
+        for channel in channels:
+            item = SlackChannelItemResponse(**channel)
+            item_dict = item.model_dump()
+            insync_channel = InSyncSlackChannel.from_dict(
+                self.tenant_context.tenant_id, data=item_dict
+            )
+            items.append(insync_channel)
+        return items
+
+    def get_users(self, command: GetUsersCommand) -> List[InSyncSlackUser]:
+        result = self.users_list(limit=command.limit)
+        members = result.get("members", [])
+        members = list(filter(lambda d: d["deleted"] is False, members))
+        users = []
+        for member in members:
+            item = SlackUserItemResponse(**member)
+            item_dict = item.model_dump()
+            insync_user = InSyncSlackUser.from_dict(
+                self.tenant_context.tenant_id, data=item_dict
+            )
+            users.append(insync_user)
+        return users
+
+    # TODO: handle response from slack
+    def post_issue_message(self, command: ChatPostMessageCommand):
+        return self.chat_post_message(
+            channel=command.channel, text=command.text, blocks=command.blocks
+        )
+
+    # TODO: handle response from slack
+    def nudge_for_issue(self, command: NudgePostMessageCommand, metadata=None):
+        return self.chat_post_ephemeral(
+            channel=command.channel,
+            user=command.slack_user_ref,
+            text=command.text,
+            blocks=command.blocks,
+            metadata=metadata,
+        )
+
+    def find_single_channel_message(
+        self, command: GetSingleChannelMessageCommand
+    ) -> SlackChannelMessageAPIValue | None:
+        result = self.conversation_history(
+            channel=command.channel,
+            inclusive=command.inclusive,
+            limit=command.limit,
+            oldest=command.oldest,
+        )
+        messages = result.get("messages", [])
+        if len(messages) == 0:
+            return None
+        message = messages[0]
+        item = SlackChannelMessageItemResponse(**message)
+        item_dict = item.model_dump()
+        value = SlackChannelMessageAPIValue.from_dict(
+            tenant_id=self.tenant_context.tenant_id, data=item_dict
+        )
+        return value
+
+    # TODO: handle the response from slack
+    def reply_to_message(self, command: ReplyPostMessageCommand, metadata=None) -> None:
+        return self.chat_post_message(
+            channel=command.channel,
+            text=command.text,
+            blocks=command.blocks,
+            thread_ts=command.thread_ts,
+            metadata=metadata,
+        )
+
+    # TODO: handle the response from slack
+    def update_message(self, command: UpdateMessageCommand, metadata=None):
+        print("command....... ")
+        print(command)
+        print("....... command")
+        return self.chat_update(
+            channel=command.channel,
+            ts=command.ts,
+            text=command.text,
+            blocks=command.blocks,
+            metadata=metadata,
+        )
+
+
+class SlackWebAPIConnectorNew:
+    def __init__(self, tenant_context: TenantContext) -> None:
+        self.tenant_context = tenant_context
+        self.slack_api = SlackWebAPI(SLACK_BOT_OAUTH_TOKEN)
+
+    @property
+    def tenant_id(self):
+        return self.tenant_context.tenant_id
+
+    def get_channels(self, command: GetChannelsCommand) -> List[InSyncSlackChannel]:
+        result = self.slack_api.conversation_list(types=command.types)
+        channels = result.get("channels", [])
+        items = []
+        for channel in channels:
+            item = SlackChannelItemResponse(**channel)
+            item_dict = item.model_dump()
+            insync_channel = InSyncSlackChannel.from_dict(
+                self.tenant_id, data=item_dict
+            )
+            items.append(insync_channel)
+        return items

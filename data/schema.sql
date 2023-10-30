@@ -108,19 +108,18 @@ create table slack_channel(
   constraint slack_channel_tenant_id_slack_channel_ref_key unique (tenant_id, slack_channel_ref)
 );
 
--- represents the linked Slack triage channel table
+-- represents the linked triage Slack channel table
 -- with reference to a tenant.
-create table slack_triage_channel(
+create table triage_slack_channel(
   tenant_id varchar(255) not null, -- reference to tenant.
-  alias varchar(255) null,
   slack_channel_id varchar(255) not null,
   slack_channel_ref varchar(255) not null, -- reference to Slack channel(id).
   slack_channel_name varchar(255) null, -- reference to Slack channel(name).
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,
-  constraint slack_triage_channel_id_pkey primary key (slack_channel_id),
-  constraint slack_triage_channel_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
-  constraint slack_triage_channel_tenant_id_slack_channel_ref_key unique (tenant_id, slack_channel_ref)
+  constraint triage_slack_channel_id_pkey primary key (slack_channel_id),
+  constraint triage_slack_channel_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
+  constraint triage_slack_channel_tenant_id_slack_channel_ref_key unique (tenant_id, slack_channel_ref)
 );
 
 -- represents issue sequence table

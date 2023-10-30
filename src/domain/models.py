@@ -2,7 +2,7 @@ import abc
 import re
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Union, Dict
+from typing import Dict, List, Optional, Union
 
 from attrs import define, field
 
@@ -547,6 +547,8 @@ class InSyncSlackChannel(AbstractValueObject):
     """
     Represents a Slack conversation item, after succesful API call.
     We call it Slack Channel for our understandings.
+    We have truncated the attributes to only the ones we need.
+
     Attrs:
         as defined in https://api.slack.com/types/conversation
     """
@@ -568,16 +570,9 @@ class InSyncSlackChannel(AbstractValueObject):
     is_pending_ext_shared: bool
     is_private: bool
     is_shared: bool
+    is_thread_only: bool | None = field(eq=False)
     name: str = field(eq=False)
     name_normalized: str = field(eq=False)
-    num_members: int = field(eq=False)
-    parent_conversation: str | None = field(eq=False)
-    pending_connected_team_ids: List[str] = field(eq=False)
-    pending_shared: List[str] = field(eq=False)
-    previous_names: List[str] = field(eq=False)
-    purpose: dict[str, str] = field(eq=False)
-    shared_team_ids: List[str] = field(eq=False)
-    topic: dict[str, str] = field(eq=False)
     unlinked: int = field(eq=False)
     updated: int = field(eq=False)
 
@@ -604,16 +599,9 @@ class InSyncSlackChannel(AbstractValueObject):
             is_pending_ext_shared=data.get("is_pending_ext_shared"),
             is_private=data.get("is_private"),
             is_shared=data.get("is_shared"),
+            is_thread_only=data.get("is_thread_only", None),
             name=data.get("name"),
             name_normalized=data.get("name_normalized"),
-            num_members=data.get("num_members"),
-            parent_conversation=data.get("parent_conversation"),
-            pending_connected_team_ids=data.get("pending_connected_team_ids"),
-            pending_shared=data.get("pending_shared"),
-            previous_names=data.get("previous_names"),
-            purpose=data.get("purpose"),
-            shared_team_ids=data.get("shared_team_ids"),
-            topic=data.get("topic"),
             unlinked=data.get("unlinked"),
             updated=data.get("updated"),
         )
@@ -676,11 +664,40 @@ class InSyncSlackUser(AbstractValueObject):
         return self.id_normalized == "uslackbot"
 
 
-@define(frozen=True)
-class TriageSlackChannel(AbstractValueObject):
-    tenant_id: str
-    slack_channel_ref: str
-    slack_channel_name: str
+class TriageSlackChannel(AbstractEntity):
+    def __init__(
+        self,
+        tenant_id: str,
+        slack_channel_id: str | None,
+        slack_channel_ref: str,
+        slack_channel_name: str,
+    ) -> None:
+        self.tenant_id = tenant_id
+        self.slack_channel_id = slack_channel_id
+        self.slack_channel_ref = slack_channel_ref
+        self.slack_channel_name = slack_channel_name
+
+    @classmethod
+    def from_dict(cls, tenant_id: str, data: dict) -> "TriageSlackChannel":
+        return cls(
+            tenant_id=tenant_id,
+            slack_channel_id=data.get("slack_channel_id"),
+            slack_channel_ref=data.get("slack_channel_ref"),
+            slack_channel_name=data.get("slack_channel_name"),
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, TriageSlackChannel):
+            return False
+        return self.slack_channel_ref == other.slack_channel_ref
+
+    def __repr__(self) -> str:
+        return f"""TriageSlackChannel(
+            tenant_id={self.tenant_id},
+            slack_channel_id={self.slack_channel_id},
+            slack_channel_ref={self.slack_channel_ref},
+            slack_channel_name={self.slack_channel_name}
+        )"""
 
 
 class SlackChannel(AbstractEntity):
@@ -696,7 +713,6 @@ class SlackChannel(AbstractEntity):
         self.slack_channel_ref = slack_channel_ref
         self.slack_channel_name = slack_channel_name
 
-        # TODO: shall we make it global compulsory to add triage channel?
         self.triage_channel: TriageSlackChannel | None = None
 
     def __eq__(self, other: object) -> bool:
@@ -722,13 +738,23 @@ class SlackChannel(AbstractEntity):
 
     def add_triage_channel(self, triage_channel: TriageSlackChannel) -> None:
         """
-        Checks if it is of the same tenant and linked slack channel ref
-        is not same as triage's slack channel ref. - dont want to end up in a cycle.
+        Adds a triage channel to the Slack channel.
+
+        Raises:
+            TenantValueError: if the tenant id of the triage channel is different.
+            SlackChannelReferenceValueError: if the slack channel reference is the same.
+            ValueError: if the triage channel is not an instance of TriageSlackChannel.
         """
+        if not isinstance(triage_channel, TriageSlackChannel):
+            raise ValueError(
+                "triage channel should be an instance of TriageSlackChannel"
+            )
+
         if self.tenant_id != triage_channel.tenant_id:
             raise TenantValueError(
                 "cannot link triage channel of different tenant - this cannot happen!"
             )
+
         if self.slack_channel_ref == triage_channel.slack_channel_ref:
             raise SlackChannelReferenceValueError(
                 "cannot add triage channel for the same linked slack channel"
@@ -737,6 +763,8 @@ class SlackChannel(AbstractEntity):
 
     @classmethod
     def from_dict(cls, tenant_id: str, data: dict) -> "SlackChannel":
+        # TODO: lets remove the triage channel from here.
+        # lets create an instance of triage channel outside and add it to this instance.
         channel = cls(
             tenant_id=tenant_id,
             slack_channel_id=data.get("channel_id"),

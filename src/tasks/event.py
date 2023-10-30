@@ -3,7 +3,7 @@ from typing import Callable
 
 from src.adapters.rpc.api import ZygWebAPIConnector
 from src.adapters.rpc.exceptions import UserNotFoundAPIError
-from src.adapters.rpc.ext import SlackWebAPIConnector
+from src.adapters.rpc.ext.slack import SlackWebAPIConnector
 from src.application.commands.api import (
     CreateIssueAPICommand,
     FindIssueBySlackChannelIdMessageTsAPICommand,

@@ -7,7 +7,7 @@ from src.adapters.db.adapters import (
     TenantDBAdapter,
     UserDBAdapter,
 )
-from src.adapters.rpc.ext import SlackWebAPIConnector
+from src.adapters.rpc.ext.slack import SlackWebAPIConnector
 from src.application.commands import (
     SlackSyncUserCommand,
     TenantProvisionCommand,
