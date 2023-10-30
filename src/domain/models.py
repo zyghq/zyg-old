@@ -994,4 +994,3 @@ class Interaction(AbstractValueObject):
         if user_id is None:
             raise ValueError("user `id` is required")
         return user_id
-

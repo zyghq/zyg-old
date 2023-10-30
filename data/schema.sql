@@ -64,12 +64,13 @@ create table slack_event(
 
 -- mapped as per raw conversation item from Slack API reponse.
 -- with reference to a tenant.
+-- fields are mapped as per https://api.slack.com/types/conversation
 create table insync_slack_channel(
   tenant_id varchar(255) not null, -- reference to tenant.
   context_team_id varchar(255) not null,
   created bigint not null,
   creator varchar(255) not null,
-  id varchar(255) not null,
+  id varchar(255) not null, -- reference to Slack channel(id).
   is_archived boolean not null,
   is_channel boolean not null,
   is_ext_shared boolean not null,
@@ -82,16 +83,9 @@ create table insync_slack_channel(
   is_pending_ext_shared boolean not null,
   is_private boolean not null,
   is_shared boolean not null,
+  is_thread_only boolean null,
   name varchar(255) not null,
   name_normalized varchar(255) not null,
-  num_members bigint not null,
-  parent_conversation varchar(255) null,
-  pending_connected_team_ids text[] null,
-  pending_shared text[] null,
-  previous_names text[] null,
-  purpose jsonb null,
-  shared_team_ids text[] null,
-  topic jsonb null,
   unlinked bigint null,
   updated bigint not null,
   created_at timestamp default current_timestamp,
@@ -102,19 +96,31 @@ create table insync_slack_channel(
 
 -- represents the linked Slack channel table
 -- with reference to a tenant.
--- TODO: add name column
 create table slack_channel(
   tenant_id varchar(255) not null, -- reference to tenant.
   slack_channel_id varchar(255) not null,
   slack_channel_ref varchar(255) not null, -- reference to Slack channel(id).
   slack_channel_name varchar(255) null, -- reference to Slack channel(name).
-  triage_slack_channel_ref varchar(255) not null, -- reference to Slack channel(id).
-  triage_slack_channel_name varchar(255) null, -- reference to Slack channel(name).
   created_at timestamp default current_timestamp,
   updated_at timestamp default current_timestamp,
   constraint slack_channel_id_pkey primary key (slack_channel_id),
   constraint slack_channel_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
   constraint slack_channel_tenant_id_slack_channel_ref_key unique (tenant_id, slack_channel_ref)
+);
+
+-- represents the linked Slack triage channel table
+-- with reference to a tenant.
+create table slack_triage_channel(
+  tenant_id varchar(255) not null, -- reference to tenant.
+  alias varchar(255) null,
+  slack_channel_id varchar(255) not null,
+  slack_channel_ref varchar(255) not null, -- reference to Slack channel(id).
+  slack_channel_name varchar(255) null, -- reference to Slack channel(name).
+  created_at timestamp default current_timestamp,
+  updated_at timestamp default current_timestamp,
+  constraint slack_triage_channel_id_pkey primary key (slack_channel_id),
+  constraint slack_triage_channel_tenant_id_fkey foreign key (tenant_id) references tenant(tenant_id),
+  constraint slack_triage_channel_tenant_id_slack_channel_ref_key unique (tenant_id, slack_channel_ref)
 );
 
 -- represents issue sequence table
