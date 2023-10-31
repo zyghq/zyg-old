@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Callable
 
 from src.adapters.rpc.api import ZygWebAPIConnector
@@ -11,20 +12,16 @@ from src.application.commands.api import (
     FindUserByRefAPICommand,
 )
 from src.application.commands.slack import (
-    ChatPostMessageCommand,
     GetSingleChannelMessageCommand,
     NudgePostMessageCommand,
     ReplyPostMessageCommand,
 )
 from src.application.repr.slack import (
-    issue_message_blocks_repr,
-    issue_message_text_repr,
     issue_opened_reply_blocks_repr,
     issue_opened_reply_text_repr,
     nudge_issue_blocks_repr,
     nudge_issue_text_repr,
 )
-from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import (
     ChannelMessage,
     Issue,
@@ -35,6 +32,8 @@ from src.domain.models import (
     User,
 )
 from src.services.exceptions import UnSupportedSlackEventException
+
+SLACK_BOT_OAUTH_TOKEN = os.getenv("SLACK_BOT_OAUTH_TOKEN")
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +79,7 @@ async def channel_message_handler(tenant: Tenant, slack_event: SlackEvent):
         return None
 
     slack_api = SlackWebAPIConnector(
-        tenant_context=tenant.build_context(),
-        token=SLACK_BOT_OAUTH_TOKEN,  # TODO: disable this later when we can read token from tenant context # noqa
+        tenant_context=tenant.build_context(), token=SLACK_BOT_OAUTH_TOKEN
     )
 
     command = NudgePostMessageCommand(

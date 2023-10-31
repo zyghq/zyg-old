@@ -1,8 +1,11 @@
-from typing import List, Optional
+from functools import wraps
+from typing import List, Optional, Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, constr
+
+from enum import Enum
 
 from src.application.commands import (
     LinkSlackChannelCommand,
@@ -22,12 +25,18 @@ from src.services.channel import SlackChannelService
 from src.services.tenant import SlackChannelSyncService, SlackUserSyncService
 from src.services.user import UserService
 
+
 router = APIRouter()
 
 
-class SyncChannelsRequestBody(BaseModel):
-    tenant_id: str
-    types: List[str]
+class InSyncItem(str, Enum):
+    channels = "channels"
+    users = "users"
+
+
+class SudoSyncRequestBody(BaseModel):
+    platform: str = "slack"
+    insync: InSyncItem
 
 
 class SyncUsersRequestBody(BaseModel):
@@ -52,16 +61,16 @@ class SearchUserRequestBody(BaseModel):
     slack_user_ref: Optional[str] = None
 
 
-@router.post("/channels/sync/")
-async def sync_channels(body: SyncChannelsRequestBody):
-    command = SyncChannelCommand(
-        tenant_id=body.tenant_id,
-        types=body.types,
-    )
-    sync_service = SlackChannelSyncService()
-    results = await sync_service.sync_now(command=command)
-    response = (insync_slack_channel_repr(r) for r in results)
-    return response
+# @router.post("/channels/sync/")
+# async def sync_channels(body: SyncChannelsRequestBody):
+#     command = SyncChannelCommand(
+#         tenant_id=body.tenant_id,
+#         types=body.types,
+#     )
+#     sync_service = SlackChannelSyncService()
+#     results = await sync_service.sync_now(command=command)
+#     response = (insync_slack_channel_repr(r) for r in results)
+#     return response
 
 
 @router.post("/users/sync/")
@@ -121,3 +130,21 @@ async def search_user(body: SearchUserRequestBody):
         return JSONResponse(status_code=200, content=[])
     user = user_repr(result)
     return JSONResponse(status_code=200, content=[user.model_dump()])
+
+
+#
+# Learn more about customizing error responses here:
+# https://fastapi.tiangolo.com/tutorial/handling-errors/
+async def verify_sudo_token(x_token: str = Header()):
+    # TODO: verify token against a database
+    if x_token != "sudo":
+        raise HTTPException(
+            status_code=401,
+            detail="you are not authorized to perform this action.",
+        )
+
+
+# updated routes
+@router.post("/-/sync/", dependencies=[Depends(verify_sudo_token)])
+async def sync(body: SudoSyncRequestBody):
+    return body

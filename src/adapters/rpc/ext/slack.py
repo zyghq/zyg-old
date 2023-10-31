@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import List
 
 from pydantic import BaseModel, ConfigDict
@@ -12,7 +13,6 @@ from src.application.commands.slack import (
     ReplyPostMessageCommand,
     UpdateMessageCommand,
 )
-from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import (
     InSyncSlackChannel,
     InSyncSlackUser,
@@ -21,6 +21,8 @@ from src.domain.models import (
 )
 
 from .base import SlackWebAPI
+
+SLACK_BOT_OAUTH_TOKEN = os.getenv("SLACK_BOT_OAUTH_TOKEN")
 
 logger = logging.getLogger(__name__)
 

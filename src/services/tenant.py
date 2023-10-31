@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, List
 
 from src.adapters.db.adapters import (
@@ -10,15 +11,14 @@ from src.adapters.db.adapters import (
 from src.adapters.rpc.ext.slack import SlackWebAPIConnector
 from src.application.commands import (
     SlackSyncUserCommand,
-    TenantProvisionCommand,
     SyncChannelCommand,
+    TenantProvisionCommand,
 )
 from src.application.commands.slack import GetChannelsCommand, GetUsersCommand
 from src.application.exceptions import SlackTeamReferenceException
-
-# TODO: later this will be fetched from tenant context, and will be removed.
-from src.config import SLACK_BOT_OAUTH_TOKEN
 from src.domain.models import InSyncSlackUser, Tenant, User
+
+SLACK_BOT_OAUTH_TOKEN = os.getenv("SLACK_BOT_OAUTH_TOKEN")
 
 logger = logging.getLogger(__name__)
 

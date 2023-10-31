@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import Any, List
 
 from fastapi import APIRouter, Request
@@ -8,8 +9,10 @@ from pydantic import BaseModel, ValidationError
 
 from src.application.commands import SlackEventCallBackCommand
 from src.application.repr.api import slack_callback_event_repr
-from src.config import SLACK_APP_ID, SLACK_VERIFICATION_TOKEN
 from src.services.event import SlackEventCallBackService
+
+SLACK_APP_ID = os.getenv("SLACK_APP_ID", "")
+SLACK_VERIFICATION_TOKEN = os.getenv("SLACK_VERIFICATION_TOKEN", "")
 
 logger = logging.getLogger(__name__)
 

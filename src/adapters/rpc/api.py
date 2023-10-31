@@ -1,4 +1,5 @@
 import logging
+import os
 from http import HTTPStatus
 from typing import List
 
@@ -11,7 +12,6 @@ from src.application.commands.api import (
     FindSlackChannelByRefAPICommand,
     FindUserByRefAPICommand,
 )
-from src.config import ZYG_BASE_URL
 from src.domain.models import TenantContext
 
 from .exceptions import (
@@ -48,7 +48,11 @@ class WebAPIBaseConnector:
 
 
 class ZygWebAPIConnector(WebAPIBaseConnector):
-    def __init__(self, tenant_context: TenantContext, base_url=ZYG_BASE_URL) -> None:
+    def __init__(
+        self,
+        tenant_context: TenantContext,
+        base_url=os.getenv("ZYG_BASE_URL", "http://localhost:8000"),
+    ) -> None:
         self.tenant_context = tenant_context
         self.base_url = base_url
 

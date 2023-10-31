@@ -1,15 +1,38 @@
+import logging
 import os
 
-SLACK_APP_ID = os.getenv("SLACK_APP_ID", None)
-SLACK_CLIENT_ID = os.getenv("SLACK_CLIENT_ID", None)
-SLACK_CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET", None)
-SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET", None)
-SLACK_VERIFICATION_TOKEN = os.getenv("SLACK_VERIFICATION_TOKEN", None)
+from celery.app import Celery
+from sqlalchemy.engine.base import Engine
+from sqlalchemy.ext.asyncio import create_async_engine
 
-SLACK_USER_OAUTH_TOKEN = os.getenv("SLACK_USER_OAUTH_TOKEN", None)
-SLACK_BOT_OAUTH_TOKEN = os.getenv("SLACK_BOT_OAUTH_TOKEN", None)
-
-POSTGRES_URI = os.getenv("POSTGRES_URI", None)
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
-ZYG_BASE_URL = os.getenv("ZYG_BASE_URL", "http://localhost:8000")
+logger = logging.getLogger(__name__)
+
+db: Engine = create_async_engine(
+    os.getenv("POSTGRES_URI", None),
+    future=True,
+    echo=False,
+)
+
+celery = Celery(
+    "zyg",
+    broker=REDIS_URL,
+    backend=REDIS_URL,
+    broker_connection_retry_on_startup=True,  # disable deprecation warning
+)
+
+celery.autodiscover_tasks(["src.adapters.tasker.handlers"], force=True)
+
+
+class Worker:
+    def __init__(self) -> None:
+        self.celery: Celery = celery
+
+    def apply_async(self, task_name, *args, **kwargs):
+        return self.celery.tasks[task_name].apply_async(*args, **kwargs)
+
+
+worker = Worker()
+
+logger.info("created DB instance with id: %s", id(db))

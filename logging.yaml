@@ -1,0 +1,28 @@
+version: 1
+formatters:
+  default:
+    format: "%(levelname)s %(asctime)s %(module)s %(process)d %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S %Z"
+handlers:
+  console:
+    level: INFO
+    class: logging.StreamHandler
+    formatter: default
+    stream: ext://sys.stdout
+  syslog:
+    level: INFO
+    class: logging.handlers.SysLogHandler
+    formatter: default
+    address: /dev/log
+root:
+  handlers: [console, syslog]
+  level: INFO
+loggers:
+  uvicorn:
+    handlers: [console, syslog]
+    level: INFO
+    propagate: false
+  sqlalchemy:
+    handlers: [console, syslog]
+    level: INFO
+    propagate: false

@@ -1,6 +1,6 @@
 from sqlalchemy.engine.base import Engine
 
-from src.adapters.db import engine
+from src.config import db
 from src.domain.models import (
     InSyncSlackChannel,
     InSyncSlackUser,
@@ -33,8 +33,8 @@ from .respositories import (
 
 
 class SlackEventDBAdapter:
-    def __init__(self, engine: Engine = engine) -> None:
-        self.engine = engine
+    def __init__(self, db: Engine = db) -> None:
+        self.db = db
 
     def _map_to_db_entity(self, slack_event: SlackEvent) -> SlackEventDBEntity:
         event = slack_event.event.to_dict() if slack_event.event else None
@@ -61,13 +61,13 @@ class SlackEventDBAdapter:
 
     async def save(self, slack_event: SlackEvent) -> SlackEvent:
         db_entity = self._map_to_db_entity(slack_event)
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             slack_event_entity = await SlackEventRepository(conn).save(db_entity)
             result = self._map_to_domain(slack_event_entity)
         return result
 
     async def find_by_slack_event_ref(self, slack_event_ref: str) -> SlackEvent | None:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             slack_event_entity = await SlackEventRepository(
                 conn
             ).find_by_slack_event_ref(slack_event_ref)
@@ -79,8 +79,8 @@ class SlackEventDBAdapter:
 
 
 class TenantDBAdapter:
-    def __init__(self, engine: Engine = engine) -> None:
-        self.engine = engine
+    def __init__(self, db: Engine = db) -> None:
+        self.db = db
 
     def _map_to_db_entity(self, tenant: Tenant) -> TenantDBEntity:
         return TenantDBEntity(
@@ -99,13 +99,13 @@ class TenantDBAdapter:
 
     async def save(self, tenant: Tenant) -> Tenant:
         db_entity = self._map_to_db_entity(tenant)
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             tenant_entity = await TenantRepository(conn).save(db_entity)
             result = self._map_to_domain(tenant_entity)
         return result
 
     async def find_by_id(self, tenant_id: str) -> Tenant | None:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             tenant_entity = await TenantRepository(conn).find_by_id(tenant_id)
             if tenant_entity is None:
                 return None
@@ -114,7 +114,7 @@ class TenantDBAdapter:
         return result
 
     async def find_by_slack_team_ref(self, slack_team_ref: str) -> Tenant | None:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             tenant_entity = await TenantRepository(conn).find_by_slack_team_ref(
                 slack_team_ref
             )
@@ -125,7 +125,7 @@ class TenantDBAdapter:
         return result
 
     async def get_by_slack_team_ref(self, slack_team_ref: str) -> Tenant:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             tenant_entity = await TenantRepository(conn).get_by_slack_team_ref(
                 slack_team_ref
             )
@@ -133,15 +133,15 @@ class TenantDBAdapter:
         return result
 
     async def get_by_id(self, tenant_id: str) -> Tenant:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             tenant_entity = await TenantRepository(conn).get_by_id(tenant_id)
             result = self._map_to_domain(tenant_entity)
         return result
 
 
 class InSyncChannelDBAdapter:
-    def __init__(self, engine: Engine = engine) -> None:
-        self.engine = engine
+    def __init__(self, db: Engine = db) -> None:
+        self.db = db
 
     def _map_to_db_entity(
         self, insync_slack_channel: InSyncSlackChannel
@@ -221,7 +221,7 @@ class InSyncChannelDBAdapter:
         self, insync_slack_channel: InSyncSlackChannel
     ) -> InSyncSlackChannel:
         db_entity = self._map_to_db_entity(insync_slack_channel)
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             sync_channel_entity = await InSyncChannelRepository(conn).save(db_entity)
             result = self._map_to_domain(sync_channel_entity)
         return result
@@ -229,7 +229,7 @@ class InSyncChannelDBAdapter:
     async def get_by_tenant_id_slack_channel_ref(
         self, tenant_id: str, slack_channel_ref: str
     ) -> InSyncSlackChannel:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             insync_channel_entity = await InSyncChannelRepository(
                 conn
             ).get_by_tenant_id_id(tenant_id, slack_channel_ref)
@@ -238,8 +238,8 @@ class InSyncChannelDBAdapter:
 
 
 class SlackChannelDBAdapter:
-    def __init__(self, engine: Engine = engine) -> None:
-        self.engine = engine
+    def __init__(self, db: Engine = db) -> None:
+        self.db = db
 
     def _map_to_db_entity(self, slack_channel: SlackChannel) -> SlackChannelDBEntity:
         triage_channel = slack_channel.triage_channel
@@ -272,13 +272,13 @@ class SlackChannelDBAdapter:
 
     async def save(self, slack_channel: SlackChannel) -> SlackChannel:
         db_entity = self._map_to_db_entity(slack_channel)
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             slack_channel_entity = await SlackChannelRepository(conn).save(db_entity)
             result = self._map_to_domain(slack_channel_entity)
         return result
 
     async def find_by_id(self, slack_channel_id: str) -> SlackChannel | None:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             slack_channel_entity = await SlackChannelRepository(
                 conn
             ).find_by_slack_channel_id(slack_channel_id)
@@ -288,7 +288,7 @@ class SlackChannelDBAdapter:
         return result
 
     async def get_by_id(self, slack_channel_id: str) -> SlackChannel:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             slack_channel_entity = await SlackChannelRepository(
                 conn
             ).get_by_slack_channel_id(slack_channel_id)
@@ -298,7 +298,7 @@ class SlackChannelDBAdapter:
     async def find_by_slack_channel_ref(
         self, slack_channel_ref: str
     ) -> SlackChannel | None:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             slack_channel_entity = await SlackChannelRepository(
                 conn
             ).find_by_slack_channel_ref(slack_channel_ref)
@@ -310,7 +310,7 @@ class SlackChannelDBAdapter:
     async def find_by_tenant_id_slack_channel_name(
         self, tenant_id: str, slack_channel_name: str
     ) -> SlackChannel | None:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             slack_channel_entity = await SlackChannelRepository(
                 conn
             ).find_by_tenant_id_slack_channel_name(tenant_id, slack_channel_name)
@@ -321,8 +321,8 @@ class SlackChannelDBAdapter:
 
 
 class IssueDBAdapter:
-    def __init__(self, engine: Engine = engine) -> None:
-        self.engine = engine
+    def __init__(self, db: Engine = db) -> None:
+        self.db = db
 
     def _map_to_db_entity(self, issue: Issue) -> IssueDBEntity:
         return IssueDBEntity(
@@ -353,7 +353,7 @@ class IssueDBAdapter:
 
     async def save(self, issue: Issue) -> Issue:
         db_entity = self._map_to_db_entity(issue)
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             issue_entity = await IssueRepository(conn).save(db_entity)
             result = self._map_to_domain(issue_entity)
         return result
@@ -367,7 +367,7 @@ class IssueDBAdapter:
     async def find_by_slack_channel_id_message_ts(
         self, slack_channel_id: str, slack_message_ts: str
     ) -> Issue | None:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             issue_entity = await IssueRepository(
                 conn
             ).find_by_slack_channel_id_message_ts(slack_channel_id, slack_message_ts)
@@ -378,8 +378,8 @@ class IssueDBAdapter:
 
 
 class InSyncSlackUserDBAdapter:
-    def __init__(self, engine: Engine = engine) -> None:
-        self.engine = engine
+    def __init__(self, db: Engine = db) -> None:
+        self.db = db
 
     def _map_to_db_entity(
         self, insync_slack_user: InSyncSlackUser
@@ -437,7 +437,7 @@ class InSyncSlackUserDBAdapter:
 
     async def save(self, insync_slack_user: InSyncSlackUser) -> InSyncSlackUser:
         db_entity = self._map_to_db_entity(insync_slack_user)
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             insync_slack_user_entity = await InSyncSlackUserRepository(conn).save(
                 db_entity
             )
@@ -446,8 +446,8 @@ class InSyncSlackUserDBAdapter:
 
 
 class UserDBAdapter:
-    def __init__(self, engine: Engine = engine) -> None:
-        self.engine = engine
+    def __init__(self, db: Engine = db) -> None:
+        self.db = db
 
     def _map_to_db_entity(self, user: User) -> UserDBEntity:
         return UserDBEntity(
@@ -469,14 +469,14 @@ class UserDBAdapter:
 
     async def save(self, user: User) -> User:
         db_entity = self._map_to_db_entity(user)
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             user_entity = await UserRepository(conn).save(db_entity)
             result = self._map_to_domain(user_entity)
         return result
 
     async def save_by_tenant_id_slack_user_ref(self, user: User) -> User:
         db_entity = self._map_to_db_entity(user)
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             user_entity = await UserRepository(conn).upsert_by_tenant_id_slack_user_ref(
                 db_entity
             )
@@ -484,13 +484,13 @@ class UserDBAdapter:
         return result
 
     async def get_by_id(self, user_id: str) -> User:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             user_entity = await UserRepository(conn).get_by_id(user_id)
             result = self._map_to_domain(user_entity)
         return result
 
     async def find_by_id(self, user_id: str) -> User | None:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             user_entity = await UserRepository(conn).find_by_user_id(user_id)
             if user_entity is None:
                 return None
@@ -500,7 +500,7 @@ class UserDBAdapter:
     async def find_by_tenant_id_slack_user_ref(
         self, tenant_id: str, slack_user_ref: str
     ) -> User | None:
-        async with self.engine.begin() as conn:
+        async with self.db.begin() as conn:
             user_entity = await UserRepository(conn).find_by_tenant_id_slack_user_ref(
                 tenant_id, slack_user_ref
             )

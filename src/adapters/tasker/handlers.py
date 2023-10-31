@@ -2,14 +2,14 @@ import asyncio
 import logging
 from typing import Any, Dict
 
-from src.adapters.tasker.init import app
+from src.config import celery
 from src.domain.models import SlackEvent, Tenant
 from src.tasks.event import event_handler
 
 logger = logging.getLogger(__name__)
 
 
-@app.task(bind=True, name="zyg.slack_event_handler")
+@celery.task(bind=True, name="zyg.slack_event_handler")
 def slack_event_handler(self, context: Dict[str, Any], body: Dict[str, Any]):
     dispatch_id = context["dispatch_id"]
     dispatched_at = context["dispatched_at"]
@@ -38,3 +38,8 @@ def slack_event_handler(self, context: Dict[str, Any], body: Dict[str, Any]):
         logger.warning(f"unsupported event: {subscribed_event}")
         return False
     return True
+
+
+@celery.task(bind=True, name="zyg.sync_slack_channels")
+def sync_slack_channels(self, context: Dict[str, Any], body: Dict[str, Any]):
+    logger.info("write code for syncing Slack channels for Tenant...")

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from src.adapters.db.adapters import SlackEventDBAdapter, TenantDBAdapter
-from src.adapters.tasker import worker
+from src.config import worker
 from src.application.commands import SlackEventCallBackCommand
 from src.application.exceptions import SlackTeamReferenceException
 from src.domain.models import SlackEvent, Tenant
