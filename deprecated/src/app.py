@@ -3,23 +3,42 @@ import logging
 from fastapi import FastAPI
 from sqlalchemy.sql import text
 
+from src.adapters.web.routers import (
+    events,
+    interactions,
+    issues,
+    onboardings,
+    tenants,
+)
 from src.config import db
-from src.web.routers import accounts, workspaces
-
-app = FastAPI()
 
 logger = logging.getLogger(__name__)
 
+app = FastAPI()
 
 app.include_router(
-    accounts.router,
-    prefix="/accounts",
+    events.router,
+    prefix="/events",
 )
 
+app.include_router(
+    interactions.router,
+    prefix="/interactions",
+)
 
 app.include_router(
-    workspaces.router,
-    prefix="/workspaces",
+    onboardings.router,
+    prefix="/onboardings",
+)
+
+app.include_router(
+    tenants.router,
+    prefix="/tenants",
+)
+
+app.include_router(
+    issues.router,
+    prefix="/issues",
 )
 
 

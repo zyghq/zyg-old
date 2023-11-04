@@ -22,7 +22,7 @@ celery = Celery(
     broker_connection_retry_on_startup=True,  # disable deprecation warning
 )
 
-# celery.autodiscover_tasks(["src.adapters.tasker.handlers"], force=True)
+celery.autodiscover_tasks(["src.adapters.tasker.handlers"], force=True)
 
 
 class Worker:
