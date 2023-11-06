@@ -10,6 +10,8 @@ from src.models.account import Account, Workspace
 from .entity import AccountDBEntity, WorkspaceDBEntity
 from .exceptions import DBNotFoundError
 
+from typing import List
+
 
 class AbstractRepository(abc.ABC):
     @abc.abstractmethod
@@ -252,3 +254,19 @@ class WorkspaceRepository(AbstractRepository):
         else:
             db_entity = await self._upsert(db_entity)
         return self._map_to_model(db_entity, workspace.account)
+
+    async def find_all_by_account(self, account: Account) -> List[Workspace] | List:
+        query = """
+            select workspace_id, account_id, name, logo_url, created_at, updated_at
+            from workspace
+            where account_id = :account_id
+        """
+        account_id = account.account_id
+        parameters = {"account_id": account_id}
+        async with self.db.begin() as conn:
+            rows = await conn.execute(statement=text(query), parameters=parameters)
+            results = rows.mappings().all()
+            return [
+                self._map_to_model(WorkspaceDBEntity(**result), account)
+                for result in results
+            ]

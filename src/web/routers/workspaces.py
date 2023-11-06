@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -16,7 +16,7 @@ router = APIRouter()
 
 class CreateWorkspaceRequest(BaseModel):
     name: str
-    logo_url: str | None
+    logo_url: str | None = None
 
 
 @router.post("/")
@@ -35,4 +35,21 @@ async def create_workspace(body: CreateWorkspaceRequest):
     return JSONResponse(
         status_code=201,
         content=jsonable_encoder(workspace.to_dict()),
+    )
+
+
+@router.get("/")
+async def get_workspaces(request: Request):
+    headers = request.headers
+    cookies = request.cookies
+    print(headers)
+    print(cookies)
+    auth_user_id = "123456789"
+    account = await AccountRepository().get_by_auth_user_id(auth_user_id)
+    repo = WorkspaceRepository()
+    workspaces = await repo.find_all_by_account(account)
+    workspaces = [workspace.to_dict() for workspace in workspaces]
+    return JSONResponse(
+        status_code=200,
+        content=jsonable_encoder(workspaces),
     )
