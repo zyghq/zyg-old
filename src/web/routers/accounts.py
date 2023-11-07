@@ -1,15 +1,14 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBearer
 from pydantic import BaseModel
 
-from src.auth import AuthAccount, StytchAuth
 from src.db.repository import AccountRepository
 from src.models.account import Account
+from src.web.deps import active_auth_account
 
 logger = logging.getLogger(__name__)
 
@@ -23,29 +22,12 @@ class GetOrCreateAuthAccountRequest(BaseModel):
     name: str
 
 
-http_bearer_schema = HTTPBearer()
-
-
-async def get_auth_account(
-    principal: Annotated[AuthAccount, Depends(StytchAuth())]
-) -> Account:
-    print("******* principal ********")
-    print(principal)
-    auth_user_id = "123456789"
-    repo = AccountRepository()
-    account = await repo.get_by_auth_user_id(auth_user_id)
-    return account
-
-
-async def get_active_account(
-    account: Annotated[Account, Depends(get_auth_account)]
-) -> Account:
-    return account
-
-
 @router.post("/auth/")
-async def get_or_create_auth_account(body: GetOrCreateAuthAccountRequest):
-    logger.info("get_or_create_auth_account")
+async def get_or_create_auth_account(
+    body: GetOrCreateAuthAccountRequest,
+    account: Annotated[Account, Depends(active_auth_account)],
+):
+    logger.info("get or create auth account...")
     repo = AccountRepository()
     account = await repo.find_by_auth_user_id(body.auth_user_id)
     if account is None:
@@ -69,7 +51,11 @@ async def get_or_create_auth_account(body: GetOrCreateAuthAccountRequest):
 
 
 @router.get("/auth/")
-async def get_auth_account(account: Annotated[Account, Depends(get_active_account)]):
-    print("******** got account in get_auth_account ********")
-    print(account)
-    return "get_auth_account"
+async def auth_account(account: Annotated[Account, Depends(active_auth_account)]):
+    return JSONResponse(
+        status_code=200,
+        content=jsonable_encoder(account.to_dict()),
+    )
+
+
+# 29T2O6ICY4uT566rMsOE8iA1Wt8_utEV8k6AOC95aR3X
