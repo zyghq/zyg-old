@@ -1,11 +1,11 @@
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.db.repository import AccountRepository, WorkspaceRepository
+from src.db.repository import WorkspaceRepository
 from src.models.account import Workspace
 from src.web.deps import active_auth_account
 
@@ -24,8 +24,6 @@ class CreateWorkspaceRequest(BaseModel):
 async def create_workspace(
     body: CreateWorkspaceRequest, account=Depends(active_auth_account)
 ):
-    # auth_user_id = "123456789"
-    # account = await AccountRepository().get_by_auth_user_id(auth_user_id)
     workspace = Workspace(
         workspace_id=None,
         name=body.name,
@@ -42,13 +40,7 @@ async def create_workspace(
 
 
 @router.get("/")
-async def get_workspaces(request: Request, account=Depends(active_auth_account)):
-    # headers = request.headers
-    # cookies = request.cookies
-    # print(headers)
-    # print(cookies)
-    # auth_user_id = "123456789"
-    # account = await AccountRepository().get_by_auth_user_id(account.auth_user_id)
+async def get_workspaces(account=Depends(active_auth_account)):
     repo = WorkspaceRepository()
     workspaces = await repo.find_all_by_account(account)
     workspaces = [workspace.to_dict() for workspace in workspaces]
