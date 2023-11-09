@@ -48,3 +48,18 @@ async def get_workspaces(account=Depends(active_auth_account)):
         status_code=200,
         content=jsonable_encoder(workspaces),
     )
+
+
+@router.get("/{workspace_id}/")
+async def get_workspace(workspace_id: str, account=Depends(active_auth_account)):
+    repo = WorkspaceRepository()
+    workspace = await repo.find_by_account_and_id(account, workspace_id)
+    if not workspace:
+        return JSONResponse(
+            status_code=404,
+            content=jsonable_encoder({"detail": "This workspace does not exist."}),
+        )
+    return JSONResponse(
+        status_code=200,
+        content=jsonable_encoder(workspace.to_dict()),
+    )

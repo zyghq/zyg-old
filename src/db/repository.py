@@ -260,6 +260,7 @@ class WorkspaceRepository(AbstractRepository):
             select workspace_id, account_id, name, logo_url, created_at, updated_at
             from workspace
             where account_id = :account_id
+            order by created_at desc
         """
         account_id = account.account_id
         parameters = {"account_id": account_id}
@@ -270,3 +271,31 @@ class WorkspaceRepository(AbstractRepository):
                 self._map_to_model(WorkspaceDBEntity(**result), account)
                 for result in results
             ]
+
+    async def find_by_account_and_id(
+        self, account: Account, workspace_id: str
+    ) -> Workspace | None:
+        query = """
+            select workspace_id, account_id, name, logo_url, created_at, updated_at
+            from workspace
+            where account_id = :account_id
+            and workspace_id = :workspace_id
+        """
+        account_id = account.account_id
+        parameters = {"account_id": account_id, "workspace_id": workspace_id}
+        async with self.db.begin() as conn:
+            rows = await conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+            if result is None:
+                return None
+            return self._map_to_model(WorkspaceDBEntity(**result), account)
+
+    async def get_by_account_and_id(
+        self, account: Account, workspace_id: str
+    ) -> Workspace:
+        workspace = await self.find_by_account_and_id(account, workspace_id)
+        if workspace is None:
+            raise DBNotFoundError(
+                f"Workspace with workspace_id {workspace_id} not found"
+            )
+        return workspace
