@@ -17,21 +17,14 @@ router = APIRouter()
 
 class CreateWorkspaceRequest(BaseModel):
     name: str
-    logo_url: str | None = None
 
 
 @router.post("/")
 async def create_workspace(
     body: CreateWorkspaceRequest, account=Depends(active_auth_account)
 ):
-    workspace = Workspace(
-        workspace_id=None,
-        name=body.name,
-        created_at=None,
-        updated_at=None,
-    )
+    workspace = Workspace(workspace_id=None, name=body.name)
     workspace.add_account(account)
-    workspace.add_logo_url(body.logo_url)
     workspace = await WorkspaceRepository().save(workspace)
     return JSONResponse(
         status_code=201,
@@ -50,14 +43,14 @@ async def get_workspaces(account=Depends(active_auth_account)):
     )
 
 
-@router.get("/{workspace_id}/")
-async def get_workspace(workspace_id: str, account=Depends(active_auth_account)):
+@router.get("/{slug}/")
+async def get_workspace(slug: str, account=Depends(active_auth_account)):
     repo = WorkspaceRepository()
-    workspace = await repo.find_by_account_and_id(account, workspace_id)
+    workspace = await repo.find_by_account_and_slug(account, slug)
     if not workspace:
         return JSONResponse(
             status_code=404,
-            content=jsonable_encoder({"detail": "This workspace does not exist."}),
+            content=jsonable_encoder({"detail": "Workspace does not exist."}),
         )
     return JSONResponse(
         status_code=200,

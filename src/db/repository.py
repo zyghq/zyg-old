@@ -1,6 +1,8 @@
 import abc
 import uuid
+from typing import List
 
+import shortuuid
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
 
@@ -9,8 +11,6 @@ from src.models.account import Account, Workspace
 
 from .entity import AccountDBEntity, WorkspaceDBEntity
 from .exceptions import DBNotFoundError
-
-from typing import List
 
 
 class AbstractRepository(abc.ABC):
@@ -27,16 +27,20 @@ class AbstractRepository(abc.ABC):
         base32 = uuid_object.hex
         return base32
 
+    def generate_slug(self) -> str:
+        return shortuuid.uuid()
+
 
 class AccountRepository(AbstractRepository):
-    def __init__(self, database=db):
-        self.db = database
+    def __init__(self, db=db):
+        self.db = db
 
     def _map_to_db_entity(self, account: Account) -> AccountDBEntity:
         return AccountDBEntity(
             account_id=account.account_id,
             provider=account.provider,
             auth_user_id=account.auth_user_id,
+            email=account.email,
             name=account.name,
             created_at=account.created_at,
             updated_at=account.updated_at,
@@ -47,6 +51,7 @@ class AccountRepository(AbstractRepository):
             account_id=db_entity.account_id,
             provider=db_entity.provider,
             auth_user_id=db_entity.auth_user_id,
+            email=db_entity.email,
             name=db_entity.name,
             created_at=db_entity.created_at,
             updated_at=db_entity.updated_at,
@@ -59,20 +64,23 @@ class AccountRepository(AbstractRepository):
                 account_id,
                 provider,
                 auth_user_id,
+                email,
                 name
             )
             values (
                 :account_id,
                 :provider,
                 :auth_user_id,
+                :email,
                 :name
             )
-            returning account_id, provider, auth_user_id, name, created_at, updated_at
+            returning account_id, provider, auth_user_id, email, name, created_at, updated_at
         """
         parameters = {
             "account_id": account_id,
             "provider": item.provider,
             "auth_user_id": item.auth_user_id,
+            "email": item.email,
             "name": item.name,
         }
         async with self.db.begin() as conn:
@@ -89,25 +97,29 @@ class AccountRepository(AbstractRepository):
                 account_id,
                 provider,
                 auth_user_id,
+                email,
                 name
             )
             values (
                 :account_id,
                 :provider,
                 :auth_user_id,
+                :email,
                 :name
             )
             on conflict (account_id) do update set
                 provider = :provider
                 auth_user_id = :auth_user_id
+                email = :email
                 name = :name
                 updated_at = now()
-            returning account_id, provider, auth_user_id, name, created_at, updated_at
+            returning account_id, provider, auth_user_id, email, name, created_at, updated_at
         """
         parameters = {
             "account_id": item.account_id,
             "provider": item.provider,
             "auth_user_id": item.auth_user_id,
+            "email": item.email,
             "name": item.name,
         }
         async with self.db.begin() as conn:
@@ -128,7 +140,7 @@ class AccountRepository(AbstractRepository):
 
     async def find_by_auth_user_id(self, auth_user_id: str) -> Account | None:
         query = """
-            select account_id, provider, auth_user_id, name, created_at, updated_at
+            select account_id, provider, auth_user_id, email, name, created_at, updated_at
             from account
             where auth_user_id = :auth_user_id
         """
@@ -148,8 +160,8 @@ class AccountRepository(AbstractRepository):
 
 
 class WorkspaceRepository(AbstractRepository):
-    def __init__(self, database=db):
-        self.db = database
+    def __init__(self, db=db):
+        self.db = db
 
     def _map_to_db_entity(self, workspace: Workspace) -> WorkspaceDBEntity:
         account = workspace.account
@@ -159,7 +171,7 @@ class WorkspaceRepository(AbstractRepository):
             workspace_id=workspace.workspace_id,
             account_id=account.account_id,
             name=workspace.name,
-            logo_url=workspace.logo_url,
+            slug=workspace.slug,
             created_at=workspace.created_at,
             updated_at=workspace.updated_at,
         )
@@ -176,31 +188,32 @@ class WorkspaceRepository(AbstractRepository):
             updated_at=db_entity.updated_at,
         )
         workspace.add_account(account)
-        workspace.add_logo_url(db_entity.logo_url)
+        workspace.add_slug(db_entity.slug)
         return workspace
 
     async def _insert(self, item: WorkspaceDBEntity):
         workspace_id = self.generate_id()
+        slug = self.generate_slug()
         query = """
             insert into workspace (
                 workspace_id,
                 account_id,
                 name,
-                logo_url
+                slug
             )
             values (
                 :workspace_id,
                 :account_id,
                 :name,
-                :logo_url
+                :slug
             )
-            returning workspace_id, account_id, name, logo_url, created_at, updated_at
+            returning workspace_id, account_id, name, slug, created_at, updated_at
         """
         parameters = {
             "workspace_id": workspace_id,
             "account_id": item.account_id,
             "name": item.name,
-            "logo_url": item.logo_url,
+            "slug": slug,
         }
         async with self.db.begin() as conn:
             try:
@@ -216,26 +229,26 @@ class WorkspaceRepository(AbstractRepository):
                 workspace_id,
                 account_id,
                 name,
-                logo_url
+                slug
             )
             values (
                 :workspace_id,
                 :account_id,
                 :name,
-                :logo_url
+                :slug
             )
             on conflict (workspace_id) do update set
                 account_id = :account_id
                 name = :name
-                logo_url = :logo_url
+                slug = :slug
                 updated_at = now()
-            returning workspace_id, account_id, name, logo_url, created_at, updated_at
+            returning workspace_id, account_id, name, slug, created_at, updated_at
         """
         parameters = {
             "workspace_id": item.workspace_id,
             "account_id": item.account_id,
             "name": item.name,
-            "logo_url": item.logo_url,
+            "slug": item.slug,
         }
         async with self.db.begin() as conn:
             try:
@@ -257,7 +270,7 @@ class WorkspaceRepository(AbstractRepository):
 
     async def find_all_by_account(self, account: Account) -> List[Workspace] | List:
         query = """
-            select workspace_id, account_id, name, logo_url, created_at, updated_at
+            select workspace_id, account_id, name, slug, created_at, updated_at
             from workspace
             where account_id = :account_id
             order by created_at desc
@@ -272,17 +285,17 @@ class WorkspaceRepository(AbstractRepository):
                 for result in results
             ]
 
-    async def find_by_account_and_id(
-        self, account: Account, workspace_id: str
+    async def find_by_account_and_slug(
+        self, account: Account, slug: str
     ) -> Workspace | None:
         query = """
-            select workspace_id, account_id, name, logo_url, created_at, updated_at
+            select workspace_id, account_id, name, slug, created_at, updated_at
             from workspace
             where account_id = :account_id
-            and workspace_id = :workspace_id
+            and slug = :slug
         """
         account_id = account.account_id
-        parameters = {"account_id": account_id, "workspace_id": workspace_id}
+        parameters = {"account_id": account_id, "slug": slug}
         async with self.db.begin() as conn:
             rows = await conn.execute(statement=text(query), parameters=parameters)
             result = rows.mappings().first()
@@ -290,12 +303,8 @@ class WorkspaceRepository(AbstractRepository):
                 return None
             return self._map_to_model(WorkspaceDBEntity(**result), account)
 
-    async def get_by_account_and_id(
-        self, account: Account, workspace_id: str
-    ) -> Workspace:
-        workspace = await self.find_by_account_and_id(account, workspace_id)
+    async def get_by_account_and_slug(self, account: Account, slug: str) -> Workspace:
+        workspace = await self.find_by_account_and_slug(account, slug)
         if workspace is None:
-            raise DBNotFoundError(
-                f"Workspace with workspace_id {workspace_id} not found"
-            )
+            raise DBNotFoundError(f"Workspace with slug {slug} not found")
         return workspace

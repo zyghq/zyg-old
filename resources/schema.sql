@@ -17,26 +17,29 @@
 -- Thanks.
 -- --------------------------------------------------
 
--- represents the account table
-create table account (
-    account_id varchar(255) not null,
-    provider varchar(255) not null,
-    auth_user_id varchar(255) not null,
-    name varchar(255) not null,
-    created_at timestamp default current_timestamp,
-    updated_at timestamp default current_timestamp,
-    constraint account_account_id_pkey primary key (account_id),
-    constraint account_auth_user_id_key unique (auth_user_id)
+-- Represents the auth account table
+CREATE TABLE account (
+    account_id VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    provider VARCHAR(255) NOT NULL, 
+    auth_user_id VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT account_account_id_pkey PRIMARY KEY (account_id),
+    CONSTRAINT account_email_key UNIQUE (email),
+    CONSTRAINT account_auth_user_id_key UNIQUE (auth_user_id)
 );
 
--- represents the workspace table
-create table workspace (
-    account_id varchar(255) not null,
-    workspace_id varchar(255) not null,
-    name varchar(255) not null,
-    logo_url varchar(255) null,
-    created_at timestamp default current_timestamp,
-    updated_at timestamp default current_timestamp,
-    constraint workspace_workspace_id_pkey primary key (workspace_id),
-    constraint workspace_account_id_fkey foreign key (account_id) references account (account_id)
+-- Represents the workspace table
+CREATE TABLE workspace (
+    account_id VARCHAR(255) NOT NULL,
+    workspace_id VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT workspace_workspace_id_pkey PRIMARY KEY (workspace_id),
+    CONSTRAINT workspace_account_id_fkey FOREIGN KEY (account_id) REFERENCES account (account_id),
+    CONSTRAINT workspace_slug_key UNIQUE (slug)
 );
