@@ -21,3 +21,11 @@ class WorkspaceDBEntity(DBEntity):
     account_id: str
     name: str
     slug: str | None = None  # unique
+
+
+class MemberDBEntity(DBEntity):
+    member_id: str | None = None  # primary key
+    workspace_id: str
+    account_id: str
+    slug: str | None = None  # unique
+    role: str

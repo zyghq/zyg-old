@@ -5,8 +5,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.db.repository import WorkspaceRepository
-from src.models.account import Workspace
+from src.db.repository import MemberRepository, WorkspaceRepository
+from src.models.account import Member, Workspace
 from src.web.deps import active_auth_account
 
 logger = logging.getLogger(__name__)
@@ -26,9 +26,23 @@ async def create_workspace(
     workspace = Workspace(workspace_id=None, name=body.name)
     workspace.add_account(account)
     workspace = await WorkspaceRepository().save(workspace)
+    member = Member(
+        workspace=workspace,
+        account=account,
+        role=Member.get_role_primary(),
+    )
+    member = await MemberRepository().save(member)
+    response = workspace.to_dict()
+    response["member"] = {
+        "member_id": member.member_id,
+        "slug": member.slug,
+        "role": member.role,
+        "created_at": member.created_at,
+        "updated_at": member.updated_at,
+    }
     return JSONResponse(
         status_code=201,
-        content=jsonable_encoder(workspace.to_dict()),
+        content=jsonable_encoder(response),
     )
 
 

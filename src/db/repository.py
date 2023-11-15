@@ -7,9 +7,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
 
 from src.config import db
-from src.models.account import Account, Workspace
+from src.models.account import Account, Workspace, Member
 
-from .entity import AccountDBEntity, WorkspaceDBEntity
+from .entity import AccountDBEntity, WorkspaceDBEntity, MemberDBEntity
 from .exceptions import DBNotFoundError
 
 
@@ -261,6 +261,7 @@ class WorkspaceRepository(AbstractRepository):
     async def save(self, workspace: Workspace) -> Workspace:
         if workspace.account is None:
             raise ValueError("Workspace must have an account")
+
         db_entity = self._map_to_db_entity(workspace)
         if db_entity.workspace_id is None:
             db_entity = await self._insert(db_entity)
@@ -308,3 +309,129 @@ class WorkspaceRepository(AbstractRepository):
         if workspace is None:
             raise DBNotFoundError(f"Workspace with slug {slug} not found")
         return workspace
+
+
+class MemberRepository(AbstractRepository):
+    def __init__(self, db=db):
+        self.db = db
+
+    def _map_to_db_entity(self, member: Member) -> MemberDBEntity:
+        if member.workspace is None:
+            raise ValueError("Member must have a workspace")
+        if member.account is None:
+            raise ValueError("Member must have an account")
+
+        workspace_id = member.workspace.workspace_id
+        account_id = member.account.account_id
+        return MemberDBEntity(
+            member_id=member.member_id,
+            slug=member.slug,
+            workspace_id=workspace_id,
+            account_id=account_id,
+            role=member.role.value,
+            created_at=member.created_at,
+            updated_at=member.updated_at,
+        )
+
+    def _map_to_model(
+        self,
+        db_entity: MemberDBEntity,
+        workspace: Workspace,
+        account: Account,
+    ) -> Member:
+        return Member(
+            workspace=workspace,
+            account=account,
+            member_id=db_entity.member_id,
+            slug=db_entity.slug,
+            role=db_entity.role,
+            created_at=db_entity.created_at,
+            updated_at=db_entity.updated_at,
+        )
+
+    async def _insert(self, item: MemberDBEntity):
+        member_id = self.generate_id()
+        slug = self.generate_slug()
+        query = """
+            insert into member (
+                member_id,
+                workspace_id,
+                account_id,
+                slug,
+                role
+            )
+            values (
+                :member_id,
+                :workspace_id,
+                :account_id,
+                :slug,
+                :role
+            )
+            returning member_id, workspace_id, account_id, slug, role, created_at, updated_at
+        """
+        parameters = {
+            "member_id": member_id,
+            "workspace_id": item.workspace_id,
+            "account_id": item.account_id,
+            "slug": slug,
+            "role": item.role,
+        }
+        async with self.db.begin() as conn:
+            try:
+                rows = await conn.execute(statement=text(query), parameters=parameters)
+                result = rows.mappings().first()
+                return MemberDBEntity(**result)
+            except IntegrityError as e:
+                raise e
+
+    async def _upsert(self, item: MemberDBEntity):
+        query = """
+            insert into member (
+                member_id,
+                workspace_id,
+                account_id,
+                slug,
+                role
+            )
+            values (
+                :member_id,
+                :workspace_id,
+                :account_id,
+                :slug,
+                :role
+            )
+            on conflict (member_id) do update set
+                workspace_id = :workspace_id
+                account_id = :account_id
+                slug = :slug
+                role = :role
+                updated_at = now()
+            returning member_id, workspace_id, account_id, slug, role, created_at, updated_at
+        """
+        parameters = {
+            "member_id": item.member_id,
+            "workspace_id": item.workspace_id,
+            "account_id": item.account_id,
+            "slug": item.slug,
+            "role": item.role,
+        }
+        async with self.db.begin() as conn:
+            try:
+                rows = await conn.execute(statement=text(query), parameters=parameters)
+                result = rows.mappings().first()
+                return MemberDBEntity(**result)
+            except IntegrityError as e:
+                raise e
+
+    async def save(self, member: Member) -> Member:
+        if member.workspace is None:
+            raise ValueError("Member must have a workspace")
+        if member.account is None:
+            raise ValueError("Member must have an account")
+
+        db_entity = self._map_to_db_entity(member)
+        if db_entity.member_id is None:
+            db_entity = await self._insert(db_entity)
+        else:
+            db_entity = await self._upsert(db_entity)
+        return self._map_to_model(db_entity, member.workspace, member.account)

@@ -43,3 +43,19 @@ CREATE TABLE workspace (
     CONSTRAINT workspace_account_id_fkey FOREIGN KEY (account_id) REFERENCES account (account_id),
     CONSTRAINT workspace_slug_key UNIQUE (slug)
 );
+
+-- Represents the member table
+CREATE TABLE member (
+    workspace_id VARCHAR(255) NOT NULL,
+    account_id VARCHAR(255) NOT NULL,
+    member_id VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL,
+    role VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT member_member_id_pkey PRIMARY KEY (member_id),
+    CONSTRAINT member_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES workspace (workspace_id),
+    CONSTRAINT member_account_id_fkey FOREIGN KEY (account_id) REFERENCES account (account_id),
+    CONSTRAINT member_workspace_id_account_id_key UNIQUE (workspace_id, account_id),
+    CONSTRAINT member_slug_key UNIQUE (slug)
+)
