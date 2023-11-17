@@ -3,13 +3,13 @@ import uuid
 from typing import List
 
 import shortuuid
+from sqlalchemy import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
 
-from src.config import db
-from src.models.account import Account, Workspace, Member
+from src.models.account import Account, Member, Workspace
 
-from .entity import AccountDBEntity, WorkspaceDBEntity, MemberDBEntity
+from .entity import AccountDBEntity, MemberDBEntity, WorkspaceDBEntity
 from .exceptions import DBNotFoundError
 
 
@@ -32,8 +32,8 @@ class AbstractRepository(abc.ABC):
 
 
 class AccountRepository(AbstractRepository):
-    def __init__(self, db=db):
-        self.db = db
+    def __init__(self, connection: Connection):
+        self.conn = connection
 
     def _map_to_db_entity(self, account: Account) -> AccountDBEntity:
         return AccountDBEntity(
@@ -83,13 +83,12 @@ class AccountRepository(AbstractRepository):
             "email": item.email,
             "name": item.name,
         }
-        async with self.db.begin() as conn:
-            try:
-                rows = await conn.execute(statement=text(query), parameters=parameters)
-                result = rows.mappings().first()
-                return AccountDBEntity(**result)
-            except IntegrityError as e:
-                raise e
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+            return AccountDBEntity(**result)
+        except IntegrityError as e:
+            raise e
 
     async def _upsert(self, item: AccountDBEntity):
         query = """
@@ -122,13 +121,12 @@ class AccountRepository(AbstractRepository):
             "email": item.email,
             "name": item.name,
         }
-        async with self.db.begin() as conn:
-            try:
-                rows = await conn.execute(statement=text(query), parameters=parameters)
-                result = rows.mappings().first()
-                return AccountDBEntity(**result)
-            except IntegrityError as e:
-                raise e
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+            return AccountDBEntity(**result)
+        except IntegrityError as e:
+            raise e
 
     async def save(self, account: Account) -> Account:
         db_entity = self._map_to_db_entity(account)
@@ -145,12 +143,12 @@ class AccountRepository(AbstractRepository):
             where auth_user_id = :auth_user_id
         """
         parameters = {"auth_user_id": auth_user_id}
-        async with self.db.begin() as conn:
-            rows = await conn.execute(statement=text(query), parameters=parameters)
-            result = rows.mappings().first()
-            if result is None:
-                return None
-            return self._map_to_model(AccountDBEntity(**result))
+        # async with self.db.begin() as conn:
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return self._map_to_model(AccountDBEntity(**result))
 
     async def get_by_auth_user_id(self, auth_user_id: str) -> Account:
         account = await self.find_by_auth_user_id(auth_user_id)
@@ -160,8 +158,8 @@ class AccountRepository(AbstractRepository):
 
 
 class WorkspaceRepository(AbstractRepository):
-    def __init__(self, db=db):
-        self.db = db
+    def __init__(self, connection: Connection):
+        self.conn = connection
 
     def _map_to_db_entity(self, workspace: Workspace) -> WorkspaceDBEntity:
         account = workspace.account
@@ -215,13 +213,13 @@ class WorkspaceRepository(AbstractRepository):
             "name": item.name,
             "slug": slug,
         }
-        async with self.db.begin() as conn:
-            try:
-                rows = await conn.execute(statement=text(query), parameters=parameters)
-                result = rows.mappings().first()
-                return WorkspaceDBEntity(**result)
-            except IntegrityError as e:
-                raise e
+        # async with self.db.begin() as conn:
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+            return WorkspaceDBEntity(**result)
+        except IntegrityError as e:
+            raise e
 
     async def _upsert(self, item: WorkspaceDBEntity):
         query = """
@@ -250,13 +248,13 @@ class WorkspaceRepository(AbstractRepository):
             "name": item.name,
             "slug": item.slug,
         }
-        async with self.db.begin() as conn:
-            try:
-                rows = await conn.execute(statement=text(query), parameters=parameters)
-                result = rows.mappings().first()
-                return WorkspaceDBEntity(**result)
-            except IntegrityError as e:
-                raise e
+        # async with self.db.begin() as conn:
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+            return WorkspaceDBEntity(**result)
+        except IntegrityError as e:
+            raise e
 
     async def save(self, workspace: Workspace) -> Workspace:
         if workspace.account is None:
@@ -278,13 +276,13 @@ class WorkspaceRepository(AbstractRepository):
         """
         account_id = account.account_id
         parameters = {"account_id": account_id}
-        async with self.db.begin() as conn:
-            rows = await conn.execute(statement=text(query), parameters=parameters)
-            results = rows.mappings().all()
-            return [
-                self._map_to_model(WorkspaceDBEntity(**result), account)
-                for result in results
-            ]
+        # async with self.db.begin() as conn:
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        results = rows.mappings().all()
+        return [
+            self._map_to_model(WorkspaceDBEntity(**result), account)
+            for result in results
+        ]
 
     async def find_by_account_and_slug(
         self, account: Account, slug: str
@@ -297,12 +295,12 @@ class WorkspaceRepository(AbstractRepository):
         """
         account_id = account.account_id
         parameters = {"account_id": account_id, "slug": slug}
-        async with self.db.begin() as conn:
-            rows = await conn.execute(statement=text(query), parameters=parameters)
-            result = rows.mappings().first()
-            if result is None:
-                return None
-            return self._map_to_model(WorkspaceDBEntity(**result), account)
+        # async with self.db.begin() as conn:
+        rows = await self.conn.execute(statement=text(query), parameters=parameters)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return self._map_to_model(WorkspaceDBEntity(**result), account)
 
     async def get_by_account_and_slug(self, account: Account, slug: str) -> Workspace:
         workspace = await self.find_by_account_and_slug(account, slug)
@@ -312,8 +310,8 @@ class WorkspaceRepository(AbstractRepository):
 
 
 class MemberRepository(AbstractRepository):
-    def __init__(self, db=db):
-        self.db = db
+    def __init__(self, connection: Connection):
+        self.conn = connection
 
     def _map_to_db_entity(self, member: Member) -> MemberDBEntity:
         if member.workspace is None:
@@ -376,13 +374,13 @@ class MemberRepository(AbstractRepository):
             "slug": slug,
             "role": item.role,
         }
-        async with self.db.begin() as conn:
-            try:
-                rows = await conn.execute(statement=text(query), parameters=parameters)
-                result = rows.mappings().first()
-                return MemberDBEntity(**result)
-            except IntegrityError as e:
-                raise e
+        # async with self.db.begin() as conn:
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+            return MemberDBEntity(**result)
+        except IntegrityError as e:
+            raise e
 
     async def _upsert(self, item: MemberDBEntity):
         query = """
@@ -415,13 +413,13 @@ class MemberRepository(AbstractRepository):
             "slug": item.slug,
             "role": item.role,
         }
-        async with self.db.begin() as conn:
-            try:
-                rows = await conn.execute(statement=text(query), parameters=parameters)
-                result = rows.mappings().first()
-                return MemberDBEntity(**result)
-            except IntegrityError as e:
-                raise e
+        # async with self.db.begin() as conn:
+        try:
+            rows = await self.conn.execute(statement=text(query), parameters=parameters)
+            result = rows.mappings().first()
+            return MemberDBEntity(**result)
+        except IntegrityError as e:
+            raise e
 
     async def save(self, member: Member) -> Member:
         if member.workspace is None:

@@ -6,6 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from src.config import engine
 from src.auth import AuthAccount
 from src.db.repository import AccountRepository
 from src.models.account import Account
@@ -59,28 +60,29 @@ async def get_or_create_auth_account(
 
     auth_user_id = principal.user_id
 
-    repo = AccountRepository()
-    account = await repo.find_by_auth_user_id(auth_user_id)
-    if account:
+    async with engine.begin() as connection:
+        repo = AccountRepository(connection=connection)
+        account = await repo.find_by_auth_user_id(auth_user_id)
+        if account:
+            return JSONResponse(
+                status_code=200,
+                content=jsonable_encoder(account.to_dict()),
+            )
+
+        account = Account(
+            account_id=None,
+            provider=body.provider,
+            auth_user_id=auth_user_id,
+            email=email,
+            name=body.name,
+            created_at=None,
+            updated_at=None,
+        )
+        account = await repo.save(account)
         return JSONResponse(
-            status_code=200,
+            status_code=201,
             content=jsonable_encoder(account.to_dict()),
         )
-
-    account = Account(
-        account_id=None,
-        provider=body.provider,
-        auth_user_id=auth_user_id,
-        email=email,
-        name=body.name,
-        created_at=None,
-        updated_at=None,
-    )
-    account = await repo.save(account)
-    return JSONResponse(
-        status_code=201,
-        content=jsonable_encoder(account.to_dict()),
-    )
 
 
 @router.get("/auth/")

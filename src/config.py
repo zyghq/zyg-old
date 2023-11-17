@@ -9,7 +9,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 logger = logging.getLogger(__name__)
 
-db: Engine = create_async_engine(
+engine: Engine = create_async_engine(
     os.getenv("POSTGRES_URI", None),
     future=True,
     echo=False,
@@ -35,4 +35,4 @@ class Worker:
 
 worker = Worker()
 
-logger.info("created DB instance with id: %s", id(db))
+logger.info("created DB instance with id: %s", id(engine))

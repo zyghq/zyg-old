@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from sqlalchemy.sql import text
 
-from src.config import db
+from src.config import engine
 from src.web.routers import accounts, workspaces
 
 app = FastAPI()
@@ -31,7 +31,7 @@ async def root():
 
 @app.on_event("startup")
 async def startup():
-    async with db.begin() as conn:
+    async with engine.begin() as conn:
         query = text("SELECT NOW()::timestamp AS now")
         rows = await conn.execute(query)
         result = rows.mappings().first()
@@ -41,4 +41,4 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     logger.warning("cleaning up...")
-    await db.dispose()
+    await engine.dispose()
