@@ -58,4 +58,15 @@ CREATE TABLE member (
     CONSTRAINT member_account_id_fkey FOREIGN KEY (account_id) REFERENCES account (account_id),
     CONSTRAINT member_workspace_id_account_id_key UNIQUE (workspace_id, account_id),
     CONSTRAINT member_slug_key UNIQUE (slug)
-)
+);
+
+CREATE TABLE slack_workspace (
+    workspace_id VARCHAR(255) NOT NULL,
+    ref VARCHAR(255) NOT NULL,
+    url VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT slack_ref_pkey PRIMARY KEY (ref),
+    CONSTRAINT slack_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES workspace (workspace_id)
+);

@@ -24,8 +24,7 @@ class CreateWorkspaceRequest(BaseModel):
 async def create_workspace(
     body: CreateWorkspaceRequest, account=Depends(active_auth_account)
 ):
-    workspace = Workspace(workspace_id=None, name=body.name)
-    workspace.add_account(account)
+    workspace = Workspace(account=account, workspace_id=None, name=body.name)
     async with engine.begin() as connection:
         workspace = await WorkspaceRepository(connection=connection).save(workspace)
         member = Member(

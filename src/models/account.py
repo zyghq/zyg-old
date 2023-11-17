@@ -57,18 +57,19 @@ class Account(AbstractEntity):
 class Workspace(AbstractEntity):
     def __init__(
         self,
+        account: Account,
         workspace_id: str | None,
         name: str,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
     ):
+        self.account = account
         self.workspace_id = workspace_id
         self.name = name
         self.created_at = created_at
         self.updated_at = updated_at
 
         self.slug: str | None = None
-        self.account: Account | None = None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Workspace):
@@ -98,9 +99,6 @@ class Workspace(AbstractEntity):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
-
-    def add_account(self, account: Account):
-        self.account = account
 
     def add_slug(self, slug: str):
         self.slug = slug

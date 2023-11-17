@@ -177,15 +177,15 @@ class WorkspaceRepository(AbstractRepository):
     def _map_to_model(
         self, db_entity: WorkspaceDBEntity, account: Account
     ) -> Workspace:
-        if account is None:
+        if account is None or isinstance(account, Account) is False:
             raise ValueError("Workspace must have an account")
         workspace = Workspace(
+            account=account,
             workspace_id=db_entity.workspace_id,
             name=db_entity.name,
             created_at=db_entity.created_at,
             updated_at=db_entity.updated_at,
         )
-        workspace.add_account(account)
         workspace.add_slug(db_entity.slug)
         return workspace
 

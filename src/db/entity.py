@@ -29,3 +29,10 @@ class MemberDBEntity(DBEntity):
     account_id: str
     slug: str | None = None  # unique
     role: str
+
+
+class SlackWorkspaceDBEntity(DBEntity):
+    ref: str  # primary key
+    workspace_id: str
+    url: str
+    name: str
