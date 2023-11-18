@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -73,3 +73,20 @@ async def get_workspace(slug: str, account=Depends(active_auth_account)):
             status_code=200,
             content=jsonable_encoder(workspace.to_dict()),
         )
+
+
+@router.post("/{slug}/slack/oauth/callback/")
+async def slack_oauth_callback(
+    request: Request,
+    slug: str,
+    # account=Depends(active_auth_account)
+):
+    body: dict = await request.json()
+    print("**************** body ****************")
+    print(body)
+    print("**************** body ****************")
+    body["slug"] = slug
+    return JSONResponse(
+        status_code=200,
+        content=jsonable_encoder(body),
+    )
