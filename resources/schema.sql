@@ -68,8 +68,9 @@ CREATE TABLE slack_workspace (
     status VARCHAR(127) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT slack_ref_pkey PRIMARY KEY (ref),
-    CONSTRAINT slack_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES workspace (workspace_id)
+    CONSTRAINT slack_workspace_ref_pkey PRIMARY KEY (ref),
+    CONSTRAINT slack_workspace_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES workspace (workspace_id),
+    CONSTRAINT slack_workspace_workspace_id_key UNIQUE (workspace_id)
 );
 
 CREATE TABLE slack_bot (
@@ -83,6 +84,5 @@ CREATE TABLE slack_bot (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT slack_bot_bot_id_pkey PRIMARY KEY (bot_id),
     CONSTRAINT slack_bot_slack_workspace_ref_fkey FOREIGN KEY (slack_workspace_ref) REFERENCES slack_workspace (ref),
-    CONSTRAINT slack_bot_slack_workspace_ref_key UNIQUE (slack_workspace_ref),
-    CONSTRAINT slack_bot_slack_workspace_ref_bot_user_ref_key UNIQUE (slack_workspace_ref, bot_user_ref)
+    CONSTRAINT slack_bot_slack_workspace_ref_key UNIQUE (slack_workspace_ref)
 );

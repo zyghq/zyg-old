@@ -16,14 +16,15 @@ metadata = MetaData()
 SlackWorkspaceDB = Table(
     "slack_workspace",
     metadata,
-    Column("workspace_id", String(255), primary_key=True),
-    Column("ref", String(255), nullable=False),
+    Column("workspace_id", String(255), nullable=False),
+    Column("ref", String(255), primary_key=True),
     Column("url", String(255), nullable=False),
     Column("name", String(255), nullable=False),
     Column("status", String(127), nullable=False),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
     ForeignKeyConstraint(["workspace_id"], ["workspace.workspace_id"]),
+    UniqueConstraint("workspace_id"),
 )
 
 SlackBotDB = Table(
@@ -39,5 +40,4 @@ SlackBotDB = Table(
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
     ForeignKeyConstraint(["slack_workspace_ref"], ["slack_workspace.ref"]),
     UniqueConstraint("slack_workspace_ref"),
-    UniqueConstraint("slack_workspace_ref", "bot_user_ref"),
 )
