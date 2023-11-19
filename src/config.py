@@ -15,13 +15,13 @@ engine: Engine = create_async_engine(
     echo=False,
 )
 
+
 celery = Celery(
     "zyg",
     broker=REDIS_URL,
     backend=REDIS_URL,
     broker_connection_retry_on_startup=True,  # disable deprecation warning
 )
-
 # celery.autodiscover_tasks(["src.adapters.tasker.handlers"], force=True)
 
 

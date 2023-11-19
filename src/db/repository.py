@@ -8,9 +8,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
 
 from src.models.account import Account, Member, Workspace
+from src.models.slack import SlackWorkspace, SlackBot
 
 from .entity import AccountDBEntity, MemberDBEntity, WorkspaceDBEntity
 from .exceptions import DBNotFoundError
+from .schema import SlackWorkspaceDB, SlackBotDB
 
 
 class AbstractRepository(abc.ABC):
@@ -22,6 +24,16 @@ class AbstractRepository(abc.ABC):
     def _map_to_db_entity(self, entity):
         raise NotImplementedError
 
+    def generate_id(self) -> str:
+        uuid_object = uuid.uuid4()
+        base32 = uuid_object.hex
+        return base32
+
+    def generate_slug(self) -> str:
+        return shortuuid.uuid()
+
+
+class Repository:
     def generate_id(self) -> str:
         uuid_object = uuid.uuid4()
         base32 = uuid_object.hex
@@ -143,7 +155,7 @@ class AccountRepository(AbstractRepository):
             where auth_user_id = :auth_user_id
         """
         parameters = {"auth_user_id": auth_user_id}
-        # async with self.db.begin() as conn:
+
         rows = await self.conn.execute(statement=text(query), parameters=parameters)
         result = rows.mappings().first()
         if result is None:
@@ -164,7 +176,7 @@ class WorkspaceRepository(AbstractRepository):
     def _map_to_db_entity(self, workspace: Workspace) -> WorkspaceDBEntity:
         account = workspace.account
         if account is None:
-            raise ValueError("Workspace must have an account")
+            raise ValueError("Workspace must have an Account")
         return WorkspaceDBEntity(
             workspace_id=workspace.workspace_id,
             account_id=account.account_id,
@@ -178,7 +190,7 @@ class WorkspaceRepository(AbstractRepository):
         self, db_entity: WorkspaceDBEntity, account: Account
     ) -> Workspace:
         if account is None or isinstance(account, Account) is False:
-            raise ValueError("Workspace must have an account")
+            raise ValueError("Workspace must have an Account")
         workspace = Workspace(
             account=account,
             workspace_id=db_entity.workspace_id,
@@ -213,7 +225,7 @@ class WorkspaceRepository(AbstractRepository):
             "name": item.name,
             "slug": slug,
         }
-        # async with self.db.begin() as conn:
+
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)
             result = rows.mappings().first()
@@ -248,7 +260,7 @@ class WorkspaceRepository(AbstractRepository):
             "name": item.name,
             "slug": item.slug,
         }
-        # async with self.db.begin() as conn:
+
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)
             result = rows.mappings().first()
@@ -257,8 +269,8 @@ class WorkspaceRepository(AbstractRepository):
             raise e
 
     async def save(self, workspace: Workspace) -> Workspace:
-        if workspace.account is None:
-            raise ValueError("Workspace must have an account")
+        if workspace.account is None or isinstance(workspace.account, Account) is False:
+            raise ValueError("Workspace must have an Account")
 
         db_entity = self._map_to_db_entity(workspace)
         if db_entity.workspace_id is None:
@@ -276,7 +288,7 @@ class WorkspaceRepository(AbstractRepository):
         """
         account_id = account.account_id
         parameters = {"account_id": account_id}
-        # async with self.db.begin() as conn:
+
         rows = await self.conn.execute(statement=text(query), parameters=parameters)
         results = rows.mappings().all()
         return [
@@ -295,7 +307,7 @@ class WorkspaceRepository(AbstractRepository):
         """
         account_id = account.account_id
         parameters = {"account_id": account_id, "slug": slug}
-        # async with self.db.begin() as conn:
+
         rows = await self.conn.execute(statement=text(query), parameters=parameters)
         result = rows.mappings().first()
         if result is None:
@@ -374,7 +386,7 @@ class MemberRepository(AbstractRepository):
             "slug": slug,
             "role": item.role,
         }
-        # async with self.db.begin() as conn:
+
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)
             result = rows.mappings().first()
@@ -413,7 +425,7 @@ class MemberRepository(AbstractRepository):
             "slug": item.slug,
             "role": item.role,
         }
-        # async with self.db.begin() as conn:
+
         try:
             rows = await self.conn.execute(statement=text(query), parameters=parameters)
             result = rows.mappings().first()
@@ -433,3 +445,91 @@ class MemberRepository(AbstractRepository):
         else:
             db_entity = await self._upsert(db_entity)
         return self._map_to_model(db_entity, member.workspace, member.account)
+
+
+class SlackWorkspaceRepository:
+    def __init__(self, connection: Connection):
+        self.conn = connection
+
+    async def save(self, slack_workspace: SlackWorkspace) -> SlackWorkspace:
+        workspace = slack_workspace.workspace
+        if workspace is None or isinstance(workspace, Workspace) is False:
+            raise ValueError("SlackWorkspace must have associated Workspace")
+
+        if slack_workspace.ref is None:
+            raise ValueError("SlackWorkspace must have a ref (id/team) from Slack")
+
+        workspace_id = workspace.workspace_id
+        query = (
+            SlackWorkspaceDB.insert()
+            .values(
+                ref=slack_workspace.ref,
+                workspace_id=workspace_id,
+                url=slack_workspace.url,
+                name=slack_workspace.name,
+                status=slack_workspace.status,
+            )
+            .returning(
+                SlackWorkspaceDB.c.ref,
+                SlackWorkspaceDB.c.url,
+                SlackWorkspaceDB.c.name,
+                SlackWorkspaceDB.c.status,
+            )
+        )
+        try:
+            rows = await self.conn.execute(query)
+            result = rows.mappings().first()
+            return SlackWorkspace(
+                workspace=workspace,
+                **result,
+            )
+        except IntegrityError as e:
+            raise e
+
+
+class SlackBotRepository(Repository):
+    def __init__(self, connection: Connection):
+        self.conn = connection
+
+    async def save(self, slack_bot: SlackBot) -> SlackBot:
+        slack_workspace = slack_bot.slack_workspace
+        bot_id = slack_bot.bot_id
+        if (
+            slack_workspace is None
+            or isinstance(slack_workspace, SlackWorkspace) is False
+        ):
+            raise ValueError("SlackBot must have associated SlackWorkspace")
+
+        if slack_bot.bot_user_ref is None:
+            raise ValueError("SlackBot must have a bot_user_ref from Slack")
+
+        if bot_id is None:
+            bot_id = self.generate_id()
+
+        query = (
+            SlackBotDB.insert()
+            .values(
+                slack_workspace_ref=slack_workspace.ref,
+                bot_id=bot_id,
+                bot_user_ref=slack_bot.bot_user_ref,
+                app_ref=slack_bot.app_ref,
+                scope=slack_bot.scope,
+                access_token=slack_bot.access_token,
+            )
+            .returning(
+                SlackBotDB.c.bot_id,
+                SlackBotDB.c.app_ref,
+                SlackBotDB.c.bot_user_ref,
+                SlackBotDB.c.scope,
+                SlackBotDB.c.access_token,
+            )
+        )
+        try:
+            rows = await self.conn.execute(query)
+            result = rows.mappings().first()
+            return SlackBot(
+                slack_workspace=slack_workspace,
+                **result,
+            )
+        except IntegrityError as e:
+            raise e

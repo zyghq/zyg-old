@@ -6,8 +6,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.config import engine
-from src.db.repository import MemberRepository, WorkspaceRepository
+from src.db.repository import (
+    MemberRepository,
+    SlackBotRepository,
+    SlackWorkspaceRepository,
+    WorkspaceRepository,
+)
 from src.models.account import Member, Workspace
+from src.models.slack import SlackBot, SlackWorkspace
 from src.web.deps import active_auth_account
 
 logger = logging.getLogger(__name__)
@@ -77,16 +83,51 @@ async def get_workspace(slug: str, account=Depends(active_auth_account)):
 
 @router.post("/{slug}/slack/oauth/callback/")
 async def slack_oauth_callback(
-    request: Request,
-    slug: str,
-    # account=Depends(active_auth_account)
+    request: Request, slug: str, account=Depends(active_auth_account)
 ):
     body: dict = await request.json()
-    print("**************** body ****************")
-    print(body)
-    print("**************** body ****************")
-    body["slug"] = slug
+
+    access_token = body["access_token"]
+    team = body["team"]
+    scope = body["scope"]
+    bot_user_id = body["bot_user_id"]
+    app_id = body["app_id"]
+
+    team_id = team["id"]
+    team_name = team["name"]
+
+    async with engine.begin() as connection:
+        repo = WorkspaceRepository(connection=connection)
+        workspace = await repo.find_by_account_and_slug(account, slug)
+        if not workspace:
+            return JSONResponse(
+                status_code=404,
+                content=jsonable_encoder({"detail": "Workspace does not exist."}),
+            )
+
+    slack_workspace = SlackWorkspace(
+        workspace=workspace,
+        ref=team_id,
+        url="",
+        name=team_name,
+    )
+
+    async with engine.begin() as connection:
+        repo = SlackWorkspaceRepository(connection=connection)
+        slack_workspace = await repo.save(slack_workspace)
+        slack_bot = SlackBot(
+            slack_workspace=slack_workspace,
+            bot_user_ref=bot_user_id,
+            app_ref=app_id,
+            scope=scope,
+            access_token=access_token,
+        )
+        repo = SlackBotRepository(connection=connection)
+        slack_bot = await repo.save(slack_bot)
+
+    response = slack_workspace.to_dict()
+    response["bot"] = slack_bot.to_dict()
     return JSONResponse(
         status_code=200,
-        content=jsonable_encoder(body),
+        content=jsonable_encoder(response),
     )
