@@ -105,25 +105,36 @@ async def slack_oauth_callback(
                 content=jsonable_encoder({"detail": "Workspace does not exist."}),
             )
 
-    slack_workspace = SlackWorkspace(
-        workspace=workspace,
-        ref=team_id,
-        url="",
-        name=team_name,
-    )
-
     async with engine.begin() as connection:
         repo = SlackWorkspaceRepository(connection=connection)
-        slack_workspace = await repo.save(slack_workspace)
-        slack_bot = SlackBot(
-            slack_workspace=slack_workspace,
-            bot_user_ref=bot_user_id,
-            app_ref=app_id,
-            scope=scope,
-            access_token=access_token,
-        )
-        repo = SlackBotRepository(connection=connection)
-        slack_bot = await repo.save(slack_bot)
+        slack_workspace = await repo.find_by_workspace(workspace)
+        if not slack_workspace:
+            slack_workspace = SlackWorkspace(
+                workspace=workspace,
+                ref=team_id,
+                url="",
+                name=team_name,
+            )
+            slack_workspace = await repo.save(slack_workspace)
+            slack_bot = SlackBot(
+                slack_workspace=slack_workspace,
+                bot_user_ref=bot_user_id,
+                app_ref=app_id,
+                scope=scope,
+                access_token=access_token,
+            )
+            repo = SlackBotRepository(connection=connection)
+            slack_bot = await repo.save(slack_bot)
+        else:
+            slack_bot = SlackBot(
+                slack_workspace=slack_workspace,
+                bot_user_ref=bot_user_id,
+                app_ref=app_id,
+                scope=scope,
+                access_token=access_token,
+            )
+            repo = SlackBotRepository(connection=connection)
+            slack_bot = await repo.upsert_by_workspace(slack_bot)
 
     response = slack_workspace.to_dict()
     response["bot"] = slack_bot.to_dict()
