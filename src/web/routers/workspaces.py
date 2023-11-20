@@ -81,6 +81,7 @@ async def get_workspace(slug: str, account=Depends(active_auth_account)):
         )
 
 
+# TODO: add pydantic's request object validation schema.
 @router.post("/{slug}/slack/oauth/callback/")
 async def slack_oauth_callback(
     request: Request, slug: str, account=Depends(active_auth_account)
@@ -126,14 +127,16 @@ async def slack_oauth_callback(
             repo = SlackBotRepository(connection=connection)
             slack_bot = await repo.save(slack_bot)
         else:
-            slack_bot = SlackBot(
-                slack_workspace=slack_workspace,
-                bot_user_ref=bot_user_id,
-                app_ref=app_id,
-                scope=scope,
-                access_token=access_token,
-            )
             repo = SlackBotRepository(connection=connection)
+            slack_bot = await repo.find_by_workspace(slack_workspace)
+            if not slack_bot:
+                slack_bot = SlackBot(
+                    slack_workspace=slack_workspace,
+                    bot_user_ref=bot_user_id,
+                    app_ref=app_id,
+                    scope=scope,
+                    access_token=access_token,
+                )
             slack_bot = await repo.upsert_by_workspace(slack_bot)
 
     response = slack_workspace.to_dict()

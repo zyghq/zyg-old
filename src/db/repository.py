@@ -449,7 +449,7 @@ class MemberRepository(AbstractRepository):
         return self._map_to_model(db_entity, member.workspace, member.account)
 
 
-class SlackWorkspaceRepository:
+class SlackWorkspaceRepository(Repository):
     def __init__(self, connection: Connection):
         self.conn = connection
 
@@ -515,25 +515,29 @@ class SlackBotRepository(Repository):
             raise ValueError("SlackBot must have associated SlackWorkspace")
 
         if slack_bot.bot_user_ref is None:
-            raise ValueError("SlackBot must have a bot_user_ref from Slack")
+            raise ValueError(
+                "SlackBot must have a bot_user_id referenced as bot_user_ref from Slack"
+            )
 
         if bot_id is None:
             bot_id = self.generate_id()
 
         query = (
-            SlackBotDB.insert()
+            insert(SlackBotDB)
             .values(
                 slack_workspace_ref=slack_workspace.ref,
                 bot_id=bot_id,
                 bot_user_ref=slack_bot.bot_user_ref,
+                bot_ref=slack_bot.bot_ref,
                 app_ref=slack_bot.app_ref,
                 scope=slack_bot.scope,
                 access_token=slack_bot.access_token,
             )
             .returning(
                 SlackBotDB.c.bot_id,
-                SlackBotDB.c.app_ref,
                 SlackBotDB.c.bot_user_ref,
+                SlackBotDB.c.bot_ref,
+                SlackBotDB.c.app_ref,
                 SlackBotDB.c.scope,
                 SlackBotDB.c.access_token,
             )
@@ -569,6 +573,7 @@ class SlackBotRepository(Repository):
                 slack_workspace_ref=slack_workspace.ref,
                 bot_id=bot_id,
                 bot_user_ref=slack_bot.bot_user_ref,
+                bot_ref=slack_bot.bot_ref,
                 app_ref=slack_bot.app_ref,
                 scope=slack_bot.scope,
                 access_token=slack_bot.access_token,
@@ -578,6 +583,7 @@ class SlackBotRepository(Repository):
                 set_={
                     SlackBotDB.c.bot_id: bot_id,
                     SlackBotDB.c.bot_user_ref: slack_bot.bot_user_ref,
+                    SlackBotDB.c.bot_ref: slack_bot.bot_ref,
                     SlackBotDB.c.app_ref: slack_bot.app_ref,
                     SlackBotDB.c.scope: slack_bot.scope,
                     SlackBotDB.c.access_token: slack_bot.access_token,
@@ -585,8 +591,9 @@ class SlackBotRepository(Repository):
             )
             .returning(
                 SlackBotDB.c.bot_id,
-                SlackBotDB.c.app_ref,
                 SlackBotDB.c.bot_user_ref,
+                SlackBotDB.c.bot_ref,
+                SlackBotDB.c.app_ref,
                 SlackBotDB.c.scope,
                 SlackBotDB.c.access_token,
             )
@@ -600,3 +607,20 @@ class SlackBotRepository(Repository):
             )
         except IntegrityError as e:
             raise e
+
+    async def find_by_workspace(
+        self, slack_workspace: SlackWorkspace
+    ) -> SlackBot | None:
+        query = db.select(
+            SlackBotDB.c.bot_id,
+            SlackBotDB.c.bot_user_ref,
+            SlackBotDB.c.bot_ref,
+            SlackBotDB.c.app_ref,
+            SlackBotDB.c.scope,
+            SlackBotDB.c.access_token,
+        ).where(SlackBotDB.c.slack_workspace_ref == slack_workspace.ref)
+        rows = await self.conn.execute(query)
+        result = rows.mappings().first()
+        if result is None:
+            return None
+        return SlackBot(slack_workspace=slack_workspace, **result)

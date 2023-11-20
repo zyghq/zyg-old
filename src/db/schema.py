@@ -33,6 +33,7 @@ SlackBotDB = Table(
     Column("slack_workspace_ref", String(255), nullable=False),
     Column("bot_id", String(255), primary_key=True),
     Column("bot_user_ref", String(255), nullable=False),
+    Column("bot_ref", String(255), nullable=True),
     Column("app_ref", String(255), nullable=False),
     Column("scope", Text, nullable=False),
     Column("access_token", String(255), nullable=False),

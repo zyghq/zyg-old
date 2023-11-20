@@ -96,6 +96,7 @@ class SlackBot(AbstractEntity):
         scope: str,
         access_token: str,
         bot_id: str | None = None,
+        bot_ref: str | None = None,
     ):
         self.slack_workspace = slack_workspace
         self.bot_user_ref = bot_user_ref
@@ -104,6 +105,7 @@ class SlackBot(AbstractEntity):
         self.access_token = access_token
 
         self.bot_id = bot_id
+        self.bot_ref = bot_ref
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackBot):
@@ -126,6 +128,7 @@ class SlackBot(AbstractEntity):
             slack_workspace={self.slack_workspace},
             bot_id={self.bot_id},
             bot_user_ref={self.bot_user_ref},
+            bot_ref={self.bot_ref},
             app_ref={self.app_ref},
         )"""
 

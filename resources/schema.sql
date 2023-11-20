@@ -61,10 +61,10 @@ CREATE TABLE member (
 );
 
 CREATE TABLE slack_workspace (
-    workspace_id VARCHAR(255) NOT NULL,
-    ref VARCHAR(255) NOT NULL,
-    url VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
+    workspace_id VARCHAR(255) NOT NULL, -- fk to workspace
+    ref VARCHAR(255) NOT NULL, -- primary key and reference to Slack workspace or team id
+    url VARCHAR(255) NOT NULL, -- Slack workspace url
+    name VARCHAR(255) NOT NULL, -- Slack workspace name
     status VARCHAR(127) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -74,12 +74,13 @@ CREATE TABLE slack_workspace (
 );
 
 CREATE TABLE slack_bot (
-    slack_workspace_ref VARCHAR(255) NOT NULL,
-    bot_id VARCHAR(255) NOT NULL,
-    bot_user_ref VARCHAR(255) NOT NULL,
-    app_ref VARCHAR(255) NOT NULL,
-    scope TEXT NOT NULL,
-    access_token VARCHAR(255) NOT NULL,
+    slack_workspace_ref VARCHAR(255) NOT NULL, -- fk to slack_workspace
+    bot_id VARCHAR(255) NOT NULL, -- primary key
+    bot_user_ref VARCHAR(255) NOT NULL, -- reference to Slack bot user id
+    bot_ref VARCHAR(255) NULL, -- reference to Slack bot id
+    app_ref VARCHAR(255) NOT NULL, -- reference to Slack app id
+    scope TEXT NOT NULL, -- comma separated list of scopes
+    access_token VARCHAR(255) NOT NULL, -- access token for the bot
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT slack_bot_bot_id_pkey PRIMARY KEY (bot_id),
