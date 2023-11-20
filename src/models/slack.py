@@ -86,6 +86,17 @@ class SlackWorkspace(AbstractEntity):
     def status(self, status: str) -> None:
         self._status = SlackWorkspaceStatus(status)
 
+    @classmethod
+    def from_dict(cls, workspace: Workspace, values: dict) -> "SlackWorkspace":
+        instance = cls(
+            workspace=workspace,
+            ref=values.get("ref"),
+            url=values.get("url"),
+            name=values.get("name"),
+        )
+        instance.status = values.get("status")
+        return instance
+
 
 class SlackBot(AbstractEntity):
     def __init__(
@@ -138,3 +149,15 @@ class SlackBot(AbstractEntity):
             "bot_user_ref": self.bot_user_ref,
             "app_ref": self.app_ref,
         }
+
+    @classmethod
+    def from_dict(cls, slack_workspace: SlackWorkspace, values: dict) -> "SlackBot":
+        return cls(
+            slack_workspace=slack_workspace,
+            bot_id=values.get("bot_id"),
+            bot_user_ref=values.get("bot_user_ref"),
+            bot_ref=values.get("bot_ref"),
+            app_ref=values.get("app_ref"),
+            scope=values.get("scope"),
+            access_token=values.get("access_token"),
+        )

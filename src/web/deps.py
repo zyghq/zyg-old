@@ -24,4 +24,4 @@ async def active_auth_account(
     async with engine.begin() as connection:
         repo = AccountRepository(connection=connection)
         account = await repo.get_by_auth_user_id(principal.user_id)
-        return account
+    return account

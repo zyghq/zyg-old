@@ -49,9 +49,29 @@ class Account(AbstractEntity):
             "auth_user_id": self.auth_user_id,
             "email": self.email,
             "name": self.name,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
+            "created_at": self.created_at.isoformat()
+            if isinstance(self.created_at, datetime)
+            else None,
+            "updated_at": self.updated_at.isoformat()
+            if isinstance(self.updated_at, datetime)
+            else None,
         }
+
+    @classmethod
+    def from_dict(cls, values: dict) -> "Account":
+        return cls(
+            account_id=values.get("account_id"),
+            provider=values.get("provider"),
+            auth_user_id=values.get("auth_user_id"),
+            email=values.get("email"),
+            name=values.get("name"),
+            created_at=datetime.fromisoformat(values.get("created_at"))
+            if values.get("created_at", None)
+            else None,
+            updated_at=datetime.fromisoformat(values.get("updated_at"))
+            if values.get("updated_at", None)
+            else None,
+        )
 
 
 class Workspace(AbstractEntity):
@@ -60,16 +80,16 @@ class Workspace(AbstractEntity):
         account: Account,
         workspace_id: str | None,
         name: str,
+        slug: str | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
     ):
         self.account = account
         self.workspace_id = workspace_id
         self.name = name
+        self.slug = slug
         self.created_at = created_at
         self.updated_at = updated_at
-
-        self.slug: str | None = None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Workspace):
@@ -83,7 +103,7 @@ class Workspace(AbstractEntity):
 
     def __repr__(self) -> str:
         return f"""Workspace(
-            account_id={self.account},
+            account={self.account},
             workspace_id={self.workspace_id},
             slug={self.slug},
             name={self.name},
@@ -96,12 +116,28 @@ class Workspace(AbstractEntity):
             "workspace_id": self.workspace_id,
             "slug": self.slug,
             "name": self.name,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
+            "created_at": self.created_at.isoformat()
+            if isinstance(self.created_at, datetime)
+            else None,
+            "updated_at": self.updated_at.isoformat()
+            if isinstance(self.updated_at, datetime)
+            else None,
         }
 
-    def add_slug(self, slug: str):
-        self.slug = slug
+    @classmethod
+    def from_dict(cls, account: Account, values: dict) -> "Workspace":
+        return cls(
+            account=account,
+            workspace_id=values.get("workspace_id"),
+            name=values.get("name"),
+            slug=values.get("slug"),
+            created_at=datetime.fromisoformat(values.get("created_at"))
+            if values.get("created_at", None)
+            else None,
+            updated_at=datetime.fromisoformat(values.get("updated_at"))
+            if values.get("updated_at", None)
+            else None,
+        )
 
 
 class MemberRole(Enum):

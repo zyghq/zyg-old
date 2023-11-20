@@ -13,6 +13,20 @@ from sqlalchemy.sql import func
 metadata = MetaData()
 
 
+WorkspaceDB = Table(
+    "workspace",
+    metadata,
+    Column("account_id", String(255), nullable=False),
+    Column("workspace_id", String(255), primary_key=True),
+    Column("slug", String(255), nullable=False),
+    Column("name", String(255), nullable=False),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
+    ForeignKeyConstraint(["account_id"], ["account.account_id"]),
+    UniqueConstraint("slug"),
+)
+
+
 SlackWorkspaceDB = Table(
     "slack_workspace",
     metadata,

@@ -1,5 +1,6 @@
 import logging
 
+from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -14,7 +15,9 @@ from src.db.repository import (
 )
 from src.models.account import Member, Workspace
 from src.models.slack import SlackBot, SlackWorkspace
+from src.tasks.slack import provision_slack_workspace
 from src.web.deps import active_auth_account
+from src.models.account import Account
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +31,8 @@ class CreateWorkspaceRequest(BaseModel):
 
 @router.post("/")
 async def create_workspace(
-    body: CreateWorkspaceRequest, account=Depends(active_auth_account)
+    body: CreateWorkspaceRequest,
+    account: Annotated[Account, Depends(active_auth_account)],
 ):
     workspace = Workspace(account=account, workspace_id=None, name=body.name)
     async with engine.begin() as connection:
@@ -54,7 +58,7 @@ async def create_workspace(
 
 
 @router.get("/")
-async def get_workspaces(account=Depends(active_auth_account)):
+async def get_workspaces(account: Annotated[Account, Depends(active_auth_account)]):
     async with engine.begin() as connection:
         repo = WorkspaceRepository(connection=connection)
         workspaces = await repo.find_all_by_account(account)
@@ -66,7 +70,9 @@ async def get_workspaces(account=Depends(active_auth_account)):
 
 
 @router.get("/{slug}/")
-async def get_workspace(slug: str, account=Depends(active_auth_account)):
+async def get_workspace(
+    slug: str, account: Annotated[Account, Depends(active_auth_account)]
+):
     async with engine.begin() as connection:
         repo = WorkspaceRepository(connection=connection)
         workspace = await repo.find_by_account_and_slug(account, slug)
@@ -84,7 +90,9 @@ async def get_workspace(slug: str, account=Depends(active_auth_account)):
 # TODO: add pydantic's request object validation schema.
 @router.post("/{slug}/slack/oauth/callback/")
 async def slack_oauth_callback(
-    request: Request, slug: str, account=Depends(active_auth_account)
+    request: Request,
+    slug: str,
+    account: Annotated[Account, Depends(active_auth_account)],
 ):
     body: dict = await request.json()
 
@@ -141,6 +149,11 @@ async def slack_oauth_callback(
 
     response = slack_workspace.to_dict()
     response["bot"] = slack_bot.to_dict()
+    context = {
+        "account": account.to_dict(),
+        "workspace": workspace.to_dict(),
+    }
+    provision_slack_workspace.delay(context)
     return JSONResponse(
         status_code=200,
         content=jsonable_encoder(response),

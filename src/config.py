@@ -16,23 +16,26 @@ engine: Engine = create_async_engine(
 )
 
 
-celery = Celery(
+worker = Celery(
     "zyg",
     broker=REDIS_URL,
     backend=REDIS_URL,
     broker_connection_retry_on_startup=True,  # disable deprecation warning
 )
-# celery.autodiscover_tasks(["src.adapters.tasker.handlers"], force=True)
+worker.autodiscover_tasks(["src.tasks.slack", "src.tasks.notif"], force=True)
 
 
-class Worker:
-    def __init__(self) -> None:
-        self.celery: Celery = celery
+# class Worker:
+#     def __init__(self) -> None:
+#         self.celery: Celery = celery
 
-    def apply_async(self, task_name, *args, **kwargs):
-        return self.celery.tasks[task_name].apply_async(*args, **kwargs)
+#     def apply_async(self, task_name, *args, **kwargs):
+#         return self.celery.tasks[task_name].apply_async(*args, **kwargs)
+
+#     def task(self, task_name):
+#         return self.celery.tasks[task_name]
 
 
-worker = Worker()
+# worker = Worker()
 
 logger.info("created DB instance with id: %s", id(engine))

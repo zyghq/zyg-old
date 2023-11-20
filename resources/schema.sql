@@ -87,3 +87,8 @@ CREATE TABLE slack_bot (
     CONSTRAINT slack_bot_slack_workspace_ref_fkey FOREIGN KEY (slack_workspace_ref) REFERENCES slack_workspace (ref),
     CONSTRAINT slack_bot_slack_workspace_ref_key UNIQUE (slack_workspace_ref)
 );
+
+-- SELECT *
+-- FROM slack_workspace
+-- JOIN slack_bot ON slack_workspace.ref = slack_bot.slack_workspace_ref
+-- WHERE slack_workspace.workspace_id = 'your_workspace_id';
