@@ -4,6 +4,22 @@ from .account import Workspace
 from .base import AbstractEntity
 
 
+# A note on SlackWorkspaceStatus:
+#
+# Currently we are not sure what the status of a SlackWorkspace should be.
+# Have added basic states for now.
+#
+# PROVISIONING:
+#   - Slack Workspace is being provisioned.
+#   - This is the initial state after oauth if the workspace does not exist.
+# READY:
+#   - Slack Workspace is ready to be used.
+#   - Now, this is the end working state, but we may want to add more states in between.
+# DEACTIVATED:
+#   - Slack Workspace has been deactivated or oauth is deleted.
+#   - This needs to be handled in the future, what happens when a workspace is deactivated?
+
+
 class SlackWorkspaceStatus(Enum):
     READY = "ready"
     PROVISIONING = "provisioning"
@@ -17,12 +33,19 @@ class SlackWorkspace(AbstractEntity):
         ref: str,
         url: str,
         name: str,
-        status: SlackWorkspaceStatus = SlackWorkspaceStatus.PROVISIONING,
+        status: SlackWorkspaceStatus | None | str = SlackWorkspaceStatus.PROVISIONING,
     ) -> None:
         self.workspace = workspace
         self.ref = ref
         self.url = url
         self.name = name
+
+        if status is None:
+            status = SlackWorkspaceStatus.PROVISIONING
+        if isinstance(status, str):
+            status = SlackWorkspaceStatus(status)
+
+        assert isinstance(status, SlackWorkspaceStatus)
 
         self._status = status
 
@@ -37,15 +60,8 @@ class SlackWorkspace(AbstractEntity):
             ref={self.ref},
             url={self.url},
             name={self.name},
+            status={self.status},
         )"""
-
-    def to_dict(self) -> dict[str, str]:
-        return {
-            "workspace": self.workspace.to_dict(),
-            "ref": self.ref,
-            "url": self.url,
-            "name": self.name,
-        }
 
     def equals_by_ref(self, other: object) -> bool:
         if not isinstance(other, SlackWorkspace):
@@ -53,16 +69,16 @@ class SlackWorkspace(AbstractEntity):
         return self.ref == other.ref
 
     @classmethod
-    def get_status_provisioning(cls) -> SlackWorkspaceStatus:
-        return SlackWorkspaceStatus.PROVISIONING
+    def get_status_provisioning(cls) -> str:
+        return SlackWorkspaceStatus.PROVISIONING.value
 
     @classmethod
-    def get_status_ready(cls) -> SlackWorkspaceStatus:
-        return SlackWorkspaceStatus.READY
+    def get_status_ready(cls) -> str:
+        return SlackWorkspaceStatus.READY.value
 
     @classmethod
-    def get_status_deactivated(cls) -> SlackWorkspaceStatus:
-        return SlackWorkspaceStatus.DEACTIVATED
+    def get_status_deactivated(cls) -> str:
+        return SlackWorkspaceStatus.DEACTIVATED.value
 
     @property
     def is_provisioning(self) -> bool:
@@ -86,16 +102,24 @@ class SlackWorkspace(AbstractEntity):
     def status(self, status: str) -> None:
         self._status = SlackWorkspaceStatus(status)
 
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "workspace": self.workspace.to_dict(),
+            "ref": self.ref,
+            "url": self.url,
+            "name": self.name,
+            "status": self.status,
+        }
+
     @classmethod
     def from_dict(cls, workspace: Workspace, values: dict) -> "SlackWorkspace":
-        instance = cls(
+        return cls(
             workspace=workspace,
             ref=values.get("ref"),
             url=values.get("url"),
             name=values.get("name"),
+            status=values.get("status"),
         )
-        instance.status = values.get("status")
-        return instance
 
 
 class SlackBot(AbstractEntity):
@@ -142,13 +166,6 @@ class SlackBot(AbstractEntity):
             bot_ref={self.bot_ref},
             app_ref={self.app_ref},
         )"""
-
-    def to_dict(self) -> dict:
-        return {
-            "bot_id": self.bot_id,
-            "bot_user_ref": self.bot_user_ref,
-            "app_ref": self.app_ref,
-        }
 
     @classmethod
     def from_dict(cls, slack_workspace: SlackWorkspace, values: dict) -> "SlackBot":

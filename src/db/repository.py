@@ -480,12 +480,16 @@ class SlackWorkspaceRepository(Repository):
         self.conn = connection
 
     async def save(self, slack_workspace: SlackWorkspace) -> SlackWorkspace:
+        """
+        Save a SlackWorkspace to the database. If the SlackWorkspace already exists by ref, update it.
+        ref: the PK and is the team id from Slack.
+        """
         workspace = slack_workspace.workspace
         if workspace is None or isinstance(workspace, Workspace) is False:
             raise ValueError("SlackWorkspace must have associated Workspace")
 
         if slack_workspace.ref is None:
-            raise ValueError("SlackWorkspace must have a ref (team id) from Slack")
+            raise ValueError("SlackWorkspace must have a ref - team id from Slack")
 
         query = (
             insert(SlackWorkspaceDB)
@@ -495,6 +499,16 @@ class SlackWorkspaceRepository(Repository):
                 url=slack_workspace.url,
                 name=slack_workspace.name,
                 status=slack_workspace.status,
+            )
+            .on_conflict_do_update(
+                constraint="slack_workspace_ref_pkey",
+                set_={
+                    SlackWorkspaceDB.c.workspace_id: workspace.workspace_id,
+                    SlackWorkspaceDB.c.url: slack_workspace.url,
+                    SlackWorkspaceDB.c.name: slack_workspace.name,
+                    SlackWorkspaceDB.c.status: slack_workspace.status,
+                    SlackWorkspaceDB.c.updated_at: db.func.now(),
+                },
             )
             .returning(
                 SlackWorkspaceDB.c.ref,
@@ -529,30 +543,33 @@ class SlackWorkspaceRepository(Repository):
         except IntegrityError as e:
             raise e
 
-    async def upsert(self, slack_workspace: SlackWorkspace) -> SlackWorkspace:
+    async def upsert_by_workspace(
+        self, slack_workspace: SlackWorkspace
+    ) -> SlackWorkspace:
         workspace = slack_workspace.workspace
         if workspace is None or isinstance(workspace, Workspace) is False:
             raise ValueError("SlackWorkspace must have associated Workspace")
 
         if slack_workspace.ref is None:
-            raise ValueError("SlackWorkspace must have a ref (team id) from Slack")
+            raise ValueError("SlackWorkspace must have a ref - team id from Slack")
 
         query = (
             insert(SlackWorkspaceDB)
             .values(
-                ref=slack_workspace.ref,
                 workspace_id=workspace.workspace_id,
+                ref=slack_workspace.ref,
                 url=slack_workspace.url,
                 name=slack_workspace.name,
                 status=slack_workspace.status,
             )
             .on_conflict_do_update(
-                constraint="slack_workspace_ref_pkey",
+                constraint="slack_workspace_workspace_id_key",
                 set_={
-                    SlackWorkspaceDB.c.workspace_id: workspace.workspace_id,
+                    SlackWorkspaceDB.c.ref: slack_workspace.ref,
                     SlackWorkspaceDB.c.url: slack_workspace.url,
                     SlackWorkspaceDB.c.name: slack_workspace.name,
                     SlackWorkspaceDB.c.status: slack_workspace.status,
+                    SlackWorkspaceDB.c.updated_at: db.func.now(),
                 },
             )
             .returning(
@@ -578,6 +595,10 @@ class SlackBotRepository(Repository):
         self.conn = connection
 
     async def save(self, slack_bot: SlackBot) -> SlackBot:
+        """
+        Save a SlackBot to the database. If the SlackBot already exists by bot_id, update it.
+        bot_id: the PK.
+        """
         slack_workspace = slack_bot.slack_workspace
         bot_id = slack_bot.bot_id
         if (
@@ -597,13 +618,24 @@ class SlackBotRepository(Repository):
         query = (
             insert(SlackBotDB)
             .values(
-                slack_workspace_ref=slack_workspace.ref,
                 bot_id=bot_id,
+                slack_workspace_ref=slack_workspace.ref,
                 bot_user_ref=slack_bot.bot_user_ref,
                 bot_ref=slack_bot.bot_ref,
                 app_ref=slack_bot.app_ref,
                 scope=slack_bot.scope,
                 access_token=slack_bot.access_token,
+            )
+            .on_conflict_do_update(
+                constraint="slack_bot_bot_id_pkey",
+                set_={
+                    SlackBotDB.c.slack_workspace_ref: slack_workspace.ref,
+                    SlackBotDB.c.bot_user_ref: slack_bot.bot_user_ref,
+                    SlackBotDB.c.bot_ref: slack_bot.bot_ref,
+                    SlackBotDB.c.app_ref: slack_bot.app_ref,
+                    SlackBotDB.c.scope: slack_bot.scope,
+                    SlackBotDB.c.access_token: slack_bot.access_token,
+                },
             )
             .returning(
                 SlackBotDB.c.bot_id,

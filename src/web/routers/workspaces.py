@@ -1,7 +1,7 @@
 import logging
-
 from typing import Annotated
-from fastapi import APIRouter, Depends, Request
+
+from fastapi import APIRouter, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -13,11 +13,10 @@ from src.db.repository import (
     SlackWorkspaceRepository,
     WorkspaceRepository,
 )
-from src.models.account import Member, Workspace
+from src.models.account import Account, Member, Workspace
 from src.models.slack import SlackBot, SlackWorkspace
-from src.tasks.slack import provision_slack_workspace
+from src.tasks.slack import slack_provision_pipeline
 from src.web.deps import active_auth_account
-from src.models.account import Account
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +26,19 @@ router = APIRouter()
 
 class CreateWorkspaceRequest(BaseModel):
     name: str
+
+
+class SlackOAuthCallbackRequest(BaseModel):
+    ok: bool
+    access_token: str
+    token_type: str
+    scope: str
+    bot_user_id: str
+    app_id: str
+    team: dict
+    enterprise: dict | None = None
+    authed_user: dict | None = None
+    enterprise_id: str | None = None
 
 
 @router.post("/")
@@ -87,21 +99,18 @@ async def get_workspace(
         )
 
 
-# TODO: add pydantic's request object validation schema.
 @router.post("/{slug}/slack/oauth/callback/")
 async def slack_oauth_callback(
-    request: Request,
+    body: SlackOAuthCallbackRequest,
     slug: str,
     account: Annotated[Account, Depends(active_auth_account)],
 ):
-    body: dict = await request.json()
+    access_token = body.access_token
+    scope = body.scope
+    bot_user_id = body.bot_user_id
+    app_id = body.app_id
 
-    access_token = body["access_token"]
-    team = body["team"]
-    scope = body["scope"]
-    bot_user_id = body["bot_user_id"]
-    app_id = body["app_id"]
-
+    team = body.team
     team_id = team["id"]
     team_name = team["name"]
 
@@ -148,12 +157,18 @@ async def slack_oauth_callback(
             slack_bot = await repo.upsert_by_workspace(slack_bot)
 
     response = slack_workspace.to_dict()
-    response["bot"] = slack_bot.to_dict()
-    context = {
-        "account": account.to_dict(),
-        "workspace": workspace.to_dict(),
+    response["bot"] = {
+        "bot_id": slack_bot.bot_id,
+        "bot_user_ref": slack_bot.bot_user_ref,
+        "app_ref": slack_bot.app_ref,
     }
-    provision_slack_workspace.delay(context)
+    if slack_workspace.is_provisioning:
+        context = {
+            "account": account.to_dict(),
+            "workspace": workspace.to_dict(),
+        }
+        slack_provision_pipeline.delay(context)
+
     return JSONResponse(
         status_code=200,
         content=jsonable_encoder(response),
