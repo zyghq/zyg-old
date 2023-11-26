@@ -147,7 +147,7 @@ class SlackWebAPI:
             )
         return response
 
-    def conversation_list(self, types: str = "public_channels"):
+    def conversation_list(self, types: str = "public_channel"):
         """
         refer the Slack API docs for more information at:
         https://api.slack.com/methods/conversations.list

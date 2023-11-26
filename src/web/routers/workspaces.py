@@ -15,7 +15,7 @@ from src.db.repository import (
 )
 from src.models.account import Account, Member, Workspace
 from src.models.slack import SlackBot, SlackWorkspace
-from src.tasks.slack import slack_provision_pipeline
+from src.tasks.slack import provision_pipeline
 from src.web.deps import active_auth_account
 
 logger = logging.getLogger(__name__)
@@ -180,12 +180,12 @@ async def slack_oauth_callback(
             "app_ref": slack_bot.app_ref,
         },
     }
-    if slack_workspace.is_provisioning:
-        context = {
-            "account": account.to_dict(),
-            "workspace": workspace.to_dict(),
-        }
-        slack_provision_pipeline.delay(context)
+    # if slack_workspace.is_provisioning:
+    context = {
+        "account": account.to_dict(),
+        "workspace": workspace.to_dict(),
+    }
+    provision_pipeline.delay(context)
 
     return JSONResponse(
         status_code=200,

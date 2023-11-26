@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 @worker.task(bind=True)
-def slack_authenticate(self, context: Dict):
+def authenticate(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
     logger.info(f"self.request.id: {self.request.id}")
 
-    async def run() -> str:
+    async def run() -> dict:
         account = context["account"]
         workspace = context["workspace"]
 
@@ -66,7 +66,7 @@ def slack_authenticate(self, context: Dict):
         slack_workspace = SlackWorkspace.from_dict(workspace, result)
         slack_bot = SlackBot.from_dict(slack_workspace, result)
 
-        slack_api = SlackWebAPIConnector(slack_bot)
+        slack_api = SlackWebAPIConnector(access_token=slack_bot.access_token)
         response = slack_api.authenticate()
 
         slack_workspace.url = response.url
@@ -83,13 +83,13 @@ def slack_authenticate(self, context: Dict):
 
         result = {
             "workspace_id": workspace.workspace_id,
-            "ref": slack_workspace.ref,
-            "name": slack_workspace.name,
-            "status": slack_workspace.status,
-            "slack_bot_bot_id": slack_bot.bot_id,
-            "slack_bot_bot_user_ref": slack_bot.bot_user_ref,
-            "slack_bot_bot_ref": slack_bot.bot_ref,
-            "slack_bot_access_token": slack_bot.access_token,
+            "slack_workspace_ref": slack_workspace.ref,
+            "slack_workspace_name": slack_workspace.name,
+            "slack_workspace_status": slack_workspace.status,
+            "bot_id": slack_bot.bot_id,
+            "bot_user_ref": slack_bot.bot_user_ref,
+            "bot_ref": slack_bot.bot_ref,
+            "bot_access_token": slack_bot.access_token,
         }
         return result
 
@@ -99,13 +99,13 @@ def slack_authenticate(self, context: Dict):
 
 
 @worker.task(bind=True)
-def slack_ready(self, context: Dict):
+def set_status_ready(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
     logger.info(f"self.request.id: {self.request.id}")
 
     async def run():
-        ref = context["ref"]
+        ref = context["slack_workspace_ref"]
         query = (
             db.update(SlackWorkspaceDB)
             .where(SlackWorkspaceDB.c.ref == ref)
@@ -120,16 +120,49 @@ def slack_ready(self, context: Dict):
 
     loop = asyncio.get_event_loop()
     result = loop.run_until_complete(run())
-    return result
+    logger.info(f"set_status_ready result: {result}")
+    return context
 
 
 @worker.task(bind=True)
-def slack_provision_pipeline(self, context: Dict):
+def sync_status_syncing(self, context: Dict):
+    logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
+    logger.info(f"chain of {self.name}: {self.request.chain}")
+    logger.info(f"self.request.id: {self.request.id}")
+
+    logger.warning("TODO: implement this...")
+    return context
+
+
+@worker.task(bind=True)
+def sync_channels(self, context: Dict):
+    logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
+    logger.info(f"chain of {self.name}: {self.request.chain}")
+    logger.info(f"self.request.id: {self.request.id}")
+
+    async def run() -> dict:
+        bot_access_token = context["bot_access_token"]
+        slack_api = SlackWebAPIConnector(access_token=bot_access_token)
+        channels = slack_api.get_channels()
+        print("************* result *************")
+        for channel in channels:
+            print(channel)
+        return True
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run())
+    return context
+
+
+@worker.task(bind=True)
+def provision_pipeline(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
     logger.info(f"self.request.id: {self.request.id}")
 
     return chain(
-        slack_authenticate.s(context),
-        slack_ready.s(),
+        authenticate.s(context),
+        set_status_ready.s(),
+        sync_status_syncing.s(),
+        sync_channels.s(),
     ).apply_async()
