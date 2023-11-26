@@ -22,15 +22,11 @@ logger = logging.getLogger(__name__)
 #
 
 
-def pipeline_logger(self):
+@worker.task(bind=True)
+def slack_authenticate(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
     logger.info(f"self.request.id: {self.request.id}")
-
-
-@worker.task(bind=True)
-def slack_authenticate(self, context: Dict):
-    pipeline_logger(self)
 
     async def run() -> str:
         account = context["account"]
@@ -104,7 +100,9 @@ def slack_authenticate(self, context: Dict):
 
 @worker.task(bind=True)
 def slack_ready(self, context: Dict):
-    pipeline_logger(self)
+    logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
+    logger.info(f"chain of {self.name}: {self.request.chain}")
+    logger.info(f"self.request.id: {self.request.id}")
 
     async def run():
         ref = context["ref"]
@@ -112,7 +110,7 @@ def slack_ready(self, context: Dict):
             db.update(SlackWorkspaceDB)
             .where(SlackWorkspaceDB.c.ref == ref)
             .values(
-                status=SlackWorkspace.get_status_ready(),
+                status=SlackWorkspace.status_ready(),
                 updated_at=db.func.now(),
             )
         )
@@ -127,7 +125,9 @@ def slack_ready(self, context: Dict):
 
 @worker.task(bind=True)
 def slack_provision_pipeline(self, context: Dict):
-    pipeline_logger(self)
+    logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
+    logger.info(f"chain of {self.name}: {self.request.chain}")
+    logger.info(f"self.request.id: {self.request.id}")
 
     return chain(
         slack_authenticate.s(context),

@@ -481,8 +481,8 @@ class SlackWorkspaceRepository(Repository):
 
     async def save(self, slack_workspace: SlackWorkspace) -> SlackWorkspace:
         """
-        Save a SlackWorkspace to the database. If the SlackWorkspace already exists by ref, update it.
-        ref: the PK and is the team id from Slack.
+        Saves a SlackWorkspace if the SlackWorkspace already exists by ref (PK), update it.
+        ref: is the PK and is the team id from Slack.
         """
         workspace = slack_workspace.workspace
         if workspace is None or isinstance(workspace, Workspace) is False:
@@ -499,6 +499,8 @@ class SlackWorkspaceRepository(Repository):
                 url=slack_workspace.url,
                 name=slack_workspace.name,
                 status=slack_workspace.status,
+                sync_status=slack_workspace.sync_status,
+                synced_at=slack_workspace.synced_at,
             )
             .on_conflict_do_update(
                 constraint="slack_workspace_ref_pkey",
@@ -507,6 +509,8 @@ class SlackWorkspaceRepository(Repository):
                     SlackWorkspaceDB.c.url: slack_workspace.url,
                     SlackWorkspaceDB.c.name: slack_workspace.name,
                     SlackWorkspaceDB.c.status: slack_workspace.status,
+                    SlackWorkspaceDB.c.sync_status: slack_workspace.sync_status,
+                    SlackWorkspaceDB.c.synced_at: slack_workspace.synced_at,
                     SlackWorkspaceDB.c.updated_at: db.func.now(),
                 },
             )
@@ -515,6 +519,8 @@ class SlackWorkspaceRepository(Repository):
                 SlackWorkspaceDB.c.url,
                 SlackWorkspaceDB.c.name,
                 SlackWorkspaceDB.c.status,
+                SlackWorkspaceDB.c.sync_status,
+                SlackWorkspaceDB.c.synced_at,
             )
         )
         try:
@@ -533,6 +539,8 @@ class SlackWorkspaceRepository(Repository):
             SlackWorkspaceDB.c.url,
             SlackWorkspaceDB.c.name,
             SlackWorkspaceDB.c.status,
+            SlackWorkspaceDB.c.sync_status,
+            SlackWorkspaceDB.c.synced_at,
         ).where(SlackWorkspaceDB.c.workspace_id == workspace.workspace_id)
         try:
             rows = await self.conn.execute(query)
@@ -561,6 +569,8 @@ class SlackWorkspaceRepository(Repository):
                 url=slack_workspace.url,
                 name=slack_workspace.name,
                 status=slack_workspace.status,
+                sync_status=slack_workspace.sync_status,
+                synced_at=slack_workspace.synced_at,
             )
             .on_conflict_do_update(
                 constraint="slack_workspace_workspace_id_key",
@@ -569,6 +579,8 @@ class SlackWorkspaceRepository(Repository):
                     SlackWorkspaceDB.c.url: slack_workspace.url,
                     SlackWorkspaceDB.c.name: slack_workspace.name,
                     SlackWorkspaceDB.c.status: slack_workspace.status,
+                    SlackWorkspaceDB.c.sync_status: slack_workspace.sync_status,
+                    SlackWorkspaceDB.c.synced_at: slack_workspace.synced_at,
                     SlackWorkspaceDB.c.updated_at: db.func.now(),
                 },
             )
@@ -577,6 +589,8 @@ class SlackWorkspaceRepository(Repository):
                 SlackWorkspaceDB.c.url,
                 SlackWorkspaceDB.c.name,
                 SlackWorkspaceDB.c.status,
+                SlackWorkspaceDB.c.sync_status,
+                SlackWorkspaceDB.c.synced_at,
             )
         )
         try:

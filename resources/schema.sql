@@ -60,12 +60,16 @@ CREATE TABLE member (
     CONSTRAINT member_slug_key UNIQUE (slug)
 );
 
+-- Represents theh Slack workspace table
+-- There is only one Slack workspace per Workspace
 CREATE TABLE slack_workspace (
     workspace_id VARCHAR(255) NOT NULL, -- fk to workspace
     ref VARCHAR(255) NOT NULL, -- primary key and reference to Slack workspace or team id
     url VARCHAR(255) NOT NULL, -- Slack workspace url
     name VARCHAR(255) NOT NULL, -- Slack workspace name
-    status VARCHAR(127) NOT NULL,
+    status VARCHAR(127) NOT NULL, -- current status of Slack workspace with respect to Workspace
+    sync_status VARCHAR(127) NOT NULL, -- current sync status of Slack workspace
+    synced_at TIMESTAMP NULL DEFAULT NULL, -- last time Slack workspace was synced defaults to NULL
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT slack_workspace_ref_pkey PRIMARY KEY (ref),
@@ -73,6 +77,8 @@ CREATE TABLE slack_workspace (
     CONSTRAINT slack_workspace_workspace_id_key UNIQUE (workspace_id)
 );
 
+-- Represents the Slack bot table
+-- There is only one Slack bot per Slack workspace, indirectly there is only one Slack bot per Workspace
 CREATE TABLE slack_bot (
     slack_workspace_ref VARCHAR(255) NOT NULL, -- fk to slack_workspace
     bot_id VARCHAR(255) NOT NULL, -- primary key

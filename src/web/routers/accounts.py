@@ -6,8 +6,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.config import engine
 from src.auth import AuthAccount
+from src.config import engine
 from src.db.repository import AccountRepository
 from src.models.account import Account
 from src.web.deps import active_auth_account, auth_principal
@@ -38,6 +38,7 @@ async def get_or_create_auth_account(
 
     def get_first_verified_email() -> str | None:
         """
+        Note:
         In Stytch we can have multiple verified emails, but we only want to use the
         first one. Also we assume that this implementation of Stytch is also in our control.
 

@@ -99,6 +99,7 @@ async def get_workspace(
         )
 
 
+# TODO: Needs testing in real Slack OAuth flow.
 @router.post("/{slug}/slack/oauth/callback/")
 async def slack_oauth_callback(
     body: SlackOAuthCallbackRequest,
@@ -114,6 +115,8 @@ async def slack_oauth_callback(
     team_id = team["id"]
     team_name = team["name"]
 
+    #
+    # get the Workspace
     async with engine.begin() as connection:
         repo = WorkspaceRepository(connection=connection)
         workspace = await repo.find_by_account_and_slug(account, slug)
@@ -123,6 +126,10 @@ async def slack_oauth_callback(
                 content=jsonable_encoder({"detail": "Workspace does not exist."}),
             )
 
+    #
+    # get the SlackWorkspace for the Workspace
+    # if it doesn't exist, create it
+    # make sure SlackBot exists for the new SlackWorkspace
     async with engine.begin() as connection:
         repo = SlackWorkspaceRepository(connection=connection)
         slack_workspace = await repo.find_by_workspace(workspace)
@@ -141,8 +148,7 @@ async def slack_oauth_callback(
                 scope=scope,
                 access_token=access_token,
             )
-            repo = SlackBotRepository(connection=connection)
-            slack_bot = await repo.save(slack_bot)
+            slack_bot = await SlackBotRepository(connection=connection).save(slack_bot)
         else:
             repo = SlackBotRepository(connection=connection)
             slack_bot = await repo.find_by_workspace(slack_workspace)
@@ -156,11 +162,23 @@ async def slack_oauth_callback(
                 )
             slack_bot = await repo.upsert_by_workspace(slack_bot)
 
-    response = slack_workspace.to_dict()
-    response["bot"] = {
-        "bot_id": slack_bot.bot_id,
-        "bot_user_ref": slack_bot.bot_user_ref,
-        "app_ref": slack_bot.app_ref,
+    response = {
+        "workspace": {
+            "workspace_id": workspace.workspace_id,
+            "slug": workspace.slug,
+            "name": workspace.name,
+        },
+        "ref": slack_workspace.ref,
+        "url": slack_workspace.url,
+        "name": slack_workspace.name,
+        "status": slack_workspace.status,
+        "sync_status": slack_workspace.sync_status,
+        "synced_at": slack_workspace.synced_at,
+        "bot": {
+            "bot_id": slack_bot.bot_id,
+            "bot_user_ref": slack_bot.bot_user_ref,
+            "app_ref": slack_bot.app_ref,
+        },
     }
     if slack_workspace.is_provisioning:
         context = {

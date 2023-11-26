@@ -134,6 +134,7 @@ class Workspace(AbstractEntity):
             # else None,
         }
 
+    # TODO: moved to parent class - can be removed?
     @staticmethod
     def _parse_datetime(value: str | datetime) -> datetime | None:
         if isinstance(value, datetime):

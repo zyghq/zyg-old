@@ -35,6 +35,8 @@ SlackWorkspaceDB = Table(
     Column("url", String(255), nullable=False),
     Column("name", String(255), nullable=False),
     Column("status", String(127), nullable=False),
+    Column("sync_status", String(127), nullable=False),
+    Column("synced_at", TIMESTAMP, nullable=True),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
     ForeignKeyConstraint(["workspace_id"], ["workspace.workspace_id"]),
