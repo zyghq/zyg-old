@@ -5,6 +5,10 @@ from .base import AbstractEntity
 
 
 class Account(AbstractEntity):
+    """
+    Represents Auth User Account.
+    """
+
     def __init__(
         self,
         account_id: str | None,
@@ -51,21 +55,7 @@ class Account(AbstractEntity):
             "name": self.name,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
-            # "created_at": self.created_at.isoformat()
-            # if isinstance(self.created_at, datetime)
-            # else None,
-            # "updated_at": self.updated_at.isoformat()
-            # if isinstance(self.updated_at, datetime)
-            # else None,
         }
-
-    @staticmethod
-    def _parse_datetime(value: str | datetime) -> datetime | None:
-        if isinstance(value, datetime):
-            return value
-        if isinstance(value, str):
-            return datetime.fromisoformat(value)
-        return None
 
     @classmethod
     def from_dict(cls, values: dict) -> "Account":
@@ -85,14 +75,14 @@ class Account(AbstractEntity):
 class Workspace(AbstractEntity):
     def __init__(
         self,
-        account: Account,
+        account_id: str,
         workspace_id: str | None,
         name: str,
         slug: str | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
     ):
-        self.account = account
+        self.account_id = account_id
         self.workspace_id = workspace_id
         self.name = name
         self.slug = slug
@@ -102,16 +92,19 @@ class Workspace(AbstractEntity):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Workspace):
             return False
-        return self.account == other.account and self.workspace_id == other.workspace_id
+        return (
+            self.account_id == other.account_id
+            and self.workspace_id == other.workspace_id
+        )
 
     def equals_by_slug(self, other: object) -> bool:
         if not isinstance(other, Workspace):
             return False
-        return self.account == other.account and self.slug == other.slug
+        return self.account_id == other.account_id and self.slug == other.slug
 
     def __repr__(self) -> str:
         return f"""Workspace(
-            account={self.account},
+            account_id={self.account_id},
             workspace_id={self.workspace_id},
             slug={self.slug},
             name={self.name},
@@ -126,32 +119,17 @@ class Workspace(AbstractEntity):
             "name": self.name,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
-            # "created_at": self.created_at.isoformat()
-            # if isinstance(self.created_at, datetime)
-            # else None,
-            # "updated_at": self.updated_at.isoformat()
-            # if isinstance(self.updated_at, datetime)
-            # else None,
         }
 
-    # TODO: moved to parent class - can be removed?
-    @staticmethod
-    def _parse_datetime(value: str | datetime) -> datetime | None:
-        if isinstance(value, datetime):
-            return value
-        if isinstance(value, str):
-            return datetime.fromisoformat(value)
-        return None
-
     @classmethod
-    def from_dict(cls, account: Account, values: dict) -> "Workspace":
+    def from_dict(cls, account_id: str, values: dict) -> "Workspace":
         created_at = cls._parse_datetime(values.get("created_at", None))
         updated_at = cls._parse_datetime(values.get("updated_at", None))
         return cls(
-            account=account,
+            account_id=account_id,
             workspace_id=values.get("workspace_id"),
-            name=values.get("name"),
             slug=values.get("slug"),
+            name=values.get("name"),
             created_at=created_at,
             updated_at=updated_at,
         )
@@ -159,7 +137,7 @@ class Workspace(AbstractEntity):
 
 class MemberRole(Enum):
     """
-    Enum class representing the different roles a member can have in an account.
+    Enum class representing the different roles a member can have in an Account.
     """
 
     PRIMARY = "primary"
@@ -170,50 +148,64 @@ class MemberRole(Enum):
 
 class Member(AbstractEntity):
     """
-    Represents a member of an account in a workspace.
-
-    Attributes:
-        workspace (Workspace): The workspace the member belongs to.
-        account (Account): The account the member belongs to.
-        member_id (str, optional): The ID of the member. Defaults to None.
-        slug (str, optional): The slug of the member. Defaults to None.
-        role (MemberRole, optional): The role of the member. Defaults to MemberRole.MEMBER.
-        created_at (datetime, optional): The datetime when the member was created. Defaults to None.
-        updated_at (datetime, optional): The datetime when the member was last updated. Defaults to None.
+    Represents a Member of an Account in a Workspace.
     """
 
     def __init__(
         self,
-        workspace: Workspace,
-        account: Account,
+        workspace_id: str,
+        account_id: str,
         member_id: str | None = None,
         slug: str | None = None,
-        role: MemberRole = MemberRole.MEMBER,
+        role: MemberRole | None | str = MemberRole.MEMBER,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
     ):
-        self.workspace = workspace
-        self.account = account
+        self.workspace_id = workspace_id
+        self.account_id = account_id
         self.member_id = member_id
         self.slug = slug
-        self.role = role
         self.created_at = created_at
         self.updated_at = updated_at
+
+        if role is None:
+            role = MemberRole.MEMBER
+        elif isinstance(role, str):
+            role = MemberRole(role)
+
+        assert isinstance(self.role, MemberRole)
+
+        self._role = role
+
+    @property
+    def role(self) -> MemberRole:
+        if self._role is None:
+            return MemberRole.MEMBER.value
+        return self._role.value
+
+    @role.setter
+    def role(self, role: MemberRole | str) -> None:
+        if isinstance(role, str):
+            role = MemberRole(role)
+        self._role = role
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Member):
             return False
-        return self.workspace == other.workspace and self.member_id == other.member_id
+        return (
+            self.workspace_id == other.workspace_id
+            and self.member_id == other.member_id
+        )
 
     def equals_by_slug(self, other: object) -> bool:
         if not isinstance(other, Member):
             return False
-        return self.workspace == other.workspace and self.slug == other.slug
+        return self.workspace_id == other.workspace_id and self.slug == other.slug
 
     def __repr__(self) -> str:
         return f"""Member(
-            workspace_id={self.workspace.workspace_id},
-            account_id={self.account.account_id},
+            workspace_id={self.workspace_id},
+            account_id={self.account_id},
             member_id={self.member_id},
             slug={self.slug},
             role={self.role},
@@ -222,11 +214,9 @@ class Member(AbstractEntity):
         )"""
 
     def to_dict(self) -> dict:
-        workspace_id = self.workspace.workspace_id if self.workspace else None
-        account_id = self.account.account_id if self.account else None
         return {
-            "workspace_id": workspace_id,
-            "account_id": account_id,
+            "workspace_id": self.workspace_id,
+            "account_id": self.account_id,
             "member_id": self.member_id,
             "slug": self.slug,
             "role": self.role,
@@ -234,21 +224,21 @@ class Member(AbstractEntity):
             "updated_at": self.updated_at,
         }
 
-    @classmethod
-    def get_role_primary(cls):
-        return MemberRole.PRIMARY
+    @staticmethod
+    def get_role_primary() -> str:
+        return MemberRole.PRIMARY.value
 
-    @classmethod
-    def get_role_owner(cls):
-        return MemberRole.OWNER
+    @staticmethod
+    def get_role_owner() -> str:
+        return MemberRole.OWNER.value
 
-    @classmethod
-    def get_role_admin(cls):
-        return MemberRole.ADMIN
+    @staticmethod
+    def get_role_admin() -> str:
+        return MemberRole.ADMIN.value
 
-    @classmethod
-    def get_role_member(cls):
-        return MemberRole.MEMBER
+    @staticmethod
+    def get_role_member() -> str:
+        return MemberRole.MEMBER.value
 
     @property
     def is_role_primary(self) -> bool:

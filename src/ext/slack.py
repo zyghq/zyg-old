@@ -147,8 +147,9 @@ class SlackConversationListResponse(BaseModel):
 
 
 class SlackWebAPIConnector(SlackWebAPI):
-    def __init__(self, access_token: str) -> None:
-        super().__init__(access_token)
+    def __init__(self, bot: SlackBot) -> None:
+        self.bot = bot
+        super().__init__(token=bot.access_token)
 
     def authenticate(self) -> AuthenticateResponse:
         response = self.auth_test()

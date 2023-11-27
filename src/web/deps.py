@@ -12,6 +12,8 @@ async def auth_principal(
     principal: Annotated[AuthAccount, Depends(StytchAuth())]
 ) -> AuthAccount:
     # (xxx) sanchitrk: can add some kind of metrics here to track
+    # some ideas:
+    #  - number of logins
     return principal
 
 
@@ -22,6 +24,7 @@ async def active_auth_account(
     # we can check if account is active or not and raise 403 if not.
 
     async with engine.begin() as connection:
-        repo = AccountRepository(connection=connection)
-        account = await repo.get_by_auth_user_id(principal.user_id)
+        account = await AccountRepository(connection=connection).get_by_auth_user_id(
+            principal.user_id
+        )
     return account

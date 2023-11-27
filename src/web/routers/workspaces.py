@@ -46,15 +46,19 @@ async def create_workspace(
     body: CreateWorkspaceRequest,
     account: Annotated[Account, Depends(active_auth_account)],
 ):
-    workspace = Workspace(account=account, workspace_id=None, name=body.name)
+    workspace = Workspace(
+        account_id=account.account_id, workspace_id=None, name=body.name
+    )
     async with engine.begin() as connection:
-        workspace = await WorkspaceRepository(connection=connection).save(workspace)
+        workspace = await WorkspaceRepository(connection).save(workspace)
         member = Member(
-            workspace=workspace,
-            account=account,
+            workspace_id=workspace.workspace_id,
+            account_id=account.account_id,
+            member_id=None,
+            slug=None,
             role=Member.get_role_primary(),
         )
-        member = await MemberRepository(connection=connection).save(member)
+        member = await MemberRepository(connection).save(member)
         response = workspace.to_dict()
         response["member"] = {
             "member_id": member.member_id,
@@ -72,8 +76,8 @@ async def create_workspace(
 @router.get("/")
 async def get_workspaces(account: Annotated[Account, Depends(active_auth_account)]):
     async with engine.begin() as connection:
-        repo = WorkspaceRepository(connection=connection)
-        workspaces = await repo.find_all_by_account(account)
+        repo = WorkspaceRepository(connection)
+        workspaces = await repo.find_all_by_account_id(account)
         workspaces = [workspace.to_dict() for workspace in workspaces]
         return JSONResponse(
             status_code=200,
@@ -86,8 +90,8 @@ async def get_workspace(
     slug: str, account: Annotated[Account, Depends(active_auth_account)]
 ):
     async with engine.begin() as connection:
-        repo = WorkspaceRepository(connection=connection)
-        workspace = await repo.find_by_account_and_slug(account, slug)
+        repo = WorkspaceRepository(connection)
+        workspace = await repo.find_by_account_id_and_slug(account.account_id, slug)
         if not workspace:
             return JSONResponse(
                 status_code=404,
@@ -118,8 +122,8 @@ async def slack_oauth_callback(
     #
     # get the Workspace
     async with engine.begin() as connection:
-        repo = WorkspaceRepository(connection=connection)
-        workspace = await repo.find_by_account_and_slug(account, slug)
+        repo = WorkspaceRepository(connection)
+        workspace = await repo.find_by_account_id_and_slug(account.account_id, slug)
         if not workspace:
             return JSONResponse(
                 status_code=404,
@@ -131,11 +135,11 @@ async def slack_oauth_callback(
     # if it doesn't exist, create it
     # make sure SlackBot exists for the new SlackWorkspace
     async with engine.begin() as connection:
-        repo = SlackWorkspaceRepository(connection=connection)
-        slack_workspace = await repo.find_by_workspace(workspace)
+        repo = SlackWorkspaceRepository(connection)
+        slack_workspace = await repo.find_by_workspace_id(workspace.workspace_id)
         if not slack_workspace:
             slack_workspace = SlackWorkspace(
-                workspace=workspace,
+                workspace_id=workspace.workspace_id,
                 ref=team_id,
                 url="",
                 name=team_name,
@@ -148,9 +152,9 @@ async def slack_oauth_callback(
                 scope=scope,
                 access_token=access_token,
             )
-            slack_bot = await SlackBotRepository(connection=connection).save(slack_bot)
+            slack_bot = await SlackBotRepository(connection).save(slack_bot)
         else:
-            repo = SlackBotRepository(connection=connection)
+            repo = SlackBotRepository(connection)
             slack_bot = await repo.find_by_workspace(slack_workspace)
             if not slack_bot:
                 slack_bot = SlackBot(

@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 # Reference:
 #   https://blog.det.life/replacing-celery-tasks-inside-a-chain-b1328923fb02
 #   https://docs.celeryq.dev/en/latest/userguide/canvas.html#chains
-#
 
 
 @worker.task(bind=True)
@@ -63,20 +62,24 @@ def authenticate(self, context: Dict):
             rows = await connection.execute(query)
             result = rows.mappings().first()
 
-        slack_workspace = SlackWorkspace.from_dict(workspace, result)
-        slack_bot = SlackBot.from_dict(slack_workspace, result)
+        slack_workspace = SlackWorkspace.from_dict(
+            workspace_id=workspace.workspace_id, values=result
+        )
+        slack_bot = SlackBot.from_dict(slack_workspace=slack_workspace, values=result)
 
-        slack_api = SlackWebAPIConnector(access_token=slack_bot.access_token)
+        slack_api = SlackWebAPIConnector(slack_bot)
         response = slack_api.authenticate()
 
         slack_workspace.url = response.url
-        slack_bot.bot_ref = response.bot_id
+        slack_bot.bot_ref = response.bot_id  # this is from Slack API response
 
         async with engine.begin() as connection:
-            repo = SlackWorkspaceRepository(connection)
-            slack_workspace = await repo.upsert_by_workspace(slack_workspace)
-            repo = SlackBotRepository(connection)
-            slack_bot = await repo.upsert_by_workspace(slack_bot)
+            slack_workspace = await SlackWorkspaceRepository(
+                connection
+            ).upsert_by_workspace_id(slack_workspace)
+            slack_bot = await SlackBotRepository(connection).upsert_by_workspace(
+                slack_bot
+            )
 
         logger.info(f"Provisioned Slack workspace: {slack_workspace}")
         logger.info(f"Provisioned Slack bot: {slack_bot}")
@@ -120,7 +123,7 @@ def set_status_ready(self, context: Dict):
 
     loop = asyncio.get_event_loop()
     result = loop.run_until_complete(run())
-    logger.info(f"set_status_ready result: {result}")
+    logger.info(f"set status ready result: {result}")
     return context
 
 
@@ -141,13 +144,49 @@ def sync_channels(self, context: Dict):
     logger.info(f"self.request.id: {self.request.id}")
 
     async def run() -> dict:
-        bot_access_token = context["bot_access_token"]
-        slack_api = SlackWebAPIConnector(access_token=bot_access_token)
+        workspace_id = context["workspace_id"]
+        slack_workspace_ref = context["slack_workspace_ref"]
+        async with engine.begin() as connection:
+            query = (
+                db.select(
+                    SlackWorkspaceDB.c.ref,
+                    SlackWorkspaceDB.c.url,
+                    SlackWorkspaceDB.c.name,
+                    SlackWorkspaceDB.c.status,
+                    SlackWorkspaceDB.c.created_at,
+                    SlackWorkspaceDB.c.updated_at,
+                    SlackBotDB.c.bot_id,
+                    SlackBotDB.c.bot_user_ref,
+                    SlackBotDB.c.bot_ref,
+                    SlackBotDB.c.app_ref,
+                    SlackBotDB.c.scope,
+                    SlackBotDB.c.access_token,
+                )
+                .select_from(
+                    db.join(
+                        SlackWorkspaceDB,
+                        SlackBotDB,
+                        SlackWorkspaceDB.c.ref == SlackBotDB.c.slack_workspace_ref,
+                    )
+                )
+                .where(SlackWorkspaceDB.c.ref == slack_workspace_ref)
+            )
+            rows = await connection.execute(query)
+            result = rows.mappings().first()
+
+            slack_workspace = SlackWorkspace.from_dict(
+                workspace_id=workspace_id, values=result
+            )
+            slack_bot = SlackBot.from_dict(
+                slack_workspace=slack_workspace, values=result
+            )
+
+        print("***************** slack web connector **************")
+        slack_api = SlackWebAPIConnector(slack_bot)
         channels = slack_api.get_channels()
-        print("************* result *************")
         for channel in channels:
+            print("*********** channel **************")
             print(channel)
-        return True
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run())

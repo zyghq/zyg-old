@@ -36,7 +36,7 @@ class SlackSyncStatus(Enum):
 class SlackWorkspace(AbstractEntity):
     def __init__(
         self,
-        workspace: Workspace,
+        workspace_id: str,
         ref: str,
         url: str,
         name: str,
@@ -44,7 +44,7 @@ class SlackWorkspace(AbstractEntity):
         sync_status: SlackSyncStatus | None | str = SlackSyncStatus.PENDING,
         synced_at: datetime | None = None,
     ) -> None:
-        self.workspace = workspace
+        self.workspace_id = workspace_id
         self.ref = ref
         self.url = url
         self.name = name
@@ -68,14 +68,38 @@ class SlackWorkspace(AbstractEntity):
         self._sync_status = sync_status
         self.synced_at = synced_at
 
+    @property
+    def status(self) -> str:
+        if self._status is None:
+            return SlackWorkspaceStatus.PROVISIONING.value
+        return self._status.value
+
+    @status.setter
+    def status(self, status: SlackWorkspaceStatus | str) -> None:
+        if isinstance(status, str):
+            status = SlackWorkspaceStatus(status)
+        self._status = status
+
+    @property
+    def sync_status(self) -> str:
+        if self._sync_status is None:
+            return SlackSyncStatus.PENDING.value
+        return self._sync_status.value
+
+    @sync_status.setter
+    def sync_status(self, sync_status: SlackSyncStatus | str) -> None:
+        if isinstance(sync_status, str):
+            sync_status = SlackSyncStatus(sync_status)
+        self._sync_status = sync_status
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackWorkspace):
             return NotImplemented
-        return self.workspace == other.workspace and self.ref == other.ref
+        return self.workspace_id == other.workspace_id and self.ref == other.ref
 
     def __repr__(self) -> str:
         return f"""SlackWorkspace(
-            workspace={self.workspace},
+            workspace_id={self.workspace_id},
             ref={self.ref},
             url={self.url},
             name={self.name},
@@ -129,48 +153,16 @@ class SlackWorkspace(AbstractEntity):
     def get_sync_status_aborted() -> str:
         return SlackSyncStatus.ABORTED.value
 
-    @property
-    def status(self) -> str:
-        if self._status is None:
-            return SlackWorkspaceStatus.PROVISIONING.value
-        return self._status.value
-
-    @status.setter
-    def status(self, status: str) -> None:
-        self._status = SlackWorkspaceStatus(status)
-
-    @property
-    def sync_status(self) -> str:
-        if self._sync_status is None:
-            return SlackSyncStatus.PENDING.value
-        return self._sync_status.value
-
-    @sync_status.setter
-    def sync_status(self, sync_status: str) -> None:
-        self._sync_status = SlackSyncStatus(sync_status)
-
-    def to_dict(self) -> dict[str, str]:
-        return {
-            "workspace": self.workspace.to_dict(),
-            "ref": self.ref,
-            "url": self.url,
-            "name": self.name,
-            "status": self.status,
-            "sync_status": self.sync_status,
-            "synced_at": self.synced_at,
-        }
-
     @classmethod
-    def from_dict(cls, workspace: Workspace, values: dict) -> "SlackWorkspace":
-        synced_at = cls._parse_datetime(values.get("synced_at", None))
+    def from_dict(cls, workspace_id: str, values: dict) -> "SlackWorkspace":
         return cls(
-            workspace=workspace,
+            workspace_id=workspace_id,
             ref=values.get("ref"),
             url=values.get("url"),
             name=values.get("name"),
             status=values.get("status"),
             sync_status=values.get("sync_status"),
-            synced_at=synced_at,
+            synced_at=cls._parse_datetime(values.get("synced_at", None)),
         )
 
 
