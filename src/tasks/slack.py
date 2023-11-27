@@ -1,16 +1,21 @@
 import asyncio
 import logging
+from datetime import datetime
 from typing import Dict
 
 import sqlalchemy as db
 from celery import chain
 
 from src.config import engine, worker
-from src.db.repository import SlackBotRepository, SlackWorkspaceRepository
+from src.db.repository import (
+    SlackBotRepository,
+    SlackChannelRepository,
+    SlackWorkspaceRepository,
+)
 from src.db.schema import SlackBotDB, SlackWorkspaceDB
 from src.ext.slack import SlackWebAPIConnector
 from src.models.account import Account, Workspace
-from src.models.slack import SlackBot, SlackWorkspace
+from src.models.slack import SlackBot, SlackChannel, SlackWorkspace
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +81,8 @@ def authenticate(self, context: Dict):
         async with engine.begin() as connection:
             slack_workspace = await SlackWorkspaceRepository(
                 connection
-            ).upsert_by_workspace_id(slack_workspace)
-            slack_bot = await SlackBotRepository(connection).upsert_by_workspace(
+            ).upsert_by_workspace(slack_workspace)
+            slack_bot = await SlackBotRepository(connection).upsert_by_slack_workspace(
                 slack_bot
             )
 
@@ -102,7 +107,7 @@ def authenticate(self, context: Dict):
 
 
 @worker.task(bind=True)
-def set_status_ready(self, context: Dict):
+def workspace_status_ready(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
     logger.info(f"self.request.id: {self.request.id}")
@@ -128,17 +133,33 @@ def set_status_ready(self, context: Dict):
 
 
 @worker.task(bind=True)
-def sync_status_syncing(self, context: Dict):
+def sync_workspace_status_syncing(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
     logger.info(f"self.request.id: {self.request.id}")
 
-    logger.warning("TODO: implement this...")
+    async def run():
+        ref = context["slack_workspace_ref"]
+        query = (
+            db.update(SlackWorkspaceDB)
+            .where(SlackWorkspaceDB.c.ref == ref)
+            .values(
+                sync_status=SlackWorkspace.sync_status_syncing(),
+                updated_at=db.func.now(),
+            )
+        )
+        async with engine.begin() as connection:
+            await connection.execute(query)
+        return True
+
+    loop = asyncio.get_event_loop()
+    result = loop.run_until_complete(run())
+    logger.info(f"sync status syncing result: {result}")
     return context
 
 
 @worker.task(bind=True)
-def sync_channels(self, context: Dict):
+def sync_public_channels(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
     logger.info(f"self.request.id: {self.request.id}")
@@ -181,15 +202,33 @@ def sync_channels(self, context: Dict):
                 slack_workspace=slack_workspace, values=result
             )
 
-        print("***************** slack web connector **************")
         slack_api = SlackWebAPIConnector(slack_bot)
         channels = slack_api.get_channels()
-        for channel in channels:
-            print("*********** channel **************")
-            print(channel)
+        synced_at = datetime.utcnow()
+
+        async with engine.begin() as connection:
+            repo = SlackChannelRepository(connection)
+            items = []
+            for channel in channels:
+                slack_channel = await repo.find_by_slack_workspace_channel_ref(
+                    slack_workspace=slack_workspace, channel_ref=channel.id
+                )
+                if not slack_channel:
+                    values = channel.model_dump()
+                    values["status"] = SlackChannel.status_mute()
+                    values["synced_at"] = synced_at
+                    slack_channel = SlackChannel.from_dict(
+                        slack_workspace=slack_workspace, values=values
+                    )
+                    slack_channel = await repo.upsert_by_slack_workspace_channel_ref(
+                        slack_channel,
+                    )
+                items.append(slack_channel)
+            return items
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run())
+    channels = loop.run_until_complete(run())
+    logger.info(f"synced public channels: {len(channels)}")
     return context
 
 
@@ -201,7 +240,7 @@ def provision_pipeline(self, context: Dict):
 
     return chain(
         authenticate.s(context),
-        set_status_ready.s(),
-        sync_status_syncing.s(),
-        sync_channels.s(),
+        workspace_status_ready.s(),
+        sync_workspace_status_syncing.s(),
+        sync_public_channels.s(),
     ).apply_async()

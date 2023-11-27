@@ -94,7 +94,32 @@ CREATE TABLE slack_bot (
     CONSTRAINT slack_bot_slack_workspace_ref_key UNIQUE (slack_workspace_ref)
 );
 
--- SELECT *
--- FROM slack_workspace
--- JOIN slack_bot ON slack_workspace.ref = slack_bot.slack_workspace_ref
--- WHERE slack_workspace.workspace_id = 'your_workspace_id';
+-- Represents the Slack channel table
+-- There are many Slack channels per Slack workspace
+CREATE TABLE slack_channel (
+    slack_workspace_ref VARCHAR(255) NOT NULL, -- fk to slack_workspace
+    channel_id VARCHAR(255) NOT NULL, -- primary key
+    channel_ref VARCHAR(255) NOT NULL, -- reference to Slack channel id
+    is_channel BOOLEAN NOT NULL,
+    is_ext_shared BOOLEAN NOT NULL,
+    is_general BOOLEAN NOT NULL,
+    is_group BOOLEAN NOT NULL,
+    is_im BOOLEAN NOT NULL,
+    is_member BOOLEAN NOT NULL,
+    is_mpim BOOLEAN NOT NULL,
+    is_org_shared BOOLEAN NOT NULL,
+    is_pending_ext_shared BOOLEAN NOT NULL,
+    is_private BOOLEAN NOT NULL,
+    is_shared BOOLEAN NOT NULL,
+    name VARCHAR(255) NOT NULL, -- Slack channel name
+    name_normalized VARCHAR(255) NOT NULL, -- Slack channel name normalized
+    created BIGINT NOT NULL,
+    updated BIGINT NOT NULL,
+    status VARCHAR(127) NOT NULL, -- current status of Slack channel with respect to Slack workspace
+    synced_at TIMESTAMP NULL DEFAULT NULL, -- last time Slack channel was synced defaults to NULL
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT slack_channel_channel_id_pkey PRIMARY KEY (channel_id),
+    CONSTRAINT slack_channel_slack_workspace_ref_fkey FOREIGN KEY (slack_workspace_ref) REFERENCES slack_workspace (ref),
+    CONSTRAINT slack_channel_slack_workspace_ref_channel_ref_key UNIQUE (slack_workspace_ref, channel_ref)
+);

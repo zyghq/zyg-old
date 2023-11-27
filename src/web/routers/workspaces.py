@@ -155,7 +155,7 @@ async def slack_oauth_callback(
             slack_bot = await SlackBotRepository(connection).save(slack_bot)
         else:
             repo = SlackBotRepository(connection)
-            slack_bot = await repo.find_by_workspace(slack_workspace)
+            slack_bot = await repo.find_by_slack_workspace(slack_workspace)
             if not slack_bot:
                 slack_bot = SlackBot(
                     slack_workspace=slack_workspace,
@@ -164,7 +164,7 @@ async def slack_oauth_callback(
                     scope=scope,
                     access_token=access_token,
                 )
-            slack_bot = await repo.upsert_by_workspace(slack_bot)
+            slack_bot = await repo.upsert_by_slack_workspace(slack_bot)
 
     response = {
         "workspace": {

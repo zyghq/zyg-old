@@ -1,8 +1,7 @@
 from datetime import datetime
 from enum import Enum
-
-from .account import Workspace
-from .base import AbstractEntity
+from attrs import define, field
+from .base import AbstractEntity, AbstractValueObject
 
 # A note on SlackWorkspaceStatus:
 #
@@ -221,4 +220,70 @@ class SlackBot(AbstractEntity):
             app_ref=values.get("app_ref"),
             scope=values.get("scope"),
             access_token=values.get("access_token"),
+        )
+
+
+class SlackChannelStatus(Enum):
+    MUTE = "mute"
+    LISTEN = "listen"
+
+
+@define(frozen=True, kw_only=True)
+class SlackChannel(AbstractValueObject):
+    slack_workspace: SlackWorkspace
+    channel_id: str | None = field(default=None)
+    channel_ref: str
+    is_channel: bool
+    is_ext_shared: bool
+    is_general: bool
+    is_group: bool
+    is_im: bool
+    is_member: bool
+    is_mpim: bool
+    is_org_shared: bool
+    is_pending_ext_shared: bool
+    is_private: bool
+    is_shared: bool
+    name: str
+    name_normalized: str
+    created: int
+    updated: int
+    status: str = field(default=SlackChannelStatus.MUTE.value)
+    synced_at: datetime | None = field(default=None)
+    created_at: datetime | None = field(default=None)
+    updated_at: datetime | None = field(default=None)
+
+    @staticmethod
+    def status_mute() -> str:
+        return SlackChannelStatus.MUTE.value
+
+    @staticmethod
+    def status_listen() -> str:
+        return SlackChannelStatus.LISTEN.value
+
+    @classmethod
+    def from_dict(cls, slack_workspace: SlackWorkspace, values: dict) -> "SlackChannel":
+        return cls(
+            slack_workspace=slack_workspace,
+            channel_id=values.get("channel_id", None),
+            channel_ref=values.get("id"),
+            is_channel=values.get("is_channel"),
+            is_ext_shared=values.get("is_ext_shared"),
+            is_general=values.get("is_general"),
+            is_group=values.get("is_group"),
+            is_im=values.get("is_im"),
+            is_member=values.get("is_member"),
+            is_mpim=values.get("is_mpim"),
+            is_org_shared=values.get("is_org_shared"),
+            is_pending_ext_shared=values.get("is_pending_ext_shared"),
+            is_private=values.get("is_private"),
+            is_shared=values.get("is_shared"),
+            name=values.get("name"),
+            name_normalized=values.get("name_normalized"),
+            created=values.get("created"),
+            updated=values.get("updated"),
+            status=values.get("status", None),
+            synced_at=values.get("synced_at", None),
+            created_at=values.get("created_at", None),
+            updated_at=values.get("updated_at", None),
         )
