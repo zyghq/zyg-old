@@ -1,6 +1,8 @@
 from datetime import datetime
 from enum import Enum
-from attrs import define, field
+
+from attrs import asdict, define, field
+
 from .base import AbstractEntity, AbstractValueObject
 
 # A note on SlackWorkspaceStatus:
@@ -248,8 +250,8 @@ class SlackChannel(AbstractValueObject):
     name_normalized: str
     created: int
     updated: int
-    status: str = field(default=SlackChannelStatus.MUTE.value)
-    synced_at: datetime | None = field(default=None)
+    status: str = field(default=SlackChannelStatus.MUTE.value)  # custom field
+    synced_at: datetime | None = field(default=None)  # custom field
     created_at: datetime | None = field(default=None)
     updated_at: datetime | None = field(default=None)
 
@@ -260,6 +262,9 @@ class SlackChannel(AbstractValueObject):
     @staticmethod
     def status_listen() -> str:
         return SlackChannelStatus.LISTEN.value
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, slack_workspace: SlackWorkspace, values: dict) -> "SlackChannel":

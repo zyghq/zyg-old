@@ -115,8 +115,8 @@ CREATE TABLE slack_channel (
     name_normalized VARCHAR(255) NOT NULL, -- Slack channel name normalized
     created BIGINT NOT NULL,
     updated BIGINT NOT NULL,
-    status VARCHAR(127) NOT NULL, -- current status of Slack channel with respect to Slack workspace
-    synced_at TIMESTAMP NULL DEFAULT NULL, -- last time Slack channel was synced defaults to NULL
+    status VARCHAR(127) NOT NULL, -- custom status of Slack channel with respect to Slack workspace
+    synced_at TIMESTAMP NULL DEFAULT NULL, -- custom timestamp Slack channel was synced defaults to NULL
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT slack_channel_channel_id_pkey PRIMARY KEY (channel_id),

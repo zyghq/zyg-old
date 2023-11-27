@@ -214,11 +214,39 @@ def sync_public_channels(self, context: Dict):
                     slack_workspace=slack_workspace, channel_ref=channel.id
                 )
                 if not slack_channel:
+                    logger.info(
+                        f"channel not found for workspace ref: {slack_workspace.ref} and channel ref: {channel.id}"
+                    )
                     values = channel.model_dump()
                     values["status"] = SlackChannel.status_mute()
                     values["synced_at"] = synced_at
                     slack_channel = SlackChannel.from_dict(
                         slack_workspace=slack_workspace, values=values
+                    )
+                    slack_channel = await repo.upsert_by_slack_workspace_channel_ref(
+                        slack_channel,
+                    )
+                else:
+                    logger.info(
+                        f"channel found for workspace ref: {slack_workspace.ref} and channel ref: {channel.id}"
+                    )
+                    logger.info(
+                        "shall merge the values of the existing record keeping custom values intact"
+                    )
+                    values = slack_channel.to_dict()
+                    values_updated = channel.model_dump()
+                    #
+                    # Note: we update the values of the existing record
+                    # and keep the custom values like `synced_at` and `status` not to be overwritten
+                    # instead set them manually here.
+                    values_merged = {
+                        **values,
+                        **values_updated,
+                        "synced_at": synced_at,
+                        "status": slack_channel.status,
+                    }
+                    slack_channel = SlackChannel.from_dict(
+                        slack_workspace=slack_workspace, values=values_merged
                     )
                     slack_channel = await repo.upsert_by_slack_workspace_channel_ref(
                         slack_channel,
