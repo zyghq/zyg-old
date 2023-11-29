@@ -210,8 +210,8 @@ def sync_public_channels(self, context: Dict):
             repo = SlackChannelRepository(connection)
             items = []
             for channel in channels:
-                slack_channel = await repo.find_by_slack_workspace_channel_ref(
-                    slack_workspace=slack_workspace, channel_ref=channel.id
+                slack_channel = await repo.find_by_slack_workspace_ref_channel_ref(
+                    slack_workspace_ref=slack_workspace.ref, channel_ref=channel.id
                 )
                 if not slack_channel:
                     logger.info(
@@ -221,10 +221,12 @@ def sync_public_channels(self, context: Dict):
                     values["status"] = SlackChannel.status_mute()
                     values["synced_at"] = synced_at
                     slack_channel = SlackChannel.from_dict(
-                        slack_workspace=slack_workspace, values=values
+                        slack_workspace_ref=slack_workspace.ref, values=values
                     )
-                    slack_channel = await repo.upsert_by_slack_workspace_channel_ref(
-                        slack_channel,
+                    slack_channel = (
+                        await repo.upsert_by_slack_workspace_ref_channel_ref(
+                            slack_channel
+                        )
                     )
                 else:
                     logger.info(
@@ -234,22 +236,24 @@ def sync_public_channels(self, context: Dict):
                         "shall merge the values of the existing record keeping custom values intact"
                     )
                     values = slack_channel.to_dict()
-                    values_updated = channel.model_dump()
+                    values_latest = channel.model_dump()
                     #
                     # Note: we update the values of the existing record
-                    # and keep the custom values like `synced_at` and `status` not to be overwritten
-                    # instead set them manually here.
+                    # and keep the custom values like `synced_at` and `status` avoid being overwritten,
+                    # instead set them manually from what was already set before.
                     values_merged = {
                         **values,
-                        **values_updated,
+                        **values_latest,
                         "synced_at": synced_at,
                         "status": slack_channel.status,
                     }
                     slack_channel = SlackChannel.from_dict(
-                        slack_workspace=slack_workspace, values=values_merged
+                        slack_workspace_ref=slack_workspace.ref, values=values_merged
                     )
-                    slack_channel = await repo.upsert_by_slack_workspace_channel_ref(
-                        slack_channel,
+                    slack_channel = (
+                        await repo.upsert_by_slack_workspace_ref_channel_ref(
+                            slack_channel
+                        )
                     )
                 items.append(slack_channel)
             return items

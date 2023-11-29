@@ -12,9 +12,10 @@ from src.db.repository import (
     SlackBotRepository,
     SlackWorkspaceRepository,
     WorkspaceRepository,
+    SlackChannelRepository,
 )
 from src.models.account import Account, Member, Workspace
-from src.models.slack import SlackBot, SlackWorkspace
+from src.models.slack import SlackBot, SlackWorkspace, SlackChannelStatus
 from src.tasks.slack import provision_pipeline
 from src.web.deps import active_auth_account
 
@@ -39,6 +40,10 @@ class SlackOAuthCallbackRequest(BaseModel):
     enterprise: dict | None = None
     authed_user: dict | None = None
     enterprise_id: str | None = None
+
+
+class SlackChannelStatusRequest(BaseModel):
+    status: SlackChannelStatus
 
 
 @router.post("/")
@@ -77,7 +82,7 @@ async def create_workspace(
 async def get_workspaces(account: Annotated[Account, Depends(active_auth_account)]):
     async with engine.begin() as connection:
         repo = WorkspaceRepository(connection)
-        workspaces = await repo.find_all_by_account_id(account)
+        workspaces = await repo.find_all_by_account_id(account.account_id)
         workspaces = [workspace.to_dict() for workspace in workspaces]
         return JSONResponse(
             status_code=200,
@@ -191,6 +196,42 @@ async def slack_oauth_callback(
     }
     provision_pipeline.delay(context)
 
+    return JSONResponse(
+        status_code=200,
+        content=jsonable_encoder(response),
+    )
+
+
+@router.patch("/{slug}/slack/channels/{channel_id}/status/")
+async def update_slack_channel_status(
+    body: SlackChannelStatusRequest,
+    slug: str,
+    channel_id: str,
+    account: Annotated[Account, Depends(active_auth_account)],
+):
+    async with engine.begin() as connection:
+        workspace = await WorkspaceRepository(connection).find_by_account_id_and_slug(
+            account.account_id, slug
+        )
+        if not workspace:
+            return JSONResponse(
+                status_code=404,
+                content=jsonable_encoder({"detail": "Workspace does not exist."}),
+            )
+
+    async with engine.begin() as connection:
+        slack_channel = await SlackChannelRepository(
+            connection
+        ).update_status_by_channel_id(channel_id, body.status.value)
+
+    response = {
+        "channel_id": slack_channel.channel_id,
+        "status": slack_channel.status,
+        "channel_ref": slack_channel.channel_ref,
+        "synced_at": slack_channel.synced_at,
+        "created_at": slack_channel.created_at,
+        "updated_at": slack_channel.updated_at,
+    }
     return JSONResponse(
         status_code=200,
         content=jsonable_encoder(response),

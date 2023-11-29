@@ -1,9 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from attrs import asdict, define, field
-
-from .base import AbstractEntity, AbstractValueObject
+from .base import AbstractEntity
 
 # A note on SlackWorkspaceStatus:
 #
@@ -65,8 +63,8 @@ class SlackWorkspace(AbstractEntity):
         assert isinstance(sync_status, SlackSyncStatus)
 
         self._status = status
-
         self._sync_status = sync_status
+
         self.synced_at = synced_at
 
     @property
@@ -95,7 +93,7 @@ class SlackWorkspace(AbstractEntity):
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackWorkspace):
-            return NotImplemented
+            return False
         return self.workspace_id == other.workspace_id and self.ref == other.ref
 
     def __repr__(self) -> str:
@@ -111,8 +109,8 @@ class SlackWorkspace(AbstractEntity):
 
     def equals_by_ref(self, other: object) -> bool:
         if not isinstance(other, SlackWorkspace):
-            return NotImplemented
-        return self.ref == other.ref
+            return False
+        return self.workspace_id == other.workspace_id and self.ref == other.ref
 
     @staticmethod
     def status_provisioning() -> str:
@@ -151,7 +149,7 @@ class SlackWorkspace(AbstractEntity):
         return SlackSyncStatus.COMPLETED.value
 
     @staticmethod
-    def get_sync_status_aborted() -> str:
+    def sync_status_aborted() -> str:
         return SlackSyncStatus.ABORTED.value
 
     @classmethod
@@ -189,7 +187,7 @@ class SlackBot(AbstractEntity):
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackBot):
-            return NotImplemented
+            return False
         return (
             self.slack_workspace == other.slack_workspace
             and self.bot_id == other.bot_id
@@ -197,7 +195,7 @@ class SlackBot(AbstractEntity):
 
     def equals_by_bot_user_ref(self, other: object) -> bool:
         if not isinstance(other, SlackBot):
-            return NotImplemented
+            return False
         return (
             self.slack_workspace == other.slack_workspace
             and self.bot_user_ref == other.bot_user_ref
@@ -230,30 +228,106 @@ class SlackChannelStatus(Enum):
     LISTEN = "listen"
 
 
-@define(frozen=True, kw_only=True)
-class SlackChannel(AbstractValueObject):
-    slack_workspace: SlackWorkspace
-    channel_id: str | None = field(default=None)
-    channel_ref: str
-    is_channel: bool
-    is_ext_shared: bool
-    is_general: bool
-    is_group: bool
-    is_im: bool
-    is_member: bool
-    is_mpim: bool
-    is_org_shared: bool
-    is_pending_ext_shared: bool
-    is_private: bool
-    is_shared: bool
-    name: str
-    name_normalized: str
-    created: int
-    updated: int
-    status: str = field(default=SlackChannelStatus.MUTE.value)  # custom field
-    synced_at: datetime | None = field(default=None)  # custom field
-    created_at: datetime | None = field(default=None)
-    updated_at: datetime | None = field(default=None)
+class SlackChannel(AbstractEntity):
+    def __init__(
+        self,
+        slack_workspace_ref: str,
+        channel_ref: str,
+        is_channel: bool,
+        is_ext_shared: bool,
+        is_general: bool,
+        is_group: bool,
+        is_im: bool,
+        is_member: bool,
+        is_mpim: bool,
+        is_org_shared: bool,
+        is_pending_ext_shared: bool,
+        is_private: bool,
+        is_shared: bool,
+        name: str,
+        name_normalized: str,
+        created: int,
+        updated: int,
+        channel_id: str | None = None,
+        created_at: datetime | None = None,
+        updated_at: datetime | None = None,
+        synced_at: datetime | None = None,
+        status: SlackChannelStatus | str = SlackChannelStatus.MUTE,
+    ):
+        self.slack_workspace_ref = slack_workspace_ref
+        self.channel_id = channel_id
+        self.channel_ref = channel_ref
+        self.is_channel = is_channel
+        self.is_ext_shared = is_ext_shared
+        self.is_general = is_general
+        self.is_group = is_group
+        self.is_im = is_im
+        self.is_member = is_member
+        self.is_mpim = is_mpim
+        self.is_org_shared = is_org_shared
+        self.is_pending_ext_shared = is_pending_ext_shared
+        self.is_private = is_private
+        self.is_shared = is_shared
+        self.name = name
+        self.name_normalized = name_normalized
+        self.created = created
+        self.updated = updated
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.synced_at = synced_at
+
+        if isinstance(status, str):
+            status = SlackChannelStatus(status)
+
+        assert isinstance(status, SlackChannelStatus)
+        self._status: SlackChannelStatus = status
+
+    @property
+    def status(self) -> str:
+        return self._status.value
+
+    @status.setter
+    def status(self, status: SlackChannelStatus | str) -> None:
+        if isinstance(status, str):
+            status = SlackChannelStatus(status)
+        self._status = status
+
+    @property
+    def is_muted(self) -> bool:
+        return self._status == SlackChannelStatus.MUTE
+
+    @property
+    def is_listening(self) -> bool:
+        return self._status == SlackChannelStatus.LISTEN
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SlackChannel):
+            return False
+        return (
+            self.slack_workspace_ref == other.slack_workspace_ref
+            and self.channel_ref == other.channel_ref
+        )
+
+    def equals_by_channel_ref(self, other: object) -> bool:
+        if not isinstance(other, SlackChannel):
+            return False
+        return (
+            self.slack_workspace_ref == other.slack_workspace_ref
+            and self.channel_ref == other.channel_ref
+        )
+
+    def __repr__(self) -> str:
+        return f"""SlackChannelSync(
+            slack_workspace_ref={self.slack_workspace_ref},
+            channel_id={self.channel_id},
+            channel_ref={self.channel_ref},
+            name={self.name},
+            name_normalized={self.name_normalized},
+            created_at={self.created_at},
+            updated_at={self.updated_at},
+            synced_at={self.synced_at},
+            status={self.status},
+        )"""
 
     @staticmethod
     def status_mute() -> str:
@@ -263,13 +337,10 @@ class SlackChannel(AbstractValueObject):
     def status_listen() -> str:
         return SlackChannelStatus.LISTEN.value
 
-    def to_dict(self) -> dict:
-        return asdict(self)
-
     @classmethod
-    def from_dict(cls, slack_workspace: SlackWorkspace, values: dict) -> "SlackChannel":
+    def from_dict(cls, slack_workspace_ref: str, values: dict) -> "SlackChannel":
         return cls(
-            slack_workspace=slack_workspace,
+            slack_workspace_ref=slack_workspace_ref,
             channel_id=values.get("channel_id", None),
             channel_ref=values.get("id"),
             is_channel=values.get("is_channel"),
@@ -288,7 +359,33 @@ class SlackChannel(AbstractValueObject):
             created=values.get("created"),
             updated=values.get("updated"),
             status=values.get("status", None),
-            synced_at=values.get("synced_at", None),
-            created_at=values.get("created_at", None),
-            updated_at=values.get("updated_at", None),
+            synced_at=cls._parse_datetime(values.get("synced_at", None)),
+            created_at=cls._parse_datetime(values.get("created_at", None)),
+            updated_at=cls._parse_datetime(values.get("updated_at", None)),
         )
+
+    def to_dict(self) -> dict:
+        return {
+            "slack_workspace_ref": self.slack_workspace_ref,
+            "channel_id": self.channel_id,
+            "id": self.channel_ref,
+            "is_channel": self.is_channel,
+            "is_ext_shared": self.is_ext_shared,
+            "is_general": self.is_general,
+            "is_group": self.is_group,
+            "is_im": self.is_im,
+            "is_member": self.is_member,
+            "is_mpim": self.is_mpim,
+            "is_org_shared": self.is_org_shared,
+            "is_pending_ext_shared": self.is_pending_ext_shared,
+            "is_private": self.is_private,
+            "is_shared": self.is_shared,
+            "name": self.name,
+            "name_normalized": self.name_normalized,
+            "created": self.created,
+            "updated": self.updated,
+            "status": self.status,
+            "synced_at": self.synced_at,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }

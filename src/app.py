@@ -5,7 +5,7 @@ from sqlalchemy.sql import text
 
 from src.config import engine
 from src.tasks.notif import loggit
-from src.web.routers import accounts, workspaces
+from src.web.routers import accounts, events, workspaces
 
 app = FastAPI()
 
@@ -21,6 +21,11 @@ app.include_router(
 app.include_router(
     workspaces.router,
     prefix="/workspaces",
+)
+
+app.include_router(
+    events.router,
+    prefix="/events",
 )
 
 

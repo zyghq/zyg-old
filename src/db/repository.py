@@ -714,8 +714,8 @@ class SlackChannelRepository(Repository):
         self.conn = connection
 
     async def save(self, slack_channel: SlackChannel) -> SlackChannel:
-        slack_workspace = slack_channel.slack_workspace
-        if not slack_workspace or not isinstance(slack_workspace, SlackWorkspace):
+        slack_workspace_ref = slack_channel.slack_workspace_ref
+        if not slack_workspace_ref:
             raise ValueError("SlackChannel must have associated SlackWorkspace")
 
         channel_id = slack_channel.channel_id
@@ -725,7 +725,7 @@ class SlackChannelRepository(Repository):
         query = (
             insert(SlackChannelDB)
             .values(
-                slack_workspace_ref=slack_workspace.ref,
+                slack_workspace_ref=slack_workspace_ref,
                 channel_id=channel_id,
                 channel_ref=slack_channel.channel_ref,
                 is_channel=slack_channel.is_channel,
@@ -749,7 +749,7 @@ class SlackChannelRepository(Repository):
             .on_conflict_do_update(
                 constraint="slack_channel_channel_id_pkey",
                 set_={
-                    SlackChannelDB.c.slack_workspace_ref: slack_workspace.ref,
+                    SlackChannelDB.c.slack_workspace_ref: slack_workspace_ref,
                     SlackChannelDB.c.channel_ref: slack_channel.channel_ref,
                     SlackChannelDB.c.is_channel: slack_channel.is_channel,
                     SlackChannelDB.c.is_ext_shared: slack_channel.is_ext_shared,
@@ -772,6 +772,7 @@ class SlackChannelRepository(Repository):
                 },
             )
             .returning(
+                SlackChannelDB.c.slack_workspace_ref,
                 SlackChannelDB.c.channel_id,
                 SlackChannelDB.c.channel_ref,
                 SlackChannelDB.c.is_channel,
@@ -799,15 +800,15 @@ class SlackChannelRepository(Repository):
         try:
             rows = await self.conn.execute(query)
             result = rows.mappings().first()
-            return SlackChannel(slack_workspace=slack_workspace, **result)
+            return SlackChannel(**result)
         except IntegrityError as e:
             raise e
 
-    async def upsert_by_slack_workspace_channel_ref(
+    async def upsert_by_slack_workspace_ref_channel_ref(
         self, slack_channel: SlackChannel
     ) -> SlackChannel:
-        slack_workspace = slack_channel.slack_workspace
-        if not slack_workspace or not isinstance(slack_workspace, SlackWorkspace):
+        slack_workspace_ref = slack_channel.slack_workspace_ref
+        if not slack_workspace_ref:
             raise ValueError("SlackChannel must have associated SlackWorkspace")
 
         channel_id = slack_channel.channel_id
@@ -817,7 +818,7 @@ class SlackChannelRepository(Repository):
         query = (
             insert(SlackChannelDB)
             .values(
-                slack_workspace_ref=slack_workspace.ref,
+                slack_workspace_ref=slack_workspace_ref,
                 channel_id=channel_id,
                 channel_ref=slack_channel.channel_ref,
                 is_channel=slack_channel.is_channel,
@@ -862,6 +863,7 @@ class SlackChannelRepository(Repository):
                 },
             )
             .returning(
+                SlackChannelDB.c.slack_workspace_ref,
                 SlackChannelDB.c.channel_id,
                 SlackChannelDB.c.channel_ref,
                 SlackChannelDB.c.is_channel,
@@ -889,14 +891,15 @@ class SlackChannelRepository(Repository):
         try:
             rows = await self.conn.execute(query)
             result = rows.mappings().first()
-            return SlackChannel(slack_workspace=slack_workspace, **result)
+            return SlackChannel(**result)
         except IntegrityError as e:
             raise e
 
-    async def find_by_slack_workspace_channel_ref(
-        self, slack_workspace: SlackWorkspace, channel_ref: str
+    async def find_by_slack_workspace_ref_channel_ref(
+        self, slack_workspace_ref: str, channel_ref: str
     ) -> SlackChannel | None:
         query = db.select(
+            SlackChannelDB.c.slack_workspace_ref,
             SlackChannelDB.c.channel_id,
             SlackChannelDB.c.channel_ref,
             SlackChannelDB.c.is_channel,
@@ -920,7 +923,7 @@ class SlackChannelRepository(Repository):
             SlackChannelDB.c.updated_at,
         ).where(
             db.and_(
-                SlackChannelDB.c.slack_workspace_ref == slack_workspace.ref,
+                SlackChannelDB.c.slack_workspace_ref == slack_workspace_ref,
                 SlackChannelDB.c.channel_ref == channel_ref,
             )
         )
@@ -929,6 +932,49 @@ class SlackChannelRepository(Repository):
             result = rows.mappings().first()
             if result is None:
                 return None
-            return SlackChannel(slack_workspace=slack_workspace, **result)
+            return SlackChannel(**result)
+        except IntegrityError as e:
+            raise e
+
+    async def update_status_by_channel_id(
+        self, channel_id: str, status: str
+    ) -> SlackChannel:
+        query = (
+            db.update(SlackChannelDB)
+            .where(SlackChannelDB.c.channel_id == channel_id)
+            .values(
+                status=status,
+                updated_at=db.func.now(),
+            )
+            .returning(
+                SlackChannelDB.c.slack_workspace_ref,
+                SlackChannelDB.c.channel_id,
+                SlackChannelDB.c.channel_ref,
+                SlackChannelDB.c.is_channel,
+                SlackChannelDB.c.is_ext_shared,
+                SlackChannelDB.c.is_general,
+                SlackChannelDB.c.is_group,
+                SlackChannelDB.c.is_im,
+                SlackChannelDB.c.is_member,
+                SlackChannelDB.c.is_mpim,
+                SlackChannelDB.c.is_org_shared,
+                SlackChannelDB.c.is_pending_ext_shared,
+                SlackChannelDB.c.is_private,
+                SlackChannelDB.c.is_shared,
+                SlackChannelDB.c.name,
+                SlackChannelDB.c.name_normalized,
+                SlackChannelDB.c.created,
+                SlackChannelDB.c.updated,
+                SlackChannelDB.c.status,
+                SlackChannelDB.c.synced_at,
+                SlackChannelDB.c.created_at,
+                SlackChannelDB.c.updated_at,
+            )
+        )
+
+        try:
+            rows = await self.conn.execute(query)
+            result = rows.mappings().first()
+            return SlackChannel(**result)
         except IntegrityError as e:
             raise e
