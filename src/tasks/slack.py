@@ -265,6 +265,33 @@ def sync_public_channels(self, context: Dict):
 
 
 @worker.task(bind=True)
+def sync_workspace_status_completed(self, context: Dict):
+    logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
+    logger.info(f"chain of {self.name}: {self.request.chain}")
+    logger.info(f"self.request.id: {self.request.id}")
+
+    async def run():
+        ref = context["slack_workspace_ref"]
+        query = (
+            db.update(SlackWorkspaceDB)
+            .where(SlackWorkspaceDB.c.ref == ref)
+            .values(
+                sync_status=SlackWorkspace.sync_status_completed(),
+                synced_at=db.func.now(),
+                updated_at=db.func.now(),
+            )
+        )
+        async with engine.begin() as connection:
+            await connection.execute(query)
+        return True
+
+    loop = asyncio.get_event_loop()
+    result = loop.run_until_complete(run())
+    logger.info(f"sync status completed result: {result}")
+    return context
+
+
+@worker.task(bind=True)
 def provision_pipeline(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
@@ -275,4 +302,5 @@ def provision_pipeline(self, context: Dict):
         workspace_status_ready.s(),
         sync_workspace_status_syncing.s(),
         sync_public_channels.s(),
+        sync_workspace_status_completed.s(),
     ).apply_async()

@@ -389,3 +389,7 @@ class SlackChannel(AbstractEntity):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
+
+
+class SlackChannelConfig(AbstractEntity):
+    pass
