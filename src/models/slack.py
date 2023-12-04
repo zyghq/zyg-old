@@ -3,21 +3,6 @@ from enum import Enum
 
 from .base import AbstractEntity
 
-# A note on SlackWorkspaceStatus:
-#
-# Currently we are not sure what the status of a SlackWorkspace should be.
-# Have added basic states for now.
-#
-# PROVISIONING:
-#   - Slack Workspace is being provisioned.
-#   - This is the initial state after oauth if the workspace does not exist.
-# READY:
-#   - Slack Workspace is ready to be used.
-#   - Now, this is the end working state, but we may want to add more states in between.
-# DEACTIVATED:
-#   - Slack Workspace has been deactivated or oauth is deleted.
-#   - This needs to be handled in the future, what happens when a workspace is deactivated?
-
 
 class SlackWorkspaceStatus(Enum):
     READY = "ready"
@@ -33,6 +18,26 @@ class SlackSyncStatus(Enum):
 
 
 class SlackWorkspace(AbstractEntity):
+    """
+    Represents a Slack Workspace.
+
+    Important fields:
+    - status
+    - sync_status
+
+    When the Slack account is authenticated, we provision the Slack workspace which is represented by the `status` field.
+    The provisioning is asynchronous and is taken care of by the worker. During provisioning, we ensure that we have the
+    necessary rights to access the Slack workspace.
+    The provisioning pipeline also syncs the data from Slack to our database. This pipeline consists of various tasks as required.
+    Once the provisioning is complete, the status is set to 'ready'.
+
+    'ready' is the state when the Slack workspace is ready to be used.
+    'deactivated' is the state when the Slack workspace is deactivated or the OAuth is deleted.
+
+    'sync_status' is used to track the sync status of the Slack workspace. Since we heavily rely on Slack APIs to sync the data,
+    we need to keep track of the sync status of the Slack workspace.
+    """
+
     def __init__(
         self,
         workspace_id: str,
@@ -166,6 +171,22 @@ class SlackWorkspace(AbstractEntity):
 
 
 class SlackBot(AbstractEntity):
+    """
+    Represents a Slack Bot added to a Slack Workspace.
+
+    We are using a convention of naming Slack based data model `_id` as `_ref`
+    to avoid confusion with the database `id` field.
+
+    Important fields:
+    - bot_user_ref - represents the `bot_user_id` from Slack API
+    - app_ref - represents the `app_id` from Slack API
+    - bot_id - represents PK not to be confused with `bot_ref`
+    - bot_ref - represents the `bot_id` from Slack API
+
+    Every Slack Bot added has 1:1 mapping with Slack Workspace. There cannot be
+    multiple Slack Bots for a single Slack Workspace.
+    """
+
     def __init__(
         self,
         slack_workspace: SlackWorkspace,
