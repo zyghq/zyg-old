@@ -251,9 +251,9 @@ class WorkspaceRepository(AbstractRepository):
                 :slug
             )
             on conflict (workspace_id) do update set
-                account_id = :account_id
-                name = :name
-                slug = :slug
+                account_id = :account_id,
+                name = :name,
+                slug = :slug,
                 updated_at = now()
             returning workspace_id, account_id, name, slug, created_at, updated_at
         """
@@ -341,7 +341,7 @@ class MemberRepository(AbstractRepository):
             slug=member.slug,
             workspace_id=member.workspace_id,
             account_id=member.account_id,
-            role=member.role.value,
+            role=member.role,
             created_at=member.created_at,
             updated_at=member.updated_at,
         )

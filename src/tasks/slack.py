@@ -133,7 +133,7 @@ def workspace_status_ready(self, context: Dict):
 
 
 @worker.task(bind=True)
-def sync_workspace_status_syncing(self, context: Dict):
+def workspace_sync_status_syncing(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
     logger.info(f"self.request.id: {self.request.id}")
@@ -265,7 +265,7 @@ def sync_public_channels(self, context: Dict):
 
 
 @worker.task(bind=True)
-def sync_workspace_status_completed(self, context: Dict):
+def workspace_sync_status_completed(self, context: Dict):
     logger.info(f"{self.name} has parent with task id {self.request.parent_id}")
     logger.info(f"chain of {self.name}: {self.request.chain}")
     logger.info(f"self.request.id: {self.request.id}")
@@ -300,7 +300,7 @@ def provision_pipeline(self, context: Dict):
     return chain(
         authenticate.s(context),
         workspace_status_ready.s(),
-        sync_workspace_status_syncing.s(),
+        workspace_sync_status_syncing.s(),
         sync_public_channels.s(),
-        sync_workspace_status_completed.s(),
+        workspace_sync_status_completed.s(),
     ).apply_async()

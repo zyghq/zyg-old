@@ -173,12 +173,12 @@ class Member(AbstractEntity):
         elif isinstance(role, str):
             role = MemberRole(role)
 
-        assert isinstance(self.role, MemberRole)
+        assert isinstance(role, MemberRole)
 
         self._role = role
 
     @property
-    def role(self) -> MemberRole:
+    def role(self) -> str:
         if self._role is None:
             return MemberRole.MEMBER.value
         return self._role.value
@@ -242,16 +242,16 @@ class Member(AbstractEntity):
 
     @property
     def is_role_primary(self) -> bool:
-        return self.role == MemberRole.PRIMARY
+        return self._role == MemberRole.PRIMARY
 
     @property
     def is_role_owner(self) -> bool:
-        return self.role == MemberRole.OWNER
+        return self._role == MemberRole.OWNER
 
     @property
     def is_role_admin(self) -> bool:
-        return self.role == MemberRole.ADMIN
+        return self._role == MemberRole.ADMIN
 
     @property
     def is_role_member(self) -> bool:
-        return self.role == MemberRole.MEMBER
+        return self._role == MemberRole.MEMBER

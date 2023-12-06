@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-class CreateWorkspaceRequest(BaseModel):
+class CreateOrEditWorkspaceRequest(BaseModel):
     name: str
 
 
@@ -48,7 +48,7 @@ class SlackChannelStatusRequest(BaseModel):
 
 @router.post("/")
 async def create_workspace(
-    body: CreateWorkspaceRequest,
+    body: CreateOrEditWorkspaceRequest,
     account: Annotated[Account, Depends(active_auth_account)],
 ):
     workspace = Workspace(
@@ -64,18 +64,19 @@ async def create_workspace(
             role=Member.get_role_primary(),
         )
         member = await MemberRepository(connection).save(member)
-        response = workspace.to_dict()
-        response["member"] = {
-            "member_id": member.member_id,
-            "slug": member.slug,
-            "role": member.role,
-            "created_at": member.created_at,
-            "updated_at": member.updated_at,
-        }
-        return JSONResponse(
-            status_code=201,
-            content=jsonable_encoder(response),
-        )
+
+    response = workspace.to_dict()
+    response["member"] = {
+        "member_id": member.member_id,
+        "slug": member.slug,
+        "role": member.role,
+        "created_at": member.created_at,
+        "updated_at": member.updated_at,
+    }
+    return JSONResponse(
+        status_code=201,
+        content=jsonable_encoder(response),
+    )
 
 
 @router.get("/")
@@ -84,10 +85,10 @@ async def get_workspaces(account: Annotated[Account, Depends(active_auth_account
         repo = WorkspaceRepository(connection)
         workspaces = await repo.find_all_by_account_id(account.account_id)
         workspaces = [workspace.to_dict() for workspace in workspaces]
-        return JSONResponse(
-            status_code=200,
-            content=jsonable_encoder(workspaces),
-        )
+    return JSONResponse(
+        status_code=200,
+        content=jsonable_encoder(workspaces),
+    )
 
 
 @router.get("/{slug}/")
@@ -102,10 +103,36 @@ async def get_workspace(
                 status_code=404,
                 content=jsonable_encoder({"detail": "Workspace does not exist."}),
             )
-        return JSONResponse(
-            status_code=200,
-            content=jsonable_encoder(workspace.to_dict()),
+    return JSONResponse(
+        status_code=200,
+        content=jsonable_encoder(workspace.to_dict()),
+    )
+
+
+@router.patch("/{slug}/")
+async def edit_workspace(
+    slug: str,
+    body: CreateOrEditWorkspaceRequest,
+    account: Annotated[Account, Depends(active_auth_account)],
+):
+    async with engine.begin() as connection:
+        workspace = await WorkspaceRepository(connection).find_by_account_id_and_slug(
+            account.account_id, slug
         )
+        if not workspace:
+            return JSONResponse(
+                status_code=404,
+                content=jsonable_encoder({"detail": "Workspace does not exist."}),
+            )
+
+    workspace.name = body.name
+    async with engine.begin() as connection:
+        workspace = await WorkspaceRepository(connection).save(workspace)
+
+    return JSONResponse(
+        status_code=200,
+        content=jsonable_encoder(workspace.to_dict()),
+    )
 
 
 # TODO: Needs testing in real Slack OAuth flow.
@@ -189,6 +216,7 @@ async def slack_oauth_callback(
             "app_ref": slack_bot.app_ref,
         },
     }
+    # TODO: @sanchitrk - enable this after testing.
     # if slack_workspace.is_provisioning:
     context = {
         "account": account.to_dict(),
