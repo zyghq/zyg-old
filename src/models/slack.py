@@ -321,6 +321,10 @@ class SlackChannel(AbstractEntity):
     def is_listening(self) -> bool:
         return self._status == SlackChannelStatus.LISTEN
 
+    @property
+    def is_public(self) -> bool:
+        return self.is_private is False
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SlackChannel):
             return False

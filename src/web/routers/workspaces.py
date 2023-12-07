@@ -1,6 +1,7 @@
 import logging
 from typing import Annotated
 
+import sqlalchemy as db
 from fastapi import APIRouter, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -10,12 +11,13 @@ from src.config import engine
 from src.db.repository import (
     MemberRepository,
     SlackBotRepository,
+    SlackChannelRepository,
     SlackWorkspaceRepository,
     WorkspaceRepository,
-    SlackChannelRepository,
 )
+from src.db.schema import SlackWorkspaceDB, WorkspaceDB, SlackChannelDB
 from src.models.account import Account, Member, Workspace
-from src.models.slack import SlackBot, SlackWorkspace, SlackChannelStatus
+from src.models.slack import SlackBot, SlackChannelStatus, SlackWorkspace, SlackChannel
 from src.tasks.slack import provision_pipeline
 from src.web.deps import active_auth_account
 
@@ -46,6 +48,7 @@ class SlackChannelStatusRequest(BaseModel):
     status: SlackChannelStatus
 
 
+# creates a workspace and a member for the account
 @router.post("/")
 async def create_workspace(
     body: CreateOrEditWorkspaceRequest,
@@ -79,6 +82,7 @@ async def create_workspace(
     )
 
 
+# get list of workspaces for the account
 @router.get("/")
 async def get_workspaces(account: Annotated[Account, Depends(active_auth_account)]):
     async with engine.begin() as connection:
@@ -91,6 +95,7 @@ async def get_workspaces(account: Annotated[Account, Depends(active_auth_account
     )
 
 
+# get a workspace item for the account by slug
 @router.get("/{slug}/")
 async def get_workspace(
     slug: str, account: Annotated[Account, Depends(active_auth_account)]
@@ -109,6 +114,7 @@ async def get_workspace(
     )
 
 
+# update a workspace for the account by slug
 @router.patch("/{slug}/")
 async def edit_workspace(
     slug: str,
@@ -135,6 +141,7 @@ async def edit_workspace(
     )
 
 
+# invoked by Slack OAuth flow - requires real world testing
 # TODO: Needs testing in real Slack OAuth flow.
 @router.post("/{slug}/slack/oauth/callback/")
 async def slack_oauth_callback(
@@ -230,6 +237,96 @@ async def slack_oauth_callback(
     )
 
 
+# get list of channels for the workspace
+@router.get("/{slug}/slack/channels/")
+async def get_workspace_channels(
+    slug: str,
+    account: Annotated[Account, Depends(active_auth_account)],
+):
+    async with engine.begin() as connection:
+        query = (
+            db.select(
+                SlackWorkspaceDB.c.workspace_id,
+                SlackWorkspaceDB.c.ref,
+                SlackWorkspaceDB.c.url,
+                SlackWorkspaceDB.c.name,
+                SlackWorkspaceDB.c.status,
+                SlackWorkspaceDB.c.sync_status,
+                SlackWorkspaceDB.c.synced_at,
+            )
+            .join(WorkspaceDB)
+            .where(
+                db.and_(
+                    WorkspaceDB.c.account_id == account.account_id,
+                    WorkspaceDB.c.slug == slug,
+                )
+            )
+        )
+        rows = await connection.execute(query)
+        result = rows.mappings().first()
+        if not result:
+            return JSONResponse(
+                status_code=404,
+                content=jsonable_encoder({"detail": "Workspace does not exist."}),
+            )
+        slack_workspace = SlackWorkspace(**result)
+        print(slack_workspace)
+
+    async with engine.begin() as connection:
+        query = (
+            db.select(
+                SlackChannelDB.c.slack_workspace_ref,
+                SlackChannelDB.c.channel_id,
+                SlackChannelDB.c.channel_ref,
+                SlackChannelDB.c.is_channel,
+                SlackChannelDB.c.is_ext_shared,
+                SlackChannelDB.c.is_general,
+                SlackChannelDB.c.is_group,
+                SlackChannelDB.c.is_im,
+                SlackChannelDB.c.is_member,
+                SlackChannelDB.c.is_mpim,
+                SlackChannelDB.c.is_org_shared,
+                SlackChannelDB.c.is_pending_ext_shared,
+                SlackChannelDB.c.is_private,
+                SlackChannelDB.c.is_shared,
+                SlackChannelDB.c.name,
+                SlackChannelDB.c.name_normalized,
+                SlackChannelDB.c.created,
+                SlackChannelDB.c.updated,
+                SlackChannelDB.c.status,
+                SlackChannelDB.c.synced_at,
+                SlackChannelDB.c.created_at,
+                SlackChannelDB.c.updated_at,
+            )
+            .where(SlackChannelDB.c.slack_workspace_ref == slack_workspace.ref)
+            .order_by(SlackChannelDB.c.name)
+            .limit(100)
+        )
+
+        rows = await connection.execute(query)
+        results = rows.mappings().all()
+        slack_channels = [SlackChannel(**result) for result in results]
+
+    response = [
+        {
+            "channel_id": c.channel_id,
+            "name": c.name,
+            "is_listening": c.is_listening,
+            "is_public": c.is_public,
+            "synced_at": c.synced_at,
+            "created_at": c.created_at,
+            "updated_at": c.updated_at,
+        }
+        for c in slack_channels
+    ]
+
+    return JSONResponse(
+        status_code=200,
+        content=jsonable_encoder(response),
+    )
+
+
+# update a Slack channel status by workspace slug and channel id
 @router.patch("/{slug}/slack/channels/{channel_id}/status/")
 async def update_slack_channel_status(
     body: SlackChannelStatusRequest,
