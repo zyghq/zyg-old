@@ -7,31 +7,29 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-black = "^23.7.0"
-mypy = "^1.5.0"
-fastapi = "^0.101.0"
-uvicorn = "^0.23.2"
-slack-sdk = "^3.21.3"
-asyncpg = "^0.28.0"
-sqlalchemy = "^2.0.20"
+fastapi = "^0.108.0"
+uvicorn = "^0.25.0"
+slack-sdk = "^3.26.1"
+asyncpg = "^0.29.0"
+sqlalchemy = "^2.0.23"
 asyncio = "^3.4.3"
-celery = {extras = ["redis"], version = "^5.3.1"}
+celery = {extras = ["redis"], version = "^5.3.6"}
 requests = "^2.31.0"
 attrs = "^23.1.0"
-httpx = "^0.24.1"
+httpx = "^0.26.0"
 jinja2 = "^3.1.2"
 python-multipart = "^0.0.6"
 pytz = "^2023.3.post1"
-stytch = "^7.7.4"
+stytch = "^8.0.3"
 pyyaml = "^6.0.1"
 shortuuid = "^1.0.11"
 
 [tool.poetry.group.dev.dependencies]
-black = "^23.7.0"
-mypy = "^1.5.0"
-pylint = "^2.17.5"
-pytest = "^7.4.0"
-pytest-asyncio = "^0.21.1"
+black = "^23.12.1"
+mypy = "^1.8.0"
+pylint = "^3.0.3"
+pytest = "^7.4.3"
+pytest-asyncio = "^0.23.2"
 
 [build-system]
 requires = ["poetry-core"]

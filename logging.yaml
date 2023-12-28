@@ -1,7 +1,7 @@
 version: 1
 formatters:
   default:
-    format: "%(levelname)s %(asctime)s %(module)s %(process)d %(message)s"
+    format: "[%(asctime)s] %(levelname)s (%(process)d) %(module)s: %(message)s"
     datefmt: "%Y-%m-%d %H:%M:%S %Z"
 handlers:
   console:
