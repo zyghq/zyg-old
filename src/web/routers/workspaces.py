@@ -15,7 +15,7 @@ from src.db.repository import (
     SlackWorkspaceRepository,
     WorkspaceRepository,
 )
-from src.db.schema import SlackWorkspaceDB, WorkspaceDB, SlackChannelDB
+from src.db.schema import SlackWorkspaceDb, WorkspaceDb, SlackChannelDb
 from src.models.account import Account, Member, Workspace
 from src.models.slack import SlackBot, SlackChannelStatus, SlackWorkspace, SlackChannel
 from src.tasks.slack import provision_pipeline
@@ -246,19 +246,19 @@ async def get_workspace_channels(
     async with engine.begin() as connection:
         query = (
             db.select(
-                SlackWorkspaceDB.c.workspace_id,
-                SlackWorkspaceDB.c.ref,
-                SlackWorkspaceDB.c.url,
-                SlackWorkspaceDB.c.name,
-                SlackWorkspaceDB.c.status,
-                SlackWorkspaceDB.c.sync_status,
-                SlackWorkspaceDB.c.synced_at,
+                SlackWorkspaceDb.c.workspace_id,
+                SlackWorkspaceDb.c.ref,
+                SlackWorkspaceDb.c.url,
+                SlackWorkspaceDb.c.name,
+                SlackWorkspaceDb.c.status,
+                SlackWorkspaceDb.c.sync_status,
+                SlackWorkspaceDb.c.synced_at,
             )
-            .join(WorkspaceDB)
+            .join(WorkspaceDb)
             .where(
                 db.and_(
-                    WorkspaceDB.c.account_id == account.account_id,
-                    WorkspaceDB.c.slug == slug,
+                    WorkspaceDb.c.account_id == account.account_id,
+                    WorkspaceDb.c.slug == slug,
                 )
             )
         )
@@ -275,31 +275,31 @@ async def get_workspace_channels(
     async with engine.begin() as connection:
         query = (
             db.select(
-                SlackChannelDB.c.slack_workspace_ref,
-                SlackChannelDB.c.channel_id,
-                SlackChannelDB.c.channel_ref,
-                SlackChannelDB.c.is_channel,
-                SlackChannelDB.c.is_ext_shared,
-                SlackChannelDB.c.is_general,
-                SlackChannelDB.c.is_group,
-                SlackChannelDB.c.is_im,
-                SlackChannelDB.c.is_member,
-                SlackChannelDB.c.is_mpim,
-                SlackChannelDB.c.is_org_shared,
-                SlackChannelDB.c.is_pending_ext_shared,
-                SlackChannelDB.c.is_private,
-                SlackChannelDB.c.is_shared,
-                SlackChannelDB.c.name,
-                SlackChannelDB.c.name_normalized,
-                SlackChannelDB.c.created,
-                SlackChannelDB.c.updated,
-                SlackChannelDB.c.status,
-                SlackChannelDB.c.synced_at,
-                SlackChannelDB.c.created_at,
-                SlackChannelDB.c.updated_at,
+                SlackChannelDb.c.slack_workspace_ref,
+                SlackChannelDb.c.channel_id,
+                SlackChannelDb.c.channel_ref,
+                SlackChannelDb.c.is_channel,
+                SlackChannelDb.c.is_ext_shared,
+                SlackChannelDb.c.is_general,
+                SlackChannelDb.c.is_group,
+                SlackChannelDb.c.is_im,
+                SlackChannelDb.c.is_member,
+                SlackChannelDb.c.is_mpim,
+                SlackChannelDb.c.is_org_shared,
+                SlackChannelDb.c.is_pending_ext_shared,
+                SlackChannelDb.c.is_private,
+                SlackChannelDb.c.is_shared,
+                SlackChannelDb.c.name,
+                SlackChannelDb.c.name_normalized,
+                SlackChannelDb.c.created,
+                SlackChannelDb.c.updated,
+                SlackChannelDb.c.status,
+                SlackChannelDb.c.synced_at,
+                SlackChannelDb.c.created_at,
+                SlackChannelDb.c.updated_at,
             )
-            .where(SlackChannelDB.c.slack_workspace_ref == slack_workspace.ref)
-            .order_by(SlackChannelDB.c.name)
+            .where(SlackChannelDb.c.slack_workspace_ref == slack_workspace.ref)
+            .order_by(SlackChannelDb.c.name)
             .limit(100)
         )
 

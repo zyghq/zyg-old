@@ -12,7 +12,7 @@ from src.db.repository import (
     SlackChannelRepository,
     SlackWorkspaceRepository,
 )
-from src.db.schema import SlackBotDB, SlackWorkspaceDB
+from src.db.schema import SlackBotDb, SlackWorkspaceDb
 from src.ext.slack import SlackWebAPIConnector
 from src.models.account import Account, Workspace
 from src.models.slack import SlackBot, SlackChannel, SlackWorkspace
@@ -42,27 +42,27 @@ def authenticate(self, context: Dict):
         async with engine.begin() as connection:
             query = (
                 db.select(
-                    SlackWorkspaceDB.c.ref,
-                    SlackWorkspaceDB.c.url,
-                    SlackWorkspaceDB.c.name,
-                    SlackWorkspaceDB.c.status,
-                    SlackWorkspaceDB.c.created_at,
-                    SlackWorkspaceDB.c.updated_at,
-                    SlackBotDB.c.bot_id,
-                    SlackBotDB.c.bot_user_ref,
-                    SlackBotDB.c.bot_ref,
-                    SlackBotDB.c.app_ref,
-                    SlackBotDB.c.scope,
-                    SlackBotDB.c.access_token,
+                    SlackWorkspaceDb.c.ref,
+                    SlackWorkspaceDb.c.url,
+                    SlackWorkspaceDb.c.name,
+                    SlackWorkspaceDb.c.status,
+                    SlackWorkspaceDb.c.created_at,
+                    SlackWorkspaceDb.c.updated_at,
+                    SlackBotDb.c.bot_id,
+                    SlackBotDb.c.bot_user_ref,
+                    SlackBotDb.c.bot_ref,
+                    SlackBotDb.c.app_ref,
+                    SlackBotDb.c.scope,
+                    SlackBotDb.c.access_token,
                 )
                 .select_from(
                     db.join(
-                        SlackWorkspaceDB,
-                        SlackBotDB,
-                        SlackWorkspaceDB.c.ref == SlackBotDB.c.slack_workspace_ref,
+                        SlackWorkspaceDb,
+                        SlackBotDb,
+                        SlackWorkspaceDb.c.ref == SlackBotDb.c.slack_workspace_ref,
                     )
                 )
-                .where(SlackWorkspaceDB.c.workspace_id == workspace.workspace_id)
+                .where(SlackWorkspaceDb.c.workspace_id == workspace.workspace_id)
             )
             rows = await connection.execute(query)
             result = rows.mappings().first()
@@ -115,8 +115,8 @@ def workspace_status_ready(self, context: Dict):
     async def run():
         ref = context["slack_workspace_ref"]
         query = (
-            db.update(SlackWorkspaceDB)
-            .where(SlackWorkspaceDB.c.ref == ref)
+            db.update(SlackWorkspaceDb)
+            .where(SlackWorkspaceDb.c.ref == ref)
             .values(
                 status=SlackWorkspace.status_ready(),
                 updated_at=db.func.now(),
@@ -141,8 +141,8 @@ def workspace_sync_status_syncing(self, context: Dict):
     async def run():
         ref = context["slack_workspace_ref"]
         query = (
-            db.update(SlackWorkspaceDB)
-            .where(SlackWorkspaceDB.c.ref == ref)
+            db.update(SlackWorkspaceDb)
+            .where(SlackWorkspaceDb.c.ref == ref)
             .values(
                 sync_status=SlackWorkspace.sync_status_syncing(),
                 updated_at=db.func.now(),
@@ -170,27 +170,27 @@ def sync_public_channels(self, context: Dict):
         async with engine.begin() as connection:
             query = (
                 db.select(
-                    SlackWorkspaceDB.c.ref,
-                    SlackWorkspaceDB.c.url,
-                    SlackWorkspaceDB.c.name,
-                    SlackWorkspaceDB.c.status,
-                    SlackWorkspaceDB.c.created_at,
-                    SlackWorkspaceDB.c.updated_at,
-                    SlackBotDB.c.bot_id,
-                    SlackBotDB.c.bot_user_ref,
-                    SlackBotDB.c.bot_ref,
-                    SlackBotDB.c.app_ref,
-                    SlackBotDB.c.scope,
-                    SlackBotDB.c.access_token,
+                    SlackWorkspaceDb.c.ref,
+                    SlackWorkspaceDb.c.url,
+                    SlackWorkspaceDb.c.name,
+                    SlackWorkspaceDb.c.status,
+                    SlackWorkspaceDb.c.created_at,
+                    SlackWorkspaceDb.c.updated_at,
+                    SlackBotDb.c.bot_id,
+                    SlackBotDb.c.bot_user_ref,
+                    SlackBotDb.c.bot_ref,
+                    SlackBotDb.c.app_ref,
+                    SlackBotDb.c.scope,
+                    SlackBotDb.c.access_token,
                 )
                 .select_from(
                     db.join(
-                        SlackWorkspaceDB,
-                        SlackBotDB,
-                        SlackWorkspaceDB.c.ref == SlackBotDB.c.slack_workspace_ref,
+                        SlackWorkspaceDb,
+                        SlackBotDb,
+                        SlackWorkspaceDb.c.ref == SlackBotDb.c.slack_workspace_ref,
                     )
                 )
-                .where(SlackWorkspaceDB.c.ref == slack_workspace_ref)
+                .where(SlackWorkspaceDb.c.ref == slack_workspace_ref)
             )
             rows = await connection.execute(query)
             result = rows.mappings().first()
@@ -273,8 +273,8 @@ def workspace_sync_status_completed(self, context: Dict):
     async def run():
         ref = context["slack_workspace_ref"]
         query = (
-            db.update(SlackWorkspaceDB)
-            .where(SlackWorkspaceDB.c.ref == ref)
+            db.update(SlackWorkspaceDb)
+            .where(SlackWorkspaceDb.c.ref == ref)
             .values(
                 sync_status=SlackWorkspace.sync_status_completed(),
                 synced_at=db.func.now(),

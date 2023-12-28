@@ -14,7 +14,7 @@ from src.models.slack import SlackBot, SlackWorkspace, SlackChannel
 
 from .entity import AccountDBEntity, MemberDBEntity, WorkspaceDBEntity
 from .exceptions import DBNotFoundError
-from .schema import SlackBotDB, SlackWorkspaceDB, SlackChannelDB
+from .schema import SlackBotDb, SlackWorkspaceDb, SlackChannelDb
 
 
 class AbstractRepository(abc.ABC):
@@ -462,7 +462,7 @@ class SlackWorkspaceRepository(Repository):
             raise ValueError("SlackWorkspace must have a ref - team id from Slack")
 
         query = (
-            insert(SlackWorkspaceDB)
+            insert(SlackWorkspaceDb)
             .values(
                 ref=slack_workspace.ref,
                 workspace_id=slack_workspace.workspace_id,
@@ -475,23 +475,23 @@ class SlackWorkspaceRepository(Repository):
             .on_conflict_do_update(
                 constraint="slack_workspace_ref_pkey",
                 set_={
-                    SlackWorkspaceDB.c.workspace_id: slack_workspace.workspace_id,
-                    SlackWorkspaceDB.c.url: slack_workspace.url,
-                    SlackWorkspaceDB.c.name: slack_workspace.name,
-                    SlackWorkspaceDB.c.status: slack_workspace.status,
-                    SlackWorkspaceDB.c.sync_status: slack_workspace.sync_status,
-                    SlackWorkspaceDB.c.synced_at: slack_workspace.synced_at,
-                    SlackWorkspaceDB.c.updated_at: db.func.now(),
+                    SlackWorkspaceDb.c.workspace_id: slack_workspace.workspace_id,
+                    SlackWorkspaceDb.c.url: slack_workspace.url,
+                    SlackWorkspaceDb.c.name: slack_workspace.name,
+                    SlackWorkspaceDb.c.status: slack_workspace.status,
+                    SlackWorkspaceDb.c.sync_status: slack_workspace.sync_status,
+                    SlackWorkspaceDb.c.synced_at: slack_workspace.synced_at,
+                    SlackWorkspaceDb.c.updated_at: db.func.now(),
                 },
             )
             .returning(
-                SlackWorkspaceDB.c.workspace_id,
-                SlackWorkspaceDB.c.ref,
-                SlackWorkspaceDB.c.url,
-                SlackWorkspaceDB.c.name,
-                SlackWorkspaceDB.c.status,
-                SlackWorkspaceDB.c.sync_status,
-                SlackWorkspaceDB.c.synced_at,
+                SlackWorkspaceDb.c.workspace_id,
+                SlackWorkspaceDb.c.ref,
+                SlackWorkspaceDb.c.url,
+                SlackWorkspaceDb.c.name,
+                SlackWorkspaceDb.c.status,
+                SlackWorkspaceDb.c.sync_status,
+                SlackWorkspaceDb.c.synced_at,
             )
         )
         try:
@@ -513,7 +513,7 @@ class SlackWorkspaceRepository(Repository):
             )
 
         query = (
-            insert(SlackWorkspaceDB)
+            insert(SlackWorkspaceDb)
             .values(
                 workspace_id=slack_workspace.workspace_id,
                 ref=slack_workspace.ref,
@@ -526,23 +526,23 @@ class SlackWorkspaceRepository(Repository):
             .on_conflict_do_update(
                 constraint="slack_workspace_workspace_id_key",
                 set_={
-                    SlackWorkspaceDB.c.ref: slack_workspace.ref,
-                    SlackWorkspaceDB.c.url: slack_workspace.url,
-                    SlackWorkspaceDB.c.name: slack_workspace.name,
-                    SlackWorkspaceDB.c.status: slack_workspace.status,
-                    SlackWorkspaceDB.c.sync_status: slack_workspace.sync_status,
-                    SlackWorkspaceDB.c.synced_at: slack_workspace.synced_at,
-                    SlackWorkspaceDB.c.updated_at: db.func.now(),
+                    SlackWorkspaceDb.c.ref: slack_workspace.ref,
+                    SlackWorkspaceDb.c.url: slack_workspace.url,
+                    SlackWorkspaceDb.c.name: slack_workspace.name,
+                    SlackWorkspaceDb.c.status: slack_workspace.status,
+                    SlackWorkspaceDb.c.sync_status: slack_workspace.sync_status,
+                    SlackWorkspaceDb.c.synced_at: slack_workspace.synced_at,
+                    SlackWorkspaceDb.c.updated_at: db.func.now(),
                 },
             )
             .returning(
-                SlackWorkspaceDB.c.workspace_id,
-                SlackWorkspaceDB.c.ref,
-                SlackWorkspaceDB.c.url,
-                SlackWorkspaceDB.c.name,
-                SlackWorkspaceDB.c.status,
-                SlackWorkspaceDB.c.sync_status,
-                SlackWorkspaceDB.c.synced_at,
+                SlackWorkspaceDb.c.workspace_id,
+                SlackWorkspaceDb.c.ref,
+                SlackWorkspaceDb.c.url,
+                SlackWorkspaceDb.c.name,
+                SlackWorkspaceDb.c.status,
+                SlackWorkspaceDb.c.sync_status,
+                SlackWorkspaceDb.c.synced_at,
             )
         )
         try:
@@ -554,14 +554,14 @@ class SlackWorkspaceRepository(Repository):
 
     async def find_by_workspace_id(self, workspace_id: str) -> SlackWorkspace | None:
         query = db.select(
-            SlackWorkspaceDB.c.workspace_id,
-            SlackWorkspaceDB.c.ref,
-            SlackWorkspaceDB.c.url,
-            SlackWorkspaceDB.c.name,
-            SlackWorkspaceDB.c.status,
-            SlackWorkspaceDB.c.sync_status,
-            SlackWorkspaceDB.c.synced_at,
-        ).where(SlackWorkspaceDB.c.workspace_id == workspace_id)
+            SlackWorkspaceDb.c.workspace_id,
+            SlackWorkspaceDb.c.ref,
+            SlackWorkspaceDb.c.url,
+            SlackWorkspaceDb.c.name,
+            SlackWorkspaceDb.c.status,
+            SlackWorkspaceDb.c.sync_status,
+            SlackWorkspaceDb.c.synced_at,
+        ).where(SlackWorkspaceDb.c.workspace_id == workspace_id)
         try:
             rows = await self.conn.execute(query)
             result = rows.mappings().first()
@@ -595,7 +595,7 @@ class SlackBotRepository(Repository):
             bot_id = self.generate_id()
 
         query = (
-            insert(SlackBotDB)
+            insert(SlackBotDb)
             .values(
                 bot_id=bot_id,
                 slack_workspace_ref=slack_workspace.ref,
@@ -608,21 +608,21 @@ class SlackBotRepository(Repository):
             .on_conflict_do_update(
                 constraint="slack_bot_bot_id_pkey",
                 set_={
-                    SlackBotDB.c.slack_workspace_ref: slack_workspace.ref,
-                    SlackBotDB.c.bot_user_ref: slack_bot.bot_user_ref,
-                    SlackBotDB.c.bot_ref: slack_bot.bot_ref,
-                    SlackBotDB.c.app_ref: slack_bot.app_ref,
-                    SlackBotDB.c.scope: slack_bot.scope,
-                    SlackBotDB.c.access_token: slack_bot.access_token,
+                    SlackBotDb.c.slack_workspace_ref: slack_workspace.ref,
+                    SlackBotDb.c.bot_user_ref: slack_bot.bot_user_ref,
+                    SlackBotDb.c.bot_ref: slack_bot.bot_ref,
+                    SlackBotDb.c.app_ref: slack_bot.app_ref,
+                    SlackBotDb.c.scope: slack_bot.scope,
+                    SlackBotDb.c.access_token: slack_bot.access_token,
                 },
             )
             .returning(
-                SlackBotDB.c.bot_id,
-                SlackBotDB.c.bot_user_ref,
-                SlackBotDB.c.bot_ref,
-                SlackBotDB.c.app_ref,
-                SlackBotDB.c.scope,
-                SlackBotDB.c.access_token,
+                SlackBotDb.c.bot_id,
+                SlackBotDb.c.bot_user_ref,
+                SlackBotDb.c.bot_ref,
+                SlackBotDb.c.app_ref,
+                SlackBotDb.c.scope,
+                SlackBotDb.c.access_token,
             )
         )
         try:
@@ -648,7 +648,7 @@ class SlackBotRepository(Repository):
             bot_id = self.generate_id()
 
         query = (
-            insert(SlackBotDB)
+            insert(SlackBotDb)
             .values(
                 slack_workspace_ref=slack_workspace.ref,
                 bot_id=bot_id,
@@ -661,21 +661,21 @@ class SlackBotRepository(Repository):
             .on_conflict_do_update(
                 constraint="slack_bot_slack_workspace_ref_key",
                 set_={
-                    SlackBotDB.c.bot_id: bot_id,
-                    SlackBotDB.c.bot_user_ref: slack_bot.bot_user_ref,
-                    SlackBotDB.c.bot_ref: slack_bot.bot_ref,
-                    SlackBotDB.c.app_ref: slack_bot.app_ref,
-                    SlackBotDB.c.scope: slack_bot.scope,
-                    SlackBotDB.c.access_token: slack_bot.access_token,
+                    SlackBotDb.c.bot_id: bot_id,
+                    SlackBotDb.c.bot_user_ref: slack_bot.bot_user_ref,
+                    SlackBotDb.c.bot_ref: slack_bot.bot_ref,
+                    SlackBotDb.c.app_ref: slack_bot.app_ref,
+                    SlackBotDb.c.scope: slack_bot.scope,
+                    SlackBotDb.c.access_token: slack_bot.access_token,
                 },
             )
             .returning(
-                SlackBotDB.c.bot_id,
-                SlackBotDB.c.bot_user_ref,
-                SlackBotDB.c.bot_ref,
-                SlackBotDB.c.app_ref,
-                SlackBotDB.c.scope,
-                SlackBotDB.c.access_token,
+                SlackBotDb.c.bot_id,
+                SlackBotDb.c.bot_user_ref,
+                SlackBotDb.c.bot_ref,
+                SlackBotDb.c.app_ref,
+                SlackBotDb.c.scope,
+                SlackBotDb.c.access_token,
             )
         )
         try:
@@ -692,13 +692,13 @@ class SlackBotRepository(Repository):
         self, slack_workspace: SlackWorkspace
     ) -> SlackBot | None:
         query = db.select(
-            SlackBotDB.c.bot_id,
-            SlackBotDB.c.bot_user_ref,
-            SlackBotDB.c.bot_ref,
-            SlackBotDB.c.app_ref,
-            SlackBotDB.c.scope,
-            SlackBotDB.c.access_token,
-        ).where(SlackBotDB.c.slack_workspace_ref == slack_workspace.ref)
+            SlackBotDb.c.bot_id,
+            SlackBotDb.c.bot_user_ref,
+            SlackBotDb.c.bot_ref,
+            SlackBotDb.c.app_ref,
+            SlackBotDb.c.scope,
+            SlackBotDb.c.access_token,
+        ).where(SlackBotDb.c.slack_workspace_ref == slack_workspace.ref)
         try:
             rows = await self.conn.execute(query)
             result = rows.mappings().first()
@@ -723,7 +723,7 @@ class SlackChannelRepository(Repository):
             channel_id = self.generate_id()
 
         query = (
-            insert(SlackChannelDB)
+            insert(SlackChannelDb)
             .values(
                 slack_workspace_ref=slack_workspace_ref,
                 channel_id=channel_id,
@@ -749,51 +749,51 @@ class SlackChannelRepository(Repository):
             .on_conflict_do_update(
                 constraint="slack_channel_channel_id_pkey",
                 set_={
-                    SlackChannelDB.c.slack_workspace_ref: slack_workspace_ref,
-                    SlackChannelDB.c.channel_ref: slack_channel.channel_ref,
-                    SlackChannelDB.c.is_channel: slack_channel.is_channel,
-                    SlackChannelDB.c.is_ext_shared: slack_channel.is_ext_shared,
-                    SlackChannelDB.c.is_general: slack_channel.is_general,
-                    SlackChannelDB.c.is_group: slack_channel.is_group,
-                    SlackChannelDB.c.is_im: slack_channel.is_im,
-                    SlackChannelDB.c.is_member: slack_channel.is_member,
-                    SlackChannelDB.c.is_mpim: slack_channel.is_mpim,
-                    SlackChannelDB.c.is_org_shared: slack_channel.is_org_shared,
-                    SlackChannelDB.c.is_pending_ext_shared: slack_channel.is_pending_ext_shared,
-                    SlackChannelDB.c.is_private: slack_channel.is_private,
-                    SlackChannelDB.c.is_shared: slack_channel.is_shared,
-                    SlackChannelDB.c.name: slack_channel.name,
-                    SlackChannelDB.c.name_normalized: slack_channel.name_normalized,
-                    SlackChannelDB.c.created: slack_channel.created,
-                    SlackChannelDB.c.updated: slack_channel.updated,
-                    SlackChannelDB.c.status: slack_channel.status,
-                    SlackChannelDB.c.updated_at: slack_channel.synced_at,
-                    SlackChannelDB.c.updated_at: db.func.now(),
+                    SlackChannelDb.c.slack_workspace_ref: slack_workspace_ref,
+                    SlackChannelDb.c.channel_ref: slack_channel.channel_ref,
+                    SlackChannelDb.c.is_channel: slack_channel.is_channel,
+                    SlackChannelDb.c.is_ext_shared: slack_channel.is_ext_shared,
+                    SlackChannelDb.c.is_general: slack_channel.is_general,
+                    SlackChannelDb.c.is_group: slack_channel.is_group,
+                    SlackChannelDb.c.is_im: slack_channel.is_im,
+                    SlackChannelDb.c.is_member: slack_channel.is_member,
+                    SlackChannelDb.c.is_mpim: slack_channel.is_mpim,
+                    SlackChannelDb.c.is_org_shared: slack_channel.is_org_shared,
+                    SlackChannelDb.c.is_pending_ext_shared: slack_channel.is_pending_ext_shared,
+                    SlackChannelDb.c.is_private: slack_channel.is_private,
+                    SlackChannelDb.c.is_shared: slack_channel.is_shared,
+                    SlackChannelDb.c.name: slack_channel.name,
+                    SlackChannelDb.c.name_normalized: slack_channel.name_normalized,
+                    SlackChannelDb.c.created: slack_channel.created,
+                    SlackChannelDb.c.updated: slack_channel.updated,
+                    SlackChannelDb.c.status: slack_channel.status,
+                    SlackChannelDb.c.updated_at: slack_channel.synced_at,
+                    SlackChannelDb.c.updated_at: db.func.now(),
                 },
             )
             .returning(
-                SlackChannelDB.c.slack_workspace_ref,
-                SlackChannelDB.c.channel_id,
-                SlackChannelDB.c.channel_ref,
-                SlackChannelDB.c.is_channel,
-                SlackChannelDB.c.is_ext_shared,
-                SlackChannelDB.c.is_general,
-                SlackChannelDB.c.is_group,
-                SlackChannelDB.c.is_im,
-                SlackChannelDB.c.is_member,
-                SlackChannelDB.c.is_mpim,
-                SlackChannelDB.c.is_org_shared,
-                SlackChannelDB.c.is_pending_ext_shared,
-                SlackChannelDB.c.is_private,
-                SlackChannelDB.c.is_shared,
-                SlackChannelDB.c.name,
-                SlackChannelDB.c.name_normalized,
-                SlackChannelDB.c.created,
-                SlackChannelDB.c.updated,
-                SlackChannelDB.c.status,
-                SlackChannelDB.c.synced_at,
-                SlackChannelDB.c.created_at,
-                SlackChannelDB.c.updated_at,
+                SlackChannelDb.c.slack_workspace_ref,
+                SlackChannelDb.c.channel_id,
+                SlackChannelDb.c.channel_ref,
+                SlackChannelDb.c.is_channel,
+                SlackChannelDb.c.is_ext_shared,
+                SlackChannelDb.c.is_general,
+                SlackChannelDb.c.is_group,
+                SlackChannelDb.c.is_im,
+                SlackChannelDb.c.is_member,
+                SlackChannelDb.c.is_mpim,
+                SlackChannelDb.c.is_org_shared,
+                SlackChannelDb.c.is_pending_ext_shared,
+                SlackChannelDb.c.is_private,
+                SlackChannelDb.c.is_shared,
+                SlackChannelDb.c.name,
+                SlackChannelDb.c.name_normalized,
+                SlackChannelDb.c.created,
+                SlackChannelDb.c.updated,
+                SlackChannelDb.c.status,
+                SlackChannelDb.c.synced_at,
+                SlackChannelDb.c.created_at,
+                SlackChannelDb.c.updated_at,
             )
         )
 
@@ -816,7 +816,7 @@ class SlackChannelRepository(Repository):
             channel_id = self.generate_id()
 
         query = (
-            insert(SlackChannelDB)
+            insert(SlackChannelDb)
             .values(
                 slack_workspace_ref=slack_workspace_ref,
                 channel_id=channel_id,
@@ -842,49 +842,49 @@ class SlackChannelRepository(Repository):
             .on_conflict_do_update(
                 constraint="slack_channel_slack_workspace_ref_channel_ref_key",
                 set_={
-                    SlackChannelDB.c.channel_id: channel_id,
-                    SlackChannelDB.c.is_channel: slack_channel.is_channel,
-                    SlackChannelDB.c.is_ext_shared: slack_channel.is_ext_shared,
-                    SlackChannelDB.c.is_general: slack_channel.is_general,
-                    SlackChannelDB.c.is_group: slack_channel.is_group,
-                    SlackChannelDB.c.is_im: slack_channel.is_im,
-                    SlackChannelDB.c.is_member: slack_channel.is_member,
-                    SlackChannelDB.c.is_mpim: slack_channel.is_mpim,
-                    SlackChannelDB.c.is_org_shared: slack_channel.is_org_shared,
-                    SlackChannelDB.c.is_pending_ext_shared: slack_channel.is_pending_ext_shared,
-                    SlackChannelDB.c.is_private: slack_channel.is_private,
-                    SlackChannelDB.c.is_shared: slack_channel.is_shared,
-                    SlackChannelDB.c.name: slack_channel.name,
-                    SlackChannelDB.c.name_normalized: slack_channel.name_normalized,
-                    SlackChannelDB.c.created: slack_channel.created,
-                    SlackChannelDB.c.updated: slack_channel.updated,
-                    SlackChannelDB.c.status: slack_channel.status,
-                    SlackChannelDB.c.updated_at: db.func.now(),
+                    SlackChannelDb.c.channel_id: channel_id,
+                    SlackChannelDb.c.is_channel: slack_channel.is_channel,
+                    SlackChannelDb.c.is_ext_shared: slack_channel.is_ext_shared,
+                    SlackChannelDb.c.is_general: slack_channel.is_general,
+                    SlackChannelDb.c.is_group: slack_channel.is_group,
+                    SlackChannelDb.c.is_im: slack_channel.is_im,
+                    SlackChannelDb.c.is_member: slack_channel.is_member,
+                    SlackChannelDb.c.is_mpim: slack_channel.is_mpim,
+                    SlackChannelDb.c.is_org_shared: slack_channel.is_org_shared,
+                    SlackChannelDb.c.is_pending_ext_shared: slack_channel.is_pending_ext_shared,
+                    SlackChannelDb.c.is_private: slack_channel.is_private,
+                    SlackChannelDb.c.is_shared: slack_channel.is_shared,
+                    SlackChannelDb.c.name: slack_channel.name,
+                    SlackChannelDb.c.name_normalized: slack_channel.name_normalized,
+                    SlackChannelDb.c.created: slack_channel.created,
+                    SlackChannelDb.c.updated: slack_channel.updated,
+                    SlackChannelDb.c.status: slack_channel.status,
+                    SlackChannelDb.c.updated_at: db.func.now(),
                 },
             )
             .returning(
-                SlackChannelDB.c.slack_workspace_ref,
-                SlackChannelDB.c.channel_id,
-                SlackChannelDB.c.channel_ref,
-                SlackChannelDB.c.is_channel,
-                SlackChannelDB.c.is_ext_shared,
-                SlackChannelDB.c.is_general,
-                SlackChannelDB.c.is_group,
-                SlackChannelDB.c.is_im,
-                SlackChannelDB.c.is_member,
-                SlackChannelDB.c.is_mpim,
-                SlackChannelDB.c.is_org_shared,
-                SlackChannelDB.c.is_pending_ext_shared,
-                SlackChannelDB.c.is_private,
-                SlackChannelDB.c.is_shared,
-                SlackChannelDB.c.name,
-                SlackChannelDB.c.name_normalized,
-                SlackChannelDB.c.created,
-                SlackChannelDB.c.updated,
-                SlackChannelDB.c.status,
-                SlackChannelDB.c.synced_at,
-                SlackChannelDB.c.created_at,
-                SlackChannelDB.c.updated_at,
+                SlackChannelDb.c.slack_workspace_ref,
+                SlackChannelDb.c.channel_id,
+                SlackChannelDb.c.channel_ref,
+                SlackChannelDb.c.is_channel,
+                SlackChannelDb.c.is_ext_shared,
+                SlackChannelDb.c.is_general,
+                SlackChannelDb.c.is_group,
+                SlackChannelDb.c.is_im,
+                SlackChannelDb.c.is_member,
+                SlackChannelDb.c.is_mpim,
+                SlackChannelDb.c.is_org_shared,
+                SlackChannelDb.c.is_pending_ext_shared,
+                SlackChannelDb.c.is_private,
+                SlackChannelDb.c.is_shared,
+                SlackChannelDb.c.name,
+                SlackChannelDb.c.name_normalized,
+                SlackChannelDb.c.created,
+                SlackChannelDb.c.updated,
+                SlackChannelDb.c.status,
+                SlackChannelDb.c.synced_at,
+                SlackChannelDb.c.created_at,
+                SlackChannelDb.c.updated_at,
             )
         )
 
@@ -899,32 +899,32 @@ class SlackChannelRepository(Repository):
         self, slack_workspace_ref: str, channel_ref: str
     ) -> SlackChannel | None:
         query = db.select(
-            SlackChannelDB.c.slack_workspace_ref,
-            SlackChannelDB.c.channel_id,
-            SlackChannelDB.c.channel_ref,
-            SlackChannelDB.c.is_channel,
-            SlackChannelDB.c.is_ext_shared,
-            SlackChannelDB.c.is_general,
-            SlackChannelDB.c.is_group,
-            SlackChannelDB.c.is_im,
-            SlackChannelDB.c.is_member,
-            SlackChannelDB.c.is_mpim,
-            SlackChannelDB.c.is_org_shared,
-            SlackChannelDB.c.is_pending_ext_shared,
-            SlackChannelDB.c.is_private,
-            SlackChannelDB.c.is_shared,
-            SlackChannelDB.c.name,
-            SlackChannelDB.c.name_normalized,
-            SlackChannelDB.c.created,
-            SlackChannelDB.c.updated,
-            SlackChannelDB.c.status,
-            SlackChannelDB.c.synced_at,
-            SlackChannelDB.c.created_at,
-            SlackChannelDB.c.updated_at,
+            SlackChannelDb.c.slack_workspace_ref,
+            SlackChannelDb.c.channel_id,
+            SlackChannelDb.c.channel_ref,
+            SlackChannelDb.c.is_channel,
+            SlackChannelDb.c.is_ext_shared,
+            SlackChannelDb.c.is_general,
+            SlackChannelDb.c.is_group,
+            SlackChannelDb.c.is_im,
+            SlackChannelDb.c.is_member,
+            SlackChannelDb.c.is_mpim,
+            SlackChannelDb.c.is_org_shared,
+            SlackChannelDb.c.is_pending_ext_shared,
+            SlackChannelDb.c.is_private,
+            SlackChannelDb.c.is_shared,
+            SlackChannelDb.c.name,
+            SlackChannelDb.c.name_normalized,
+            SlackChannelDb.c.created,
+            SlackChannelDb.c.updated,
+            SlackChannelDb.c.status,
+            SlackChannelDb.c.synced_at,
+            SlackChannelDb.c.created_at,
+            SlackChannelDb.c.updated_at,
         ).where(
             db.and_(
-                SlackChannelDB.c.slack_workspace_ref == slack_workspace_ref,
-                SlackChannelDB.c.channel_ref == channel_ref,
+                SlackChannelDb.c.slack_workspace_ref == slack_workspace_ref,
+                SlackChannelDb.c.channel_ref == channel_ref,
             )
         )
         try:
@@ -940,35 +940,35 @@ class SlackChannelRepository(Repository):
         self, channel_id: str, status: str
     ) -> SlackChannel:
         query = (
-            db.update(SlackChannelDB)
-            .where(SlackChannelDB.c.channel_id == channel_id)
+            db.update(SlackChannelDb)
+            .where(SlackChannelDb.c.channel_id == channel_id)
             .values(
                 status=status,
                 updated_at=db.func.now(),
             )
             .returning(
-                SlackChannelDB.c.slack_workspace_ref,
-                SlackChannelDB.c.channel_id,
-                SlackChannelDB.c.channel_ref,
-                SlackChannelDB.c.is_channel,
-                SlackChannelDB.c.is_ext_shared,
-                SlackChannelDB.c.is_general,
-                SlackChannelDB.c.is_group,
-                SlackChannelDB.c.is_im,
-                SlackChannelDB.c.is_member,
-                SlackChannelDB.c.is_mpim,
-                SlackChannelDB.c.is_org_shared,
-                SlackChannelDB.c.is_pending_ext_shared,
-                SlackChannelDB.c.is_private,
-                SlackChannelDB.c.is_shared,
-                SlackChannelDB.c.name,
-                SlackChannelDB.c.name_normalized,
-                SlackChannelDB.c.created,
-                SlackChannelDB.c.updated,
-                SlackChannelDB.c.status,
-                SlackChannelDB.c.synced_at,
-                SlackChannelDB.c.created_at,
-                SlackChannelDB.c.updated_at,
+                SlackChannelDb.c.slack_workspace_ref,
+                SlackChannelDb.c.channel_id,
+                SlackChannelDb.c.channel_ref,
+                SlackChannelDb.c.is_channel,
+                SlackChannelDb.c.is_ext_shared,
+                SlackChannelDb.c.is_general,
+                SlackChannelDb.c.is_group,
+                SlackChannelDb.c.is_im,
+                SlackChannelDb.c.is_member,
+                SlackChannelDb.c.is_mpim,
+                SlackChannelDb.c.is_org_shared,
+                SlackChannelDb.c.is_pending_ext_shared,
+                SlackChannelDb.c.is_private,
+                SlackChannelDb.c.is_shared,
+                SlackChannelDb.c.name,
+                SlackChannelDb.c.name_normalized,
+                SlackChannelDb.c.created,
+                SlackChannelDb.c.updated,
+                SlackChannelDb.c.status,
+                SlackChannelDb.c.synced_at,
+                SlackChannelDb.c.created_at,
+                SlackChannelDb.c.updated_at,
             )
         )
 

@@ -3,8 +3,9 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Column,
-    ForeignKeyConstraint,
+    ForeignKey,
     MetaData,
+    PrimaryKeyConstraint,
     String,
     Table,
     Text,
@@ -15,24 +16,77 @@ from sqlalchemy.sql import func
 metadata = MetaData()
 
 
-WorkspaceDB = Table(
-    "workspace",
+AccountDb = Table(
+    "account",
     metadata,
-    Column("account_id", String(255), nullable=False),
-    Column("workspace_id", String(255), primary_key=True),
-    Column("slug", String(255), nullable=False),
+    Column("account_id", String(255), primary_key=True, nullable=False),
+    Column("email", String(255), nullable=False),
+    Column("provider", String(255), nullable=False),
+    Column("auth_user_id", String(255), nullable=False),
     Column("name", String(255), nullable=False),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
-    ForeignKeyConstraint(["account_id"], ["account.account_id"]),
-    UniqueConstraint("slug"),
+    PrimaryKeyConstraint("account_id", name="account_account_id_pkey"),
+    UniqueConstraint("email", name="account_email_key"),
+    UniqueConstraint("auth_user_id", name="account_auth_user_id_key"),
 )
 
 
-SlackWorkspaceDB = Table(
+WorkspaceDb = Table(
+    "workspace",
+    metadata,
+    Column(
+        "account_id",
+        String(255),
+        ForeignKey("account.account_id", name="workspace_account_id_fkey"),
+        nullable=False,
+    ),
+    Column("workspace_id", String(255), primary_key=True, nullable=False),
+    Column("slug", String(255), unique=True, nullable=False),
+    Column("name", String(255), nullable=False),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
+    PrimaryKeyConstraint("workspace_id", name="workspace_workspace_id_pkey"),
+    UniqueConstraint("slug", name="workspace_slug_key"),
+)
+
+MemberDb = Table(
+    "member",
+    metadata,
+    Column(
+        "workspace_id",
+        String(255),
+        ForeignKey("workspace.workspace_id", name="member_workspace_id_fkey"),
+        nullable=False,
+    ),
+    Column(
+        "account_id",
+        String(255),
+        ForeignKey("account.account_id", name="member_account_id_fkey"),
+        nullable=False,
+    ),
+    Column("member_id", String(255), primary_key=True, nullable=False),
+    Column("slug", String(255), unique=True, nullable=False),
+    Column("role", String(255), nullable=False),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
+    PrimaryKeyConstraint("member_id", name="member_member_id_pkey"),
+    UniqueConstraint(
+        "workspace_id", "account_id", name="member_workspace_id_account_id_key"
+    ),
+    UniqueConstraint("slug", name="member_slug_key"),
+)
+
+
+SlackWorkspaceDb = Table(
     "slack_workspace",
     metadata,
-    Column("workspace_id", String(255), nullable=False),
+    Column(
+        "workspace_id",
+        String(255),
+        ForeignKey("workspace.workspace_id", name="slack_workspace_workspace_id_fkey"),
+        nullable=False,
+    ),
     Column("ref", String(255), primary_key=True),
     Column("url", String(255), nullable=False),
     Column("name", String(255), nullable=False),
@@ -41,14 +95,19 @@ SlackWorkspaceDB = Table(
     Column("synced_at", TIMESTAMP, nullable=True),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
-    ForeignKeyConstraint(["workspace_id"], ["workspace.workspace_id"]),
-    UniqueConstraint("workspace_id"),
+    PrimaryKeyConstraint("ref", name="slack_workspace_ref_pkey"),
+    UniqueConstraint("workspace_id", name="slack_workspace_workspace_id_key"),
 )
 
-SlackBotDB = Table(
+SlackBotDb = Table(
     "slack_bot",
     metadata,
-    Column("slack_workspace_ref", String(255), nullable=False),
+    Column(
+        "slack_workspace_ref",
+        String(255),
+        ForeignKey("slack_workspace.ref", name="slack_bot_slack_workspace_ref_fkey"),
+        nullable=False,
+    ),
     Column("bot_id", String(255), primary_key=True),
     Column("bot_user_ref", String(255), nullable=False),
     Column("bot_ref", String(255), nullable=True),
@@ -57,14 +116,21 @@ SlackBotDB = Table(
     Column("access_token", String(255), nullable=False),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
-    ForeignKeyConstraint(["slack_workspace_ref"], ["slack_workspace.ref"]),
-    UniqueConstraint("slack_workspace_ref"),
+    PrimaryKeyConstraint("bot_id", name="slack_bot_bot_id_pkey"),
+    UniqueConstraint("slack_workspace_ref", name="slack_bot_slack_workspace_ref_key"),
 )
 
-SlackChannelDB = Table(
+SlackChannelDb = Table(
     "slack_channel",
     metadata,
-    Column("slack_workspace_ref", String(255), nullable=False),
+    Column(
+        "slack_workspace_ref",
+        String(255),
+        ForeignKey(
+            "slack_workspace.ref", name="slack_channel_slack_workspace_ref_fkey"
+        ),
+        nullable=False,
+    ),
     Column("channel_id", String(255), primary_key=True),
     Column("channel_ref", String(255), nullable=False),
     Column("is_channel", Boolean, nullable=False),
@@ -86,11 +152,7 @@ SlackChannelDB = Table(
     Column("synced_at", TIMESTAMP, nullable=True),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
-    ForeignKeyConstraint(
-        ["slack_workspace_ref"],
-        ["slack_workspace.ref"],
-        name="slack_channel_slack_workspace_ref_fkey",
-    ),
+    PrimaryKeyConstraint("channel_id", name="slack_channel_channel_id_pkey"),
     UniqueConstraint(
         "slack_workspace_ref",
         "channel_ref",
